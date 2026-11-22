@@ -4,6 +4,13 @@ from pathlib import Path
 
 from reachability_auditor import audit, trace_lane
 
+LEVEL39_FILES = (
+    Path("data/vision_level39.json"),
+    Path("data/conveyor_calibration.json"),
+    Path("data/conveyor_visual_observations.json"),
+)
+HAS_LEVEL39_DATA = all(path.is_file() for path in LEVEL39_FILES)
+
 
 class ReachabilityAuditorTests(unittest.TestCase):
 
@@ -65,16 +72,11 @@ class ReachabilityAuditorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             trace_lane([["white"]], (0, 0), "diagonal", "white")
 
+    @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_actual_level39_has_eight_positions(self):
-        board = json.loads(
-            Path("data/vision_level39.json").read_text()
-        )
-        calibration = json.loads(
-            Path("data/conveyor_calibration.json").read_text()
-        )
-        observations = json.loads(
-            Path("data/conveyor_visual_observations.json").read_text()
-        )
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        calibration = json.loads(LEVEL39_FILES[1].read_text())
+        observations = json.loads(LEVEL39_FILES[2].read_text())
 
         report = audit(board, calibration, observations)
 
@@ -83,16 +85,11 @@ class ReachabilityAuditorTests(unittest.TestCase):
             all(item["scenarios"] for item in report["results"])
         )
 
+    @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_blue_observations_have_two_scenarios(self):
-        board = json.loads(
-            Path("data/vision_level39.json").read_text()
-        )
-        calibration = json.loads(
-            Path("data/conveyor_calibration.json").read_text()
-        )
-        observations = json.loads(
-            Path("data/conveyor_visual_observations.json").read_text()
-        )
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        calibration = json.loads(LEVEL39_FILES[1].read_text())
+        observations = json.loads(LEVEL39_FILES[2].read_text())
 
         report = audit(board, calibration, observations)
 
@@ -104,16 +101,11 @@ class ReachabilityAuditorTests(unittest.TestCase):
                 )
                 self.assertEqual(len(item["scenarios"]), 2)
 
+    @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_safety_flags_remain_false(self):
-        board = json.loads(
-            Path("data/vision_level39.json").read_text()
-        )
-        calibration = json.loads(
-            Path("data/conveyor_calibration.json").read_text()
-        )
-        observations = json.loads(
-            Path("data/conveyor_visual_observations.json").read_text()
-        )
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        calibration = json.loads(LEVEL39_FILES[1].read_text())
+        observations = json.loads(LEVEL39_FILES[2].read_text())
 
         report = audit(board, calibration, observations)
 
@@ -121,17 +113,11 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(report["game_taps_enabled"])
         self.assertFalse(report["conveyor_identity_verified"])
 
-
+    @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_old_or_unmatched_observations_are_not_planning_eligible(self):
-        board = json.loads(
-            Path("data/vision_level39.json").read_text()
-        )
-        calibration = json.loads(
-            Path("data/conveyor_calibration.json").read_text()
-        )
-        observations = json.loads(
-            Path("data/conveyor_visual_observations.json").read_text()
-        )
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        calibration = json.loads(LEVEL39_FILES[1].read_text())
+        observations = json.loads(LEVEL39_FILES[2].read_text())
 
         report = audit(board, calibration, observations)
 
@@ -142,16 +128,11 @@ class ReachabilityAuditorTests(unittest.TestCase):
                 for item in report["results"])
         )
 
+    @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_zero_ammunition_is_never_eligible(self):
-        board = json.loads(
-            Path("data/vision_level39.json").read_text()
-        )
-        calibration = json.loads(
-            Path("data/conveyor_calibration.json").read_text()
-        )
-        observations = json.loads(
-            Path("data/conveyor_visual_observations.json").read_text()
-        )
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        calibration = json.loads(LEVEL39_FILES[1].read_text())
+        observations = json.loads(LEVEL39_FILES[2].read_text())
 
         report = audit(board, calibration, observations)
         zero_ammo = [
@@ -165,8 +146,6 @@ class ReachabilityAuditorTests(unittest.TestCase):
                 and not item["planning_eligible"]
                 for item in zero_ammo)
         )
-
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
