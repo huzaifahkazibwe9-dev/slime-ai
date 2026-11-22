@@ -3,6 +3,12 @@ import unittest
 from pathlib import Path
 from colour_mapping_auditor import audit
 
+LEVEL39_FILES = (
+    Path("data/vision_level39.json"),
+    Path("data/shooter_detection.json"),
+    Path("data/color_matches.json"),
+)
+
 class ColourMappingAuditorTests(unittest.TestCase):
     def setUp(self):
         self.board = {
@@ -57,10 +63,14 @@ class ColourMappingAuditorTests(unittest.TestCase):
         self.assertFalse(result["gameplay_taps_enabled"])
         self.assertTrue(all(not x["verified"] for x in result["results"]))
 
+    @unittest.skipUnless(
+        all(path.is_file() for path in LEVEL39_FILES),
+        "Private Level 39 evidence is not included in the public repository"
+    )
     def test_actual_level39_data(self):
-        board = json.loads(Path("data/vision_level39.json").read_text())
-        shooters = json.loads(Path("data/shooter_detection.json").read_text())
-        mappings = json.loads(Path("data/color_matches.json").read_text())
+        board = json.loads(LEVEL39_FILES[0].read_text())
+        shooters = json.loads(LEVEL39_FILES[1].read_text())
+        mappings = json.loads(LEVEL39_FILES[2].read_text())
         result = audit(board, shooters, mappings)
         self.assertEqual(len(result["results"]), 4)
         self.assertEqual(
