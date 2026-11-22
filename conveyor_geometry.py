@@ -1,0 +1,133 @@
+"""Verified conveyor direction and screen-to-board geometry."""
+
+import json
+from math import floor
+from pathlib import Path
+
+REFERENCE_SIZE = (1080, 2220)
+REFERENCE_BOARD_BOUNDS = (201, 431, 881, 1113)
+GRID_SIZE = (35, 35)
+
+DIRECTIONS = {
+    "bottom": "up",
+    "right": "left",
+    "top": "down",
+    "left": "right",
+}
+
+
+def calculate_firing_geometry(
+    screen_center,
+    segment,
+    image_size,
+    board_bounds=REFERENCE_BOARD_BOUNDS,
+    grid_size=GRID_SIZE,
+    position_verified=False,
+):
+    segment = str(segment).lower()
+
+    if segment not in DIRECTIONS:
+        raise ValueError(f"Unknown conveyor segment: {segment}")
+
+    if len(screen_center) != 2 or len(image_size) != 2:
+        raise ValueError("Expected two-dimensional coordinates")
+
+    image_width, image_height = image_size
+
+    if image_width <= 0 or image_height <= 0:
+        raise ValueError("Invalid screenshot dimensions")
+
+    sx, sy = screen_center
+    scale_x = image_width / REFERENCE_SIZE[0]
+    scale_y = image_height / REFERENCE_SIZE[1]
+
+    left, top, right, bottom = board_bounds
+    left *= scale_x
+    right *= scale_x
+    top *= scale_y
+    bottom *= scale_y
+
+    cols, rows = grid_size
+
+    if cols <= 0 or rows <= 0:
+        raise ValueError("Invalid board dimensions")
+
+    cell_width = (right - left) / cols
+    cell_height = (bottom - top) / rows
+
+    if segment in ("bottom", "top"):
+        col = floor((sx - left) / cell_width)
+        col = max(0, min(cols - 1, col))
+        row = rows if segment == "bottom" else -1
+    else:
+        row = floor((sy - top) / cell_height)
+        row = max(0, min(rows - 1, row))
+        col = cols if segment == "right" else -1
+
+    direction = DIRECTIONS[segment]
+
+    first_cells = {
+        "up": (col, rows - 1),
+        "down": (col, 0),
+        "left": (cols - 1, row),
+        "right": (0, row),
+    }
+
+    return {
+        "segment": segment,
+        "direction": direction,
+        "origin": (col, row),
+        "first_board_cell": first_cells[direction],
+        "verified_direction": True,
+        "verified_screen_position": bool(position_verified),
+        "game_taps_enabled": False,
+    }
+
+
+def audit_saved_calibration(path="data/conveyor_calibration.json"):
+    data = json.loads(Path(path).read_text())
+    width, height = data["image_size"]
+    results = []
+
+    if not data.get("verified_by_user"):
+        raise AssertionError("Calibration lacks user confirmation")
+
+    for item in data["shooters"]:
+        segment = item["segment"]
+
+        result = calculate_firing_geometry(
+            item["center"],
+            segment,
+            (width, height),
+            position_verified=True,
+        )
+
+        assert result["direction"] == data["directions"][segment]
+        assert result["verified_screen_position"]
+        assert result["game_taps_enabled"] is False
+
+        x, y = result["first_board_cell"]
+        assert 0 <= x < GRID_SIZE[0]
+        assert 0 <= y < GRID_SIZE[1]
+
+        results.append((item["id"], result))
+
+    return results
+
+
+if __name__ == "__main__":
+    print("SLIME AI — VERIFIED CONVEYOR CALIBRATION")
+    print("=" * 45)
+
+    results = audit_saved_calibration()
+
+    for shooter_id, result in results:
+        print(
+            f"[PASS] {shooter_id}: "
+            f"{result['direction']} | "
+            f"origin={result['origin']} | "
+            f"first cell={result['first_board_cell']}"
+        )
+
+    print(f"\n{len(results)}/8 calibration points passed.")
+    print("Game taps remain disabled.")

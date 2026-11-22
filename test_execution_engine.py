@@ -1,0 +1,97 @@
+import copy
+import unittest
+
+from execution_engine import run_dry_simulation
+from game_state import GameState, Shooter
+
+
+class ExecutionEngineTests(unittest.TestCase):
+
+    def make_state(self, board, shooters, conveyor=None):
+        return GameState(
+            board=board,
+            shooters={item.id: item for item in shooters},
+            conveyor=conveyor or [],
+        )
+
+    def test_matching_pixels_removed(self):
+        state = self.make_state([["red", "red"]], [
+            Shooter("R", "red", 3, "right", -1, 0, accessible=True)
+        ])
+        report = run_dry_simulation(state)
+        self.assertEqual(report["best"]["pixels_removed"], 2)
+        self.assertEqual(report["best"]["remaining_pixels"], 0)
+
+    def test_source_state_unchanged(self):
+        state = self.make_state([["red", "red"]], [
+            Shooter("R", "red", 3, "right", -1, 0, accessible=True)
+        ])
+        before = copy.deepcopy(state)
+        report = run_dry_simulation(state)
+        self.assertTrue(report["source_state_unchanged"])
+        self.assertEqual(state.board, before.board)
+        self.assertEqual(state.shooters["R"].ammo, before.shooters["R"].ammo)
+
+    def test_different_colour_blocks_shot(self):
+        state = self.make_state([["blue", "red"]], [
+            Shooter("R", "red", 3, "right", -1, 0, accessible=True)
+        ])
+        report = run_dry_simulation(state)
+        self.assertEqual(report["best"]["pixels_removed"], 0)
+        self.assertGreater(report["best"]["blocked_attempts"], 0)
+
+    def test_bonded_group_selected_together(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id="pair", bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            accessible=False, group_id="pair", bonded_ids=["A"]
+        )
+        state = self.make_state([["red", None, "blue"]], [a, b])
+        report = run_dry_simulation(state)
+        self.assertEqual(report["best"]["groups"], [["A", "B"]])
+        self.assertEqual(report["best"]["conveyor_used"], 2)
+
+    def test_three_bond_group_rejected_with_one_slot(self):
+        shooters = [
+            Shooter("A", "red", 1, "right", -1, 0,
+                    accessible=True, bonded_ids=["B", "C"]),
+            Shooter("B", "red", 1, "right", -1, 0,
+                    bonded_ids=["A", "C"]),
+            Shooter("C", "red", 1, "right", -1, 0,
+                    bonded_ids=["A", "B"]),
+        ]
+        fillers = [
+            Shooter(key, "blue", 1, "left", 1, 0)
+            for key in ("D", "E", "F", "G")
+        ]
+        state = self.make_state(
+            [["red"]], shooters + fillers,
+            conveyor=["D", "E", "F", "G"]
+        )
+        report = run_dry_simulation(state)
+        self.assertEqual(report["status"], "NO_LEGAL_BATCH")
+
+    def test_live_execution_is_always_disabled(self):
+        state = self.make_state([["red"]], [
+            Shooter("R", "red", 1, "right", -1, 0, accessible=True)
+        ])
+        report = run_dry_simulation(state)
+        self.assertFalse(report["live_execution_allowed"])
+        self.assertFalse(report["gameplay_actions_performed"])
+
+    def test_candidate_limit(self):
+        shooters = [
+            Shooter(str(i), "red", 1, "right", -1, 0, accessible=True)
+            for i in range(4)
+        ]
+        state = self.make_state([["red"]], shooters)
+        report = run_dry_simulation(state, max_candidates=3)
+        self.assertLessEqual(report["candidates_examined"], 3)
+        self.assertTrue(report["search_truncated"])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

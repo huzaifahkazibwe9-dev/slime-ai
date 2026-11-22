@@ -1,0 +1,17 @@
+
+# Private and generated project data
+__pycache__/
+*.py[cod]
+*.backup*
+*.before_*
+data/
+reports/
+screenshots/
+*.jpg
+*.jpeg
+*.png
+*.webp
+.env
+.env.*
+*.pem
+*.key

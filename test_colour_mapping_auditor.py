@@ -1,0 +1,72 @@
+import json
+import unittest
+from pathlib import Path
+from colour_mapping_auditor import audit
+
+class ColourMappingAuditorTests(unittest.TestCase):
+    def setUp(self):
+        self.board = {
+            "grid_size": [2, 2],
+            "board": [
+                ["white", "cyan"],
+                ["purple", "orange"]
+            ],
+            "raw_rgb": [
+                [[255,255,255], [113,212,254]],
+                [[232,47,245], [208,128,67]]
+            ]
+        }
+        self.shooters = {
+            "visible_shooters": [
+                {"id":"top_1","color":{"name":"white","rgb":[240,240,240]}},
+                {"id":"top_2","color":{"name":"cyan","rgb":[104,195,233]}},
+                {"id":"top_3","color":{"name":"magenta","rgb":[225,43,237]}},
+                {"id":"top_4","color":{"name":"brown","rgb":[193,121,63]}}
+            ]
+        }
+        self.mappings = {
+            "mappings": {
+                "top_1":{"board_colour":"white","status":"visual_candidate"},
+                "top_2":{"board_colour":"cyan","status":"visual_candidate"},
+                "top_3":{"board_colour":"purple","status":"visual_candidate"},
+                "top_4":{"board_colour":"orange","status":"visual_candidate"}
+            }
+        }
+
+    def test_all_four_candidates_match(self):
+        result = audit(self.board, self.shooters, self.mappings)
+        self.assertEqual(
+            [x["best_candidate"] for x in result["results"]],
+            ["white", "cyan", "purple", "orange"]
+        )
+
+    def test_all_four_results_present(self):
+        result = audit(self.board, self.shooters, self.mappings)
+        self.assertEqual(len(result["results"]), 4)
+
+    def test_existing_candidates_agree(self):
+        result = audit(self.board, self.shooters, self.mappings)
+        for item in result["results"]:
+            self.assertEqual(
+                item["existing_candidate"], item["best_candidate"]
+            )
+
+    def test_evidence_does_not_claim_gameplay_verification(self):
+        result = audit(self.board, self.shooters, self.mappings)
+        self.assertFalse(result["gameplay_verified"])
+        self.assertFalse(result["gameplay_taps_enabled"])
+        self.assertTrue(all(not x["verified"] for x in result["results"]))
+
+    def test_actual_level39_data(self):
+        board = json.loads(Path("data/vision_level39.json").read_text())
+        shooters = json.loads(Path("data/shooter_detection.json").read_text())
+        mappings = json.loads(Path("data/color_matches.json").read_text())
+        result = audit(board, shooters, mappings)
+        self.assertEqual(len(result["results"]), 4)
+        self.assertEqual(
+            [x["best_candidate"] for x in result["results"]],
+            ["white", "cyan", "purple", "orange"]
+        )
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
