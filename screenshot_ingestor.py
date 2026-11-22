@@ -63,10 +63,23 @@ def extract_board(image_path, calibration):
         cols, rows = calibration["grid_size"]
         left, top, right, bottom = calibration["bounds"]
 
-        if width < right or height < bottom:
-            raise ValueError("Screenshot is smaller than calibrated board bounds")
-        if cols < 1 or rows < 1 or right <= left or bottom <= top:
-            raise ValueError("Invalid board calibration")
+        if (
+            type(cols) is not int or type(rows) is not int
+            or cols < 1 or rows < 1
+        ):
+            raise ValueError("Grid dimensions must be positive integers")
+
+        if (
+            any(type(value) not in (int, float) for value in
+                (left, top, right, bottom))
+            or left < 1 or top < 1
+            or right <= left or bottom <= top
+            or right > width - 1 or bottom > height - 1
+        ):
+            raise ValueError(
+                "Board bounds must be ordered and inside the screenshot "
+                "with room for the 3x3 sampling window"
+            )
 
         cell_width = (right - left) / cols
         cell_height = (bottom - top) / rows
