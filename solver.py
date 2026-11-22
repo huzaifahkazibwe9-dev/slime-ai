@@ -16,6 +16,9 @@ def simulate_shot(state, shooter_id):
     if shooter is None:
         return ShotResult(False, False, reason="Unknown shooter")
 
+    if shooter.ammo is None:
+        return ShotResult(False, False, reason="Ammunition is unknown")
+
     if shooter.ammo <= 0:
         return ShotResult(False, False, reason="No ammunition")
 
