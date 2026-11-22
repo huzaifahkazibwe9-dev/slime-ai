@@ -3,16 +3,18 @@ import unittest
 from pathlib import Path
 
 DATA = Path("data")
+TIMELINE = DATA / "conveyor_timeline.json"
+OBSERVATIONS = DATA / "conveyor_visual_observations.json"
 
+@unittest.skipUnless(
+    TIMELINE.is_file() and OBSERVATIONS.is_file(),
+    "Local conveyor screenshots/observations are not included in the public repository"
+)
 class ConveyorTimelineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.timeline = json.loads(
-            (DATA / "conveyor_timeline.json").read_text()
-        )
-        cls.original = json.loads(
-            (DATA / "conveyor_visual_observations.json").read_text()
-        )
+        cls.timeline = json.loads(TIMELINE.read_text())
+        cls.original = json.loads(OBSERVATIONS.read_text())
 
     def test_four_stages(self):
         self.assertEqual(
