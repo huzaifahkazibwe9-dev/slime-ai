@@ -44,6 +44,45 @@ class ScreenshotIngestorTests(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_rejects_negative_board_bounds(self):
+        path = Path("data/test_ingestor_negative.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaises(ValueError):
+                extract_board(path, {
+                    "grid_size": [3, 3],
+                    "bounds": [-1, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_zero_grid_dimension(self):
+        path = Path("data/test_ingestor_zero_grid.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaises(ValueError):
+                extract_board(path, {
+                    "grid_size": [0, 3],
+                    "bounds": [3, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_bounds_without_sampling_margin(self):
+        path = Path("data/test_ingestor_edge_bounds.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaises(ValueError):
+                extract_board(path, {
+                    "grid_size": [3, 3],
+                    "bounds": [3, 3, 30, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
