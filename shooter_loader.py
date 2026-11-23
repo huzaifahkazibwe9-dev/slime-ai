@@ -124,3 +124,75 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
         shooters[shooter_id] = shooter
 
     return shooters
+
+
+def load_panel_slots(path=DETECTION_FILE):
+    """Load validated multi-row panel inventory without inventing shooter data.
+
+    Slot inventory is metadata only. Unrevealed or occluded slots never become
+    Shooter objects or selectable candidates through this function.
+    """
+    data = json.loads(Path(path).read_text())
+    if not isinstance(data, dict):
+        raise ValueError("Shooter detection must be a JSON object")
+
+    layout = data.get("panel_layout")
+    slots = data.get("panel_slots")
+    if not isinstance(layout, dict):
+        raise ValueError("panel_layout must be an object")
+    rows = layout.get("rows")
+    columns = layout.get("columns")
+    count = layout.get("slot_count")
+    if any(type(value) is not int or value < 1
+           for value in (rows, columns, count)):
+        raise ValueError("Panel layout dimensions and slot count must be positive integers")
+    if rows * columns != count:
+        raise ValueError("Panel layout slot count does not match its dimensions")
+    if not isinstance(slots, list) or len(slots) != count:
+        raise ValueError("panel_slots must match the declared slot count")
+
+    seen_ids = set()
+    seen_positions = set()
+    allowed_statuses = {"readable", "unrevealed", "partially_occluded"}
+    for index, slot in enumerate(slots):
+        if not isinstance(slot, dict):
+            raise ValueError(f"Panel slot {index} must be an object")
+        slot_id = slot.get("id")
+        row = slot.get("row")
+        column = slot.get("column")
+        center = slot.get("center")
+        status = slot.get("status")
+        selectable = slot.get("selectable_candidate")
+        if not isinstance(slot_id, str) or not slot_id:
+            raise ValueError(f"Panel slot {index} has an invalid id")
+        if slot_id in seen_ids:
+            raise ValueError(f"Duplicate panel slot id: {slot_id}")
+        if type(row) is not int or not 1 <= row <= rows:
+            raise ValueError(f"Panel slot {slot_id} has an invalid row")
+        if type(column) is not int or not 1 <= column <= columns:
+            raise ValueError(f"Panel slot {slot_id} has an invalid column")
+        position = (row, column)
+        if position in seen_positions:
+            raise ValueError(f"Duplicate panel slot position: {position}")
+        if (not isinstance(center, list) or len(center) != 2
+                or any(type(value) is not int or value < 0 for value in center)):
+            raise ValueError(f"Panel slot {slot_id} has an invalid center")
+        if status not in allowed_statuses:
+            raise ValueError(f"Panel slot {slot_id} has an invalid status")
+        if type(selectable) is not bool:
+            raise ValueError(f"Panel slot {slot_id} has an invalid selectable flag")
+        if status != "readable" and selectable:
+            raise ValueError(
+                f"Unrevealed or occluded panel slot {slot_id} cannot be selectable"
+            )
+        seen_ids.add(slot_id)
+        seen_positions.add(position)
+
+    expected_positions = {
+        (row, column)
+        for row in range(1, rows + 1)
+        for column in range(1, columns + 1)
+    }
+    if seen_positions != expected_positions:
+        raise ValueError("Panel inventory does not cover every declared slot position")
+    return slots
