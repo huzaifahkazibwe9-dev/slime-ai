@@ -15,6 +15,11 @@ echo "Project: $ROOT"
 echo "Live game actions: DISABLED"
 echo
 
+if [[ ! -f "$SCREENSHOT" ]]; then
+    echo "ERROR: Required screenshot not found: $SCREENSHOT" >&2
+    exit 2
+fi
+
 if [[ ! -f "data/shooter_capture_config.json" ]]; then
     echo "[Calibration] Creating a coordinate-grid preview for manual shooter-panel bounds"
     python calibrate_shooter_panel.py "$SCREENSHOT" \
@@ -22,10 +27,6 @@ if [[ ! -f "data/shooter_capture_config.json" ]]; then
     echo "No crop bounds were inferred; planning remains blocked until capture evidence is calibrated."
 fi
 
-if [[ ! -f "$SCREENSHOT" ]]; then
-    echo "ERROR: Required screenshot not found: $SCREENSHOT" >&2
-    exit 2
-fi
 
 if [[ -f "data/shooter_capture_config.json" ]]; then
     echo "[1/9] Ingesting board and shooter panel from one calibrated capture"
