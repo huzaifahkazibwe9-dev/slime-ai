@@ -108,11 +108,19 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "game_taps_enabled",
         ):
             self.assertFalse(audit[key])
+        self.assertTrue(audit["classification_consistent_with_extractor"])
+        self.assertFalse(audit["colour_truth_verified"])
 
     def test_rejects_mismatched_colour_counts(self):
         self.observation["counts"]["cyan"] = 99
         self.write()
         with self.assertRaisesRegex(ValueError, "colour counts"):
+            load_observed_level(self.observation_path, self.shooter_path)
+
+    def test_rejects_rgb_and_saved_label_mismatch(self):
+        self.observation["board"][0][0] = "red"
+        self.write()
+        with self.assertRaisesRegex(ValueError, "RGB/classification mismatch"):
             load_observed_level(self.observation_path, self.shooter_path)
 
     def test_rejects_invalid_rgb_sample(self):
