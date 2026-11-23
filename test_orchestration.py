@@ -37,6 +37,7 @@ class OrchestrationTests(unittest.TestCase):
             "gameplay_verified": True,
             "actions_performed": False,
             "capture_freshness_verified": True,
+            "candidate_capture_provenance_verified": True,
         }
         identity = {
             "identity_verified": True,
@@ -165,6 +166,7 @@ class OrchestrationTests(unittest.TestCase):
             "gameplay_verified": True,
             "actions_performed": False,
             "capture_freshness_verified": True,
+            "candidate_capture_provenance_verified": True,
         }
         snapshot = {
             "synchronised": True,
@@ -191,6 +193,7 @@ class OrchestrationTests(unittest.TestCase):
                 "gameplay_verified": True,
                 "actions_performed": False,
                 "capture_freshness_verified": True,
+            "candidate_capture_provenance_verified": True,
             },
             {
                 "identity_verified": True,
