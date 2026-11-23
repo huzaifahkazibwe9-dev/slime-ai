@@ -110,7 +110,7 @@ def extract_board(image_path, calibration):
     }
 
 
-def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT):
+def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None):
     image_path = Path(image_path).expanduser().resolve()
     baseline = json.loads(Path(baseline_path).read_text())
 
@@ -122,13 +122,13 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT):
         stat.st_mtime, timezone.utc
     ).isoformat()
 
-    exif_time = None
-    try:
-        with Image.open(image_path) as img:
-            exif = img.getexif()
-            exif_time = exif.get(36867) or exif.get(306)
-    except Exception:
-        pass
+    from capture_provenance import (
+        parse_exif_capture_time,
+        validate_capture_session_id,
+    )
+    with Image.open(image_path) as img:
+        exif_time = parse_exif_capture_time(img.getexif())
+    capture_session_id = validate_capture_session_id(capture_session_id)
 
     snapshot_id = "sha256:" + digest
 
@@ -141,7 +141,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT):
         "captured_at": exif_time,
         "file_modified_at": file_time,
         "timestamp_identified": bool(exif_time),
-        "capture_session_id": None,
+        "capture_session_id": capture_session_id,
         "same_board_state_confirmed": False,
         "gameplay_verified": False,
         "vision_classification_verified": False,
