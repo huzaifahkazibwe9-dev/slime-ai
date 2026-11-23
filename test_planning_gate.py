@@ -96,6 +96,26 @@ class PlanningGateTests(unittest.TestCase):
         self.assertTrue(result["results"][0]["planning_eligible"])
         self.assertEqual(result["counts"]["eligible_scenarios"], 1)
 
+    def test_unverified_ammo_provenance_rejected(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["identity_verified"] = True
+        position["planning_eligible"] = True
+        report["same_board_state_confirmed"] = True
+        report["conveyor_identity_verified"] = True
+        report["gameplay_verified"] = True
+        scenario = position["scenarios"][0]
+        scenario["confidence_eligible"] = True
+        scenario["planning_eligible"] = True
+        result = evaluate_planning(report)
+        item = result["results"][0]
+        self.assertFalse(item["planning_eligible"])
+        self.assertIn(
+            "AMMUNITION_OBSERVATION_UNVERIFIED",
+            item["blockers"],
+        )
+
     def test_safety_flags_always_disabled(self):
         result = evaluate_planning(make_report())
         self.assertFalse(result["gameplay_verified"])
