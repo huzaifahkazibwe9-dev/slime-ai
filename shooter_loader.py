@@ -179,6 +179,16 @@ def load_panel_slots(path=DETECTION_FILE):
     if not isinstance(slots, list) or len(slots) != count:
         raise ValueError("panel_slots must match the declared slot count")
 
+    image_dimensions = data.get("image_dimensions")
+    if image_dimensions is not None:
+        if (not isinstance(image_dimensions, list) or len(image_dimensions) != 2
+                or any(type(value) is not int or value < 1
+                       for value in image_dimensions)):
+            raise ValueError("image_dimensions must contain positive integer width and height")
+        image_width, image_height = image_dimensions
+    else:
+        image_width = image_height = None
+
     seen_ids = set()
     seen_positions = set()
     allowed_statuses = {"readable", "unrevealed", "partially_occluded"}
@@ -207,6 +217,9 @@ def load_panel_slots(path=DETECTION_FILE):
             raise ValueError(f"Panel slot {slot_id} has an invalid center")
         if status not in allowed_statuses:
             raise ValueError(f"Panel slot {slot_id} has an invalid status")
+        if image_width is not None and not (
+                center[0] < image_width and center[1] < image_height):
+            raise ValueError(f"Panel slot {slot_id} center is outside image dimensions")
         if type(selectable) is not bool:
             raise ValueError(f"Panel slot {slot_id} has an invalid selectable flag")
         if status != "readable" and selectable:
