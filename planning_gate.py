@@ -43,6 +43,8 @@ def evaluate_planning(report):
                 blockers.append("NO_EXPOSED_MATCHING_PIXELS")
             if not ammo_available:
                 blockers.append("NO_REMAINING_AMMUNITION")
+            if position.get("ammunition_evidence_verified") is not True:
+                blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
             if not board_synced:
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
             if not identity_verified or not position.get(
@@ -69,6 +71,9 @@ def evaluate_planning(report):
                 "observed_ammo": ammo,
                 "geometrically_reachable": geometrically_reachable,
                 "ammunition_available": ammo_available,
+                "ammunition_evidence_verified": (
+                    position.get("ammunition_evidence_verified") is True
+                ),
                 "confidence_eligible": bool(
                     scenario.get("confidence_eligible", False)
                 ),
