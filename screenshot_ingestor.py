@@ -110,7 +110,7 @@ def extract_board(image_path, calibration):
     }
 
 
-def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None):
+def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
     image_path = Path(image_path).expanduser().resolve()
     baseline = json.loads(Path(baseline_path).read_text())
 
@@ -123,11 +123,16 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
     ).isoformat()
 
     from capture_provenance import (
+        parse_aware_capture_timestamp,
         parse_exif_capture_time,
         validate_capture_session_id,
     )
     with Image.open(image_path) as img:
         exif_time = parse_exif_capture_time(img.getexif())
+    exif_time = (
+        parse_aware_capture_timestamp(captured_at)
+        if captured_at is not None else exif_time
+    )
     capture_session_id = validate_capture_session_id(capture_session_id)
 
     snapshot_id = "sha256:" + digest
@@ -182,8 +187,9 @@ def main():
     parser.add_argument("--baseline", default=str(BASELINE))
     parser.add_argument("--output", default=str(OUTPUT))
     parser.add_argument("--capture-session-id")
+    parser.add_argument("--captured-at", help="Explicit ISO-8601 capture time with UTC offset")
     args = parser.parse_args()
-    ingest(args.screenshot, args.baseline, args.output, args.capture_session_id)
+    ingest(args.screenshot, args.baseline, args.output, args.capture_session_id, args.captured_at)
 
 
 if __name__ == "__main__":
