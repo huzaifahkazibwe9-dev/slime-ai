@@ -351,6 +351,29 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report, candidate_report=candidates)
         self.assertFalse(result["candidate_capture_provenance_verified"])
 
+    def test_candidate_track_missing_observation_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["white"]["observations"].pop()
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_duplicate_candidate_observation_position_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["white"]["observations"] = [
+            {
+                "position_id": "bottom_1",
+                "board_snapshot_id": report["board_snapshot_id"],
+                "capture_session_id": report["capture_session_id"],
+                "captured_at": report["captured_at"],
+                "timestamp_identified": True,
+            }
+            for _ in range(4)
+        ]
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
     def test_candidate_track_without_identified_timestamp_is_rejected(self):
         report = make_report()
         candidates = make_candidate_report(report)
