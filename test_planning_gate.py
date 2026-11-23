@@ -36,6 +36,41 @@ def make_report():
     }
 
 
+def make_candidate_report(report=None):
+    report = report or make_report()
+    captured_at = report["captured_at"]
+    snapshot_id = report["board_snapshot_id"]
+    session_id = report["capture_session_id"]
+    observation = {
+        "board_snapshot_id": snapshot_id,
+        "capture_session_id": session_id,
+        "captured_at": captured_at,
+        "timestamp_identified": True,
+    }
+    return {
+        "board_snapshot_id": snapshot_id,
+        "capture_session_id": session_id,
+        "captured_at": captured_at,
+        "timestamp_identified": True,
+        "tracks": {
+            "white": {
+                "board_snapshot_id": snapshot_id,
+                "capture_session_id": session_id,
+                "captured_at": captured_at,
+                "timestamp_identified": True,
+                "observations": [dict(observation)],
+            },
+            "blue_cyan": {
+                "board_snapshot_id": snapshot_id,
+                "capture_session_id": session_id,
+                "captured_at": captured_at,
+                "timestamp_identified": True,
+                "observations": [dict(observation)],
+            },
+        },
+    }
+
+
 class PlanningGateTests(unittest.TestCase):
     def test_zero_ammunition_rejected(self):
         result = evaluate_planning(make_report())
@@ -139,7 +174,7 @@ class PlanningGateTests(unittest.TestCase):
         scenario["confidence_eligible"] = True
         scenario["planning_eligible"] = True
 
-        result = evaluate_planning(report)
+        result = evaluate_planning(report, candidate_report=make_candidate_report(report))
         self.assertTrue(result["results"][0]["planning_eligible"])
         self.assertEqual(result["counts"]["eligible_scenarios"], 1)
 
@@ -291,6 +326,38 @@ class PlanningGateTests(unittest.TestCase):
         scenario["planning_eligible"] = True
         result = evaluate_planning(report)
         self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
+    def test_missing_candidate_report_blocks_planning(self):
+        report = make_report()
+        result = evaluate_planning(report)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+        self.assertIn(
+            "CANDIDATE_CAPTURE_PROVENANCE_UNVERIFIED",
+            result["results"][0]["blockers"],
+        )
+
+    def test_candidate_track_from_different_snapshot_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["white"]["board_snapshot_id"] = "sha256:" + "b" * 64
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_candidate_observation_with_stale_timestamp_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["white"]["observations"][0]["captured_at"] = (
+            "2026-11-23T09:55:00+00:00"
+        )
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_candidate_track_without_identified_timestamp_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["blue_cyan"]["timestamp_identified"] = False
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
     def test_safety_flags_always_disabled(self):
         result = evaluate_planning(make_report())
         self.assertFalse(result["gameplay_verified"])
