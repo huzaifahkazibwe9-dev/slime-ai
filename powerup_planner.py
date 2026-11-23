@@ -3,8 +3,6 @@
 All outputs are advisory. This module does not purchase, select, destroy,
 modify a GameState, or issue device input. Unknown stock/prices remain unknown.
 """
-from copy import deepcopy
-
 from powerups import POWER_UPS, PowerUpInventory, describe_power_up_use
 
 
@@ -38,9 +36,9 @@ def evaluate_powerup_candidates(state, inventory, *, hidden_board_circles=None,
     def add(name, target=None, benefit=0, detail=None):
         affordability = inventory.purchase_plan(name)
         charges = inventory.charges.get(name)
-        if charges is not None and charges <= 0:
-            return
-        if affordability["eligible"] is False:
+        use_eligibility = True if charges is not None and charges > 0 else (False if charges == 0 else None)
+        # Owned stock remains usable even if another purchase is unaffordable.
+        if use_eligibility is False and affordability["eligible"] is False:
             return
         candidates.append({
             "name": name,
@@ -49,6 +47,10 @@ def evaluate_powerup_candidates(state, inventory, *, hidden_board_circles=None,
             "estimated_board_pixels_affected": benefit,
             "purchase_eligibility": affordability["eligible"],
             "charge_count": charges,
+            "use_eligibility": use_eligibility,
+            "purchase_recommendation_eligibility": affordability["eligible"] if use_eligibility is not True else False,
+            "decision_status": "READY_TO_USE" if use_eligibility is True else ("PURCHASE_POSSIBLE" if affordability["eligible"] is True else "RESOURCE_STATE_UNCERTAIN"),
+            "estimated_value_basis": "observed_board_pixel_count_only",
             "details": detail or {},
             "game_action_performed": False,
         })
