@@ -36,10 +36,11 @@ It does not tap the game, start background loops, or change MacroDroid settings.
    and the same explicit session ID and offset-aware capture timestamp to
    both ingestion and shooter detection. Example:
    `python screenshot_ingestor.py screenshots/level39.jpg --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
-   `python shooter_detector.py --source-screenshot screenshots/level39.jpg --panel-bounds LEFT TOP RIGHT BOTTOM --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
+   `python shooter_detector.py --source-screenshot screenshots/level39.jpg --panel-bounds LEFT TOP RIGHT BOTTOM --extract-panel --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
    Replace the four bounds with the actual full-screenshot crop coordinates.
-   The panel image must match that source region; the loader and readiness
-   coordinator block planning if the provenance does not match.
+   `--extract-panel` creates the calibrated panel image from that screenshot,
+   then verifies its source region. The loader and readiness coordinator block
+   planning if the provenance does not match.
 3. Integrate the observation with shooter data:
    `python level_loader.py --observation data/board_observation_latest.json`
 4. Build provisional colour regions:
