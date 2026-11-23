@@ -108,6 +108,33 @@ class SnapshotSyncTests(unittest.TestCase):
             }
             for _ in range(4)
         ]
+        artifacts[0]["observations"] = [
+            {"position_id": f"position-{index}"}
+            for index in range(8)
+        ]
+        positions = {
+            "white": ("bottom_1", "right_2", "top_2", "left_1"),
+            "blue_cyan": ("bottom_2", "right_1", "top_1", "left_2"),
+        }
+        artifacts[2]["tracks"] = {
+            name: {
+                "board_snapshot_id": "capture-001",
+                "capture_session_id": "session-001",
+                "captured_at": captured_at,
+                "timestamp_identified": True,
+                "observations": [
+                    {
+                        "position_id": position,
+                        "board_snapshot_id": "capture-001",
+                        "capture_session_id": "session-001",
+                        "captured_at": captured_at,
+                        "timestamp_identified": True,
+                    }
+                    for position in track_positions
+                ],
+            }
+            for name, track_positions in positions.items()
+        }
         return board, *artifacts
 
     def test_bundle_requires_all_artifacts_from_same_capture(self):
@@ -173,6 +200,43 @@ class SnapshotSyncTests(unittest.TestCase):
         self.assertFalse(result["synchronised"])
         self.assertFalse(
             result["checks"]["identity_timestamp_identified"]
+        )
+
+    def test_bundle_rejects_nested_conveyor_observation_from_other_capture(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        conveyor["observations"][0]["board_snapshot_id"] = "other-capture"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["conveyor_nested_capture_metadata_consistent"]
+        )
+
+    def test_bundle_rejects_nested_candidate_observation_from_other_session(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        candidates["tracks"]["white"]["observations"][0][
+            "capture_session_id"
+        ] = "other-session"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["candidates_nested_capture_metadata_consistent"]
+        )
+
+    def test_bundle_rejects_nested_candidate_timestamp_skew(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        candidates["tracks"]["blue_cyan"]["observations"][0][
+            "captured_at"
+        ] = "2026-11-23T10:03:00+00:00"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["candidates_nested_capture_metadata_consistent"]
         )
 
     def test_bundle_rejects_missing_artifact(self):
