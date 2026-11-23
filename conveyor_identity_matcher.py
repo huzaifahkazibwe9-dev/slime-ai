@@ -7,6 +7,51 @@ ORDER = ["bottom", "right", "top", "left"]
 def read(name):
     return json.loads((DATA / name).read_text())
 
+
+def validate_visual_observations(observations, expected_positions):
+    """Reject incomplete or ambiguous frame data before building tracks."""
+    if not isinstance(observations, list):
+        return ["Observations must be a list"]
+
+    expected = set(expected_positions)
+    seen = set()
+    errors = []
+
+    if len(observations) != len(expected):
+        errors.append(
+            f"Expected {len(expected)} observations; got {len(observations)}"
+        )
+
+    for index, item in enumerate(observations):
+        if not isinstance(item, dict):
+            errors.append(f"Observation {index} must be an object")
+            continue
+
+        position_id = item.get("position_id")
+        if not isinstance(position_id, str) or not position_id.strip():
+            errors.append(f"Observation {index} has invalid position_id")
+            continue
+        if position_id not in expected:
+            errors.append(f"Unexpected position: {position_id}")
+        if position_id in seen:
+            errors.append(f"Duplicate position: {position_id}")
+        seen.add(position_id)
+
+        colour = item.get("colour")
+        if not isinstance(colour, str) or colour.lower() not in {
+            "white", "blue", "cyan"
+        }:
+            errors.append(f"{position_id}: invalid colour")
+
+        ammo = item.get("ammo")
+        if type(ammo) is not int or ammo < 0:
+            errors.append(f"{position_id}: invalid ammunition")
+
+    missing = sorted(expected - seen)
+    if missing:
+        errors.append("Missing positions: " + ", ".join(missing))
+    return errors
+
 def main():
     calibration = read("conveyor_calibration.json")
     visual = read("conveyor_visual_observations.json")
@@ -15,6 +60,30 @@ def main():
     observations = visual["observations"]
     positions = {p["id"]: p for p in calibration["shooters"]}
     shooters = {s["id"]: s for s in detection["visible_shooters"]}
+
+    validation_errors = validate_visual_observations(
+        observations, positions
+    )
+    if validation_errors:
+        report = {
+            "screenshot_order": ORDER,
+            "observations_valid": False,
+            "validation_errors": validation_errors,
+            "tracks": {},
+            "checks": {"observations_valid": False},
+            "identity_verified": False,
+            "gameplay_taps_enabled": False,
+            "note": "Invalid observations rejected; candidate matching skipped.",
+        }
+        output = DATA / "conveyor_identity_candidates.json"
+        output.write_text(json.dumps(report, indent=2))
+        print("Observation validation failed:")
+        for error in validation_errors:
+            print("-", error)
+        print("Candidate report:", output)
+        print("Identity verified: False")
+        print("Gameplay taps enabled: False")
+        return report
 
     by_position = {
         item["position_id"]: item for item in observations
@@ -38,7 +107,7 @@ def main():
     report = {
         "screenshot_order": ORDER,
         "tracks": {},
-        "checks": {},
+        "checks": {"observations_valid": True},
         "identity_verified": False,
         "gameplay_taps_enabled": False,
         "note": "Candidate tracking only; no gameplay identity verification."
