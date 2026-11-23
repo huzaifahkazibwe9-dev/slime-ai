@@ -74,7 +74,18 @@ def simulate_batch_schedule(
             reject("GROUP_NOT_PREVIOUSLY_SCHEDULED")
             break
 
-        # Preflight all reactivations before changing simulator state.
+        # Preflight the entire transition before mutating simulator state.
+        # Multiple reactivations and newly selected groups share one capacity
+        # budget; checking each group against the same free count is unsafe.
+        overlap = sorted(set(reactivate) & set(requested))
+        if overlap:
+            reject(
+                "GROUP_CANNOT_BE_REACTIVATED_AND_SELECTED_IN_SAME_BATCH",
+                group_ids=overlap,
+            )
+            break
+
+        reactivation_slots = 0
         for group_id in reactivate:
             members = groups[group_id]
             if not all(by_id[mid].returned for mid in members):
@@ -83,15 +94,29 @@ def simulate_batch_schedule(
                     group_id=group_id,
                 )
                 break
-            if len(members) > sim.conveyor_free:
-                reject(
-                    "INSUFFICIENT_CONVEYOR_SPACE_FOR_REACTIVATION",
-                    group_id=group_id,
-                    required_slots=len(members),
-                    available_slots=sim.conveyor_free,
-                )
-                break
+            reactivation_slots += len(members)
         if not valid:
+            break
+
+        selection_slots = sum(len(groups[g]) for g in requested)
+        total_required_slots = reactivation_slots + selection_slots
+        if total_required_slots > sim.conveyor_free:
+            reject(
+                "INSUFFICIENT_CONVEYOR_SPACE_FOR_BATCH_TRANSITION",
+                reactivation_slots=reactivation_slots,
+                selection_slots=selection_slots,
+                required_slots=total_required_slots,
+                available_slots=sim.conveyor_free,
+            )
+            break
+
+        required_storage = reactivation_slots
+        if required_storage > sim.storage_occupied:
+            reject(
+                "INSUFFICIENT_STORAGE_OCCUPANCY_FOR_REACTIVATION",
+                required_slots=required_storage,
+                available_slots=sim.storage_occupied,
+            )
             break
 
         for group_id in reactivate:
