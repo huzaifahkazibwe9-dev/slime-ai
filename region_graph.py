@@ -12,10 +12,18 @@ def build_region_graph(board):
         raise ValueError("Board rows must be non-empty.")
 
     w = len(board[0])
-    if any(not isinstance(row, list) or len(row) != w for row in board):
-        raise ValueError("Board must be rectangular.")
-    if any(v is not None and (not isinstance(v, str) or not v) for row in board for v in row):
-        raise ValueError("Every cell must have a colour label.")
+    occupied_cells = 0
+    empty_cells = 0
+    for row in board:
+        if not isinstance(row, list) or len(row) != w:
+            raise ValueError("Board must be rectangular.")
+        for value in row:
+            if value is None:
+                empty_cells += 1
+            elif not isinstance(value, str) or not value:
+                raise ValueError("Every cell must have a colour label.")
+            else:
+                occupied_cells += 1
 
     labels = [[None] * w for _ in range(h)]
     regions = {}
@@ -107,8 +115,8 @@ def build_region_graph(board):
         "grid_size": [h, w],
         "cell_region_ids": labels,
         "total_cells": h * w,
-        "occupied_cells": sum(v is not None for row in board for v in row),
-        "empty_cells": sum(v is None for row in board for v in row),
+        "occupied_cells": occupied_cells,
+        "empty_cells": empty_cells,
         "region_count": len(regions),
         "regions": region_list,
         "adjacency_edges": [
