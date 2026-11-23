@@ -84,6 +84,8 @@ class ReachabilityAuditorTests(unittest.TestCase):
         board_data = {
             "board": board,
             "snapshot_id": "sha256:" + "d" * 64,
+            "board_snapshot_id": "sha256:" + "d" * 64,
+            "board_snapshot_id": "sha256:" + "e" * 64,
             "timestamp_identified": False,
         }
         calibration = {
@@ -128,6 +130,7 @@ class ReachabilityAuditorTests(unittest.TestCase):
         board_data = {
             "board": board,
             "snapshot_id": "board-1",
+            "board_snapshot_id": "board-1",
             "timestamp_identified": True,
         }
         calibration = {
@@ -182,6 +185,7 @@ class ReachabilityAuditorTests(unittest.TestCase):
                 "counts": counts,
                 "source_sha256": "e" * 64,
                 "snapshot_id": "sha256:" + "e" * 64,
+            "board_snapshot_id": "sha256:" + "e" * 64,
                 "timestamp_identified": False,
                 "gameplay_verified": False,
                 "vision_classification_verified": False,
