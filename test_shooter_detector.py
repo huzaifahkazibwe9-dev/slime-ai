@@ -16,6 +16,7 @@ from shooter_detector import (
     verify_panel_crop,
     extract_panel_crop,
     load_user_confirmed_bonded_groups,
+    assess_color_sample,
 )
 
 
@@ -52,6 +53,25 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(payload["performance"]["ammunition_ocr_calls"], 4)
             self.assertEqual(payload["performance"]["panel_slots_observed"], 12)
             self.assertGreaterEqual(payload["performance"]["shooter_detection_seconds"], 0)
+
+    def test_sample_quality_detects_distinct_colour_patch(self):
+        image = Image.new("RGB", (40, 40), (35, 35, 35))
+        image.paste(Image.new("RGB", (9, 9), (220, 40, 40)), (16, 16))
+        result = assess_color_sample(image, 20, 20)
+        self.assertEqual(result["status"], "DISTINCT_SAMPLE")
+        self.assertGreaterEqual(result["local_contrast"], 24)
+        self.assertEqual(result["median_absolute_deviation"], 0)
+
+    def test_sample_quality_rejects_uniform_background(self):
+        image = Image.new("RGB", (40, 40), (35, 35, 35))
+        result = assess_color_sample(image, 20, 20)
+        self.assertEqual(result["status"], "LOW_CONFIDENCE_SAMPLE")
+        self.assertEqual(result["local_contrast"], 0)
+
+    def test_sample_quality_rejects_sample_near_image_edge(self):
+        image = Image.new("RGB", (40, 40), (35, 35, 35))
+        with self.assertRaisesRegex(ValueError, "outside"):
+            assess_color_sample(image, 5, 20)
 
     def test_reference_panel_dimensions_are_valid(self):
         self.assertTrue(validate_panel_image_size(REF_W, REF_H))
