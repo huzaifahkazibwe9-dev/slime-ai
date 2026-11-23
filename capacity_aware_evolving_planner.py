@@ -1,8 +1,8 @@
 """Capacity-aware wrapper around evolving-board planning.
 
-Each group is assigned its own conveyor batch. This conservative boundary
-allows accessibility to be re-evaluated only between batches, after the
-previous batch's abstract conveyor return cycle has been validated.
+Consecutive groups are packed together only when every member was accessible
+at the batch start and conveyor capacity permits. Accessibility is refreshed
+only at batch boundaries.
 """
 import copy
 
@@ -10,6 +10,7 @@ from game_state import GameState
 from conveyor_simulator import SimulatorConfig
 from evolving_board_planner import plan_evolving_board
 from dynamic_multi_batch import simulate_dynamic_multi_batch
+from bonded_group_simulator import simulate_bonded_group
 
 
 def plan_capacity_aware_evolving_schedule(
@@ -36,14 +37,69 @@ def plan_capacity_aware_evolving_schedule(
         max_depth=max_depth,
     )
     sequence = board_plan.get("sequence", [])
-    batches = [
-        {
-            "groups": [str(item["group_id"])],
-            "reactivate_groups": [],
-        }
-        for item in sequence
-    ]
 
+    group_members = {}
+    group_roots = {}
+    for shooter_id, shooter in state.shooters.items():
+        members = [str(shooter_id)] + [
+            str(member) for member in shooter.bonded_ids
+        ]
+        group_id = str(shooter.group_id or min(members))
+        group_members.setdefault(group_id, set()).add(str(shooter_id))
+        group_roots.setdefault(group_id, str(shooter_id))
+
+    # Pack consecutive groups only when all members were accessible at
+    # batch start. Re-evaluate access only after evolving the private board
+    # through the complete batch.
+    probe = copy.deepcopy(state)
+    batches = []
+    cursor = 0
+    while cursor < len(sequence):
+        if accessibility_resolver is None:
+            available = {
+                str(shooter_id)
+                for shooter_id, shooter in probe.shooters.items()
+                if shooter.accessible
+            }
+        else:
+            observed = accessibility_resolver(copy.deepcopy(probe))
+            available = {str(value) for value in (observed or [])}
+
+        batch_groups = []
+        batch_shooter_count = 0
+        while cursor < len(sequence):
+            group_id = str(sequence[cursor]["group_id"])
+            members = group_members.get(group_id, set())
+            if not members or not members.issubset(available):
+                break
+            if batch_shooter_count + len(members) > config.conveyor_capacity:
+                break
+            batch_groups.append(group_id)
+            batch_shooter_count += len(members)
+            cursor += 1
+
+        if not batch_groups:
+            break
+
+        batches.append({"groups": list(batch_groups), "reactivate_groups": []})
+        for group_id in batch_groups:
+            isolated = copy.deepcopy(probe)
+            isolated.conveyor = []
+            isolated.storage = []
+            for shooter_id, shooter in isolated.shooters.items():
+                shooter.accessible = str(shooter_id) in available
+            group_report = simulate_bonded_group(
+                isolated, group_roots[group_id]
+            )
+            if group_report.get("status") != "SIMULATED":
+                break
+            probe.board = copy.deepcopy(group_report["final_board"])
+            for shooter_id, ammo in group_report["remaining_ammo"].items():
+                probe.shooters[shooter_id].ammo = ammo
+                probe.shooters[shooter_id].accessible = False
+        else:
+            continue
+        break
     schedule = None
     if batches:
         schedule = simulate_dynamic_multi_batch(
@@ -144,7 +200,7 @@ def plan_capacity_aware_evolving_schedule(
         "gameplay_actions_performed": False,
         "game_taps_enabled": False,
         "limitations": [
-            "Each group is isolated into its own batch to avoid assuming newly exposed groups were selectable earlier.",
+            "Consecutive groups share a batch only when all member shooters were accessible at that batch start and conveyor capacity permits.",
             "Conveyor rotation timing is abstract and uncalibrated.",
             "Storage reactivation is disabled.",
             "Accessibility resolver output is a simulation assumption, not verified gameplay evidence.",
