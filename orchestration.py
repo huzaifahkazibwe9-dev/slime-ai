@@ -1,4 +1,5 @@
 """Build 11M: evidence-gated, dry-run-only orchestration."""
+import argparse
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -49,12 +50,15 @@ def evidence_status(planning, identity, snapshot, candidates):
     }
 
 
-def run_orchestration(data_dir="data", candidate_report_path=None):
+def run_orchestration(data_dir="data", candidate_report_path=None,\n                      observation_path=None, shooter_path=None):
     from level_loader import load_level
     from planner import plan_next_move
 
     root = Path(data_dir)
-    state, level_audit = load_level()
+    state, level_audit = load_level(
+        observation_path=observation_path,
+        shooter_path=shooter_path,
+    )
 
     planning = read_report(root / "planning_gate_latest.json")
     identity = read_report(root / "identity_audit_report.json")
@@ -161,4 +165,24 @@ def run_orchestration(data_dir="data", candidate_report_path=None):
 
 
 if __name__ == "__main__":
-    run_orchestration()
+    parser = argparse.ArgumentParser(
+        description="Run evidence-gated, dry-run-only Slime AI orchestration"
+    )
+    parser.add_argument("--data-dir", default="data")
+    parser.add_argument("--candidate-report")
+    parser.add_argument(
+        "--observation",
+        help="Use a screenshot-ingestor board observation instead of the legacy baseline",
+    )
+    parser.add_argument(
+        "--shooters",
+        default="data/shooter_detection.json",
+        help="Shooter detection JSON (used with --observation)",
+    )
+    args = parser.parse_args()
+    run_orchestration(
+        data_dir=args.data_dir,
+        candidate_report_path=args.candidate_report,
+        observation_path=args.observation,
+        shooter_path=args.shooters if args.observation else None,
+    )
