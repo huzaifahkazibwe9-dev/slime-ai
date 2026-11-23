@@ -369,7 +369,8 @@ def main():
     result = {
         "capture_provenance": provenance,
         "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
-        "panel_slots": panel_slots,\n        "panel_slot_observations": slot_observations,
+        "panel_slots": panel_slots,
+        "panel_slot_observations": slot_observations,
         "bond_relationships": {
             "status": "requires_user_confirmation",
             "verified_groups": bonded_groups,
