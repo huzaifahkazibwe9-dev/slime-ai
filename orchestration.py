@@ -82,8 +82,9 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
             return False
     return True
 
-def evidence_status(planning, identity, snapshot, candidates):
+def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False):
     checks = {
+        "shooter_capture_provenance_verified": shooter_capture_verified is True,
         "planning_report_present": isinstance(planning, dict),
         "identity_report_present": isinstance(identity, dict),
         "snapshot_report_present": isinstance(snapshot, dict),
@@ -335,7 +336,12 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     )
     snapshot["bundle_synchronisation"] = bundle_sync
 
-    gate = evidence_status(planning, identity, snapshot, candidates)
+    gate = evidence_status(
+        planning, identity, snapshot, candidates,
+        shooter_capture_verified=(
+            level_audit.get("shooter_capture_provenance_verified") is True
+        ),
+    )
 
     recommended_group = None
     planner_error = None
