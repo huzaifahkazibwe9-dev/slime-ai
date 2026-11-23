@@ -36,6 +36,7 @@ class OrchestrationTests(unittest.TestCase):
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
             "gameplay_verified": True,
             "actions_performed": False,
+            "capture_freshness_verified": True,
         }
         identity = {
             "identity_verified": True,
@@ -54,7 +55,32 @@ class OrchestrationTests(unittest.TestCase):
         candidates = {"identity_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertTrue(result["evidence_gate_passed"])
+        self.assertTrue(result["checks"]["planning_capture_freshness_verified"])
 
+    def test_missing_planning_freshness_blocks_otherwise_valid_evidence(self):
+        planning = {
+            "decision": "ELIGIBLE_CANDIDATES_FOUND",
+            "gameplay_verified": True,
+            "actions_performed": False,
+        }
+        identity = {
+            "identity_verified": True,
+            "timestamps_known": True,
+            "errors": [],
+            "blockers": [],
+        }
+        snapshot = {
+            "synchronised": True,
+            "planning_allowed_by_sync": True,
+            "bundle_synchronisation": {
+                "synchronised": True,
+                "planning_allowed_by_sync": True,
+            },
+        }
+        candidates = {"identity_verified": True}
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["evidence_gate_passed"])
+        self.assertFalse(result["checks"]["planning_capture_freshness_verified"])
 
     def test_missing_bundle_sync_blocks_even_if_legacy_snapshot_passes(self):
         planning = {
