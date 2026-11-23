@@ -94,6 +94,7 @@ class OrchestrationTests(unittest.TestCase):
             "actions_performed": False,
             "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
+            "conveyor_timing_calibrated": True,
             "board_snapshot_id": "sha256:" + "a" * 64,
             "capture_session_id": "session-1",
             "captured_at": "2026-11-23T10:00:30+00:00",
