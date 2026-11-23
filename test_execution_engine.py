@@ -73,6 +73,37 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(len(active), 2)
         self.assertEqual({item["group_id"] for item in active}, {"pair-42"})
 
+    def test_existing_conveyor_partial_bonded_group_is_rejected(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            group_id="pair", bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            group_id="pair", bonded_ids=["A"]
+        )
+        original = self.make_state(
+            [["red", None, "blue"]], [a, b], conveyor=["A"]
+        )
+        simulated = copy.deepcopy(original)
+        report = _simulate_conveyor_batch(original, simulated, [])
+        self.assertFalse(report["batch_selection_valid"])
+        self.assertEqual(
+            report["failure_reason"], "PARTIAL_BONDED_GROUP_ON_CONVEYOR"
+        )
+
+    def test_unknown_ammo_on_existing_conveyor_is_rejected(self):
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0, revealed=False
+        )
+        original = self.make_state([[None]], [hidden], conveyor=["H"])
+        simulated = copy.deepcopy(original)
+        report = _simulate_conveyor_batch(original, simulated, [])
+        self.assertFalse(report["batch_selection_valid"])
+        self.assertEqual(
+            report["failure_reason"], "UNKNOWN_AMMO_ON_EXISTING_CONVEYOR"
+        )
+
     def test_three_bond_group_rejected_with_one_slot(self):
         shooters = [
             Shooter("A", "red", 1, "right", -1, 0,
