@@ -187,17 +187,21 @@ def evaluate_planning(report, candidate_report=None):
                 and ammo_evidence.get("verified") is True
                 and ammo_evidence.get("position_id") == position.get("position_id")
                 and ammo_evidence.get("ammo") == ammo
-                and isinstance(ammo_evidence.get("capture_session_id"), str)
-                and bool(ammo_evidence.get("capture_session_id").strip())
-                and isinstance(ammo_evidence.get("board_snapshot_id"), str)
-                and bool(ammo_evidence.get("board_snapshot_id").strip())
-                and ammo_evidence.get("board_snapshot_id") == report.get("board_snapshot_id")
-                and isinstance(ammo_evidence.get("capture_session_id"), str)
+                and _valid_capture_session_id(ammo_evidence.get("capture_session_id"))
                 and ammo_evidence.get("capture_session_id") == report.get("capture_session_id")
+                and _valid_snapshot_id(ammo_evidence.get("board_snapshot_id"))
+                and ammo_evidence.get("board_snapshot_id") == report.get("board_snapshot_id")
                 and ammo_timestamp_aligned
                 and isinstance(ammo_evidence.get("checks"), dict)
+                and set(ammo_evidence.get("checks", {})) == {
+                    "ammo_is_non_negative_integer",
+                    "position_identity_matches",
+                    "capture_session_present",
+                    "board_snapshot_present",
+                    "observation_timestamp_present",
+                    "explicit_user_confirmation",
+                }
                 and all(value is True for value in ammo_evidence.get("checks", {}).values())
-                and len(ammo_evidence.get("checks", {})) >= 6
             )
             if not ammo_evidence_valid:
                 blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
