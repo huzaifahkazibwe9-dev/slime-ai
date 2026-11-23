@@ -194,7 +194,25 @@ class GameState:
             if len(visited) > 3:
                 return []
 
-        return ordered
+        return sorted(ordered)
+
+    def bonded_group_id(self, shooter_id):
+        """Return one canonical ID for a complete bonded component.
+
+        Explicit group_id values must agree across every member. If none are
+        supplied, the lexicographically smallest member is the stable ID.
+        """
+        members = self.bonded_group(shooter_id)
+        if not members:
+            return None
+        explicit = {
+            str(self.shooters[member].group_id)
+            for member in members
+            if self.shooters[member].group_id is not None
+        }
+        if len(explicit) > 1:
+            return None
+        return next(iter(explicit)) if explicit else min(members)
 
     def can_select_group(self, shooter_id):
         group = self.bonded_group(shooter_id)
@@ -269,7 +287,17 @@ class GameState:
             if len(group) > 3:
                 errors.append(
                     "Bonded group exceeds maximum size of 3: "
-                                       + ", ".join(group)
+                    + ", ".join(group)
+                )
+            explicit_ids = {
+                str(self.shooters[member].group_id)
+                for member in group
+                if self.shooters[member].group_id is not None
+            }
+            if len(explicit_ids) > 1:
+                errors.append(
+                    "Inconsistent group_id values in bonded component: "
+                    + ", ".join(group)
                 )
 
         occupied = self.conveyor + self.storage
