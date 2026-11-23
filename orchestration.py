@@ -232,6 +232,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         conveyor_observation,
         identity,
         candidates,
+        planning,
     )
     snapshot = dict(snapshot) if isinstance(snapshot, dict) else {}
     snapshot["synchronised"] = (
