@@ -59,6 +59,15 @@ class PowerUpInventory:
             errors.append("Extra Tray slot increment must be a non-negative integer or None")
         return errors
 
+    def record_level_gold_reward(self, amount):
+        """Record an observed level reward; reject guesses and malformed values."""
+        if type(amount) is not int or amount < 0:
+            raise ValueError("Level gold reward must be a non-negative integer")
+        if self.gold is None:
+            raise ValueError("Current gold balance must be observed before adding a reward")
+        self.gold += amount
+        return self.gold
+
     def can_afford(self, name):
         if name not in POWER_UPS or self.gold is None or name not in self.prices:
             return None
