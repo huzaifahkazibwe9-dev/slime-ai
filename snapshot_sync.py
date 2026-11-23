@@ -196,6 +196,14 @@ def _nested_capture_metadata_consistent(
     return True
 
 
+def _valid_sha256_snapshot_id(value):
+    """Accept only snapshot IDs derived from a full SHA-256 digest."""
+    import re
+    return isinstance(value, str) and re.fullmatch(
+        r"sha256:[0-9a-f]{64}", value
+    ) is not None
+
+
 def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     """Require every evidence artifact to name the same board capture.
 
@@ -224,6 +232,18 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
             and board_captured_at is not None
         ),
         "board_snapshot_id_present": isinstance(board_id, str) and bool(board_id),
+        "board_snapshot_id_is_sha256": _valid_sha256_snapshot_id(board_id),
+        "board_source_digest_matches_snapshot": (
+            isinstance(board, dict)
+            and (
+                board.get("source_sha256") is None
+                or (
+                    isinstance(board.get("source_sha256"), str)
+                    and _valid_sha256_snapshot_id("sha256:" + board["source_sha256"])
+                    and board_id == "sha256:" + board["source_sha256"]
+                )
+            )
+        ),
         "board_capture_session_present": (
             isinstance(board_session, str) and bool(board_session)
         ),
@@ -247,6 +267,15 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
         )
         checks[f"{name}_snapshot_matches_board"] = (
             bool(board_id) and snapshot_id == board_id
+        )
+        source_digest = artifact.get("source_sha256") if valid_object else None
+        checks[f"{name}_source_digest_matches_snapshot"] = (
+            source_digest is None
+            or (
+                isinstance(source_digest, str)
+                and _valid_sha256_snapshot_id("sha256:" + source_digest)
+                and snapshot_id == "sha256:" + source_digest
+            )
         )
         checks[f"{name}_session_present"] = (
             isinstance(session_id, str) and bool(session_id)
