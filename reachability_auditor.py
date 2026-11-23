@@ -229,8 +229,22 @@ def audit(board_data, calibration, observations):
         "positive ammunition",
     ]
 
+    from ammo_reconciliation import validate_ammo_observation
+
+    observation_lookup = {
+        item.get("position_id"): item
+        for item in observations.get("observations", [])
+        if isinstance(item, dict)
+    }
+
     for position in report["results"]:
         ammo = position.get("observed_ammo")
+        ammo_evidence = validate_ammo_observation(
+            position.get("position_id"),
+            ammo,
+            observation_lookup.get(position.get("position_id")),
+        )
+        position["ammo_evidence"] = ammo_evidence
         ammo_available = isinstance(ammo, int) and ammo > 0
 
         blockers = []
@@ -242,15 +256,19 @@ def audit(board_data, calibration, observations):
             blockers.append("GAMEPLAY_MAPPING_UNVERIFIED")
         if not ammo_available:
             blockers.append("NO_REMAINING_AMMUNITION")
+        if not ammo_evidence["verified"]:
+            blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
 
         eligible = (
             same_state
             and identity_verified
             and gameplay_verified
             and ammo_available
+            and ammo_evidence["verified"]
         )
 
         position["ammunition_available"] = ammo_available
+        position["ammunition_evidence_verified"] = ammo_evidence["verified"]
         position["planning_eligible"] = eligible
         position["planning_blockers"] = blockers
 
