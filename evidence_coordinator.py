@@ -163,7 +163,7 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None):
         "captured_at": exif_time,
         "file_modified_at": modified,
         "timestamp_identified": bool(exif_time),
-        "capture_session_id": None,
+        "capture_session_id": capture_session_id,
         "same_board_state_confirmed": False,
         "gameplay_verified": False,
         "vision_classification_verified": False,
@@ -207,5 +207,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("screenshot")
+    parser.add_argument("--capture-session-id")
     args = parser.parse_args()
-    coordinate(args.screenshot)
+    coordinate(args.screenshot, capture_session_id=args.capture_session_id)
