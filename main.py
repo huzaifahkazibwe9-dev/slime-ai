@@ -117,7 +117,10 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     if errors:
         print("Planner skipped: game state has validation errors.")
         move = None
-    elif resource_manager.can_process("ANALYSE"):
+    elif (
+        resource_manager.can_process("ANALYSE")
+        and vision_verified.get("shooter_capture_provenance_verified") is True
+    ):
         move = planner.plan_next_move(
             state,
             planning_report=planning_report,
@@ -127,6 +130,8 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
         )
     else:
         move = None
+        if vision_verified.get("shooter_capture_provenance_verified") is not True:
+            print("Planner skipped: shooter panel is not bound to this board capture.")
 
     print("Recommended candidate:", move)
     if move is None:
