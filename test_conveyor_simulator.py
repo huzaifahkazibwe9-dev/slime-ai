@@ -60,6 +60,51 @@ class ConveyorSimulatorTests(unittest.TestCase):
         self.assertFalse(sim.record_shots("single", 4))
         self.assertEqual(sim.active[0].ammo, 3)
 
+    def test_reactivation_preserves_zero_ammo_and_group_identity(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+        ], config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=2))
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(2))
+        self.assertEqual(sim.storage_occupied, 2)
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertEqual(sim.storage_occupied, 0)
+        self.assertEqual(
+            {s.shooter_id: s.ammo for s in sim.shooters},
+            {"A1": 0, "A2": 0},
+        )
+        self.assertEqual(
+            {s.group_id for s in sim.shooters},
+            {"PAIR"},
+        )
+        self.assertEqual(len(sim.active), 0)
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertEqual({s.ammo for s in sim.active}, {0})
+        self.assertEqual(len(sim.active), 2)
+
+    def test_reactivation_rejects_partial_group_without_mutation(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+        ], config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=2))
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.record_shots("A1", 0))
+        # Complete and return both, then corrupt one member's return state
+        # to model inconsistent persisted observations.
+        self.assertTrue(sim.tick(2))
+        sim.shooters[1].returned = False
+        before = (sim.storage_occupied, [
+            (x.shooter_id, x.returned, x.selected, x.ammo)
+            for x in sim.shooters
+        ])
+        self.assertFalse(sim.reactivate_group("PAIR"))
+        after = (sim.storage_occupied, [
+            (x.shooter_id, x.returned, x.selected, x.ammo)
+            for x in sim.shooters
+        ])
+        self.assertEqual(after, before)
+
     def test_report_never_enables_live_actions(self):
         sim = create_simulator([
             {"id": "single", "group_id": "single", "ammo": 3}
