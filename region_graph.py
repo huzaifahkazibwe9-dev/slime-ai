@@ -33,48 +33,42 @@ def build_region_graph(board):
             next_id += 1
             queue = deque([(r, c)])
             labels[r][c] = region_id
-            cells = []
+            region_size = 0
+            perimeter = 0
+            boundary_cell_count = 0
             min_r = max_r = r
             min_c = max_c = c
 
             while queue:
                 cr, cc = queue.popleft()
-                cells.append((cr, cc))
+                region_size += 1
                 min_r = min(min_r, cr)
                 max_r = max(max_r, cr)
                 min_c = min(min_c, cc)
                 max_c = max(max_c, cc)
+                touches_boundary = False
 
-                for nr, nc in (
-                    (cr - 1, cc), (cr + 1, cc),
-                    (cr, cc - 1), (cr, cc + 1)
-                ):
-                    if (
-                        0 <= nr < h and 0 <= nc < w
-                        and labels[nr][nc] is None
-                        and board[nr][nc] == colour
-                    ):
-                        labels[nr][nc] = region_id
-                        queue.append((nr, nc))
-
-            perimeter = 0
-            boundary_cells = set()
-            for cr, cc in cells:
                 for nr, nc in (
                     (cr - 1, cc), (cr + 1, cc),
                     (cr, cc - 1), (cr, cc + 1)
                 ):
                     if not (0 <= nr < h and 0 <= nc < w):
                         perimeter += 1
-                        boundary_cells.add((cr, cc))
+                        touches_boundary = True
                     elif board[nr][nc] != colour:
                         perimeter += 1
-                        boundary_cells.add((cr, cc))
+                        touches_boundary = True
+                    elif labels[nr][nc] is None:
+                        labels[nr][nc] = region_id
+                        queue.append((nr, nc))
+
+                if touches_boundary:
+                    boundary_cell_count += 1
 
             regions[region_id] = {
                 "id": region_id,
                 "colour": colour,
-                "size": len(cells),
+                "size": region_size,
                 "bounds": [
                     min_r,
                     min_c,
@@ -82,7 +76,7 @@ def build_region_graph(board):
                     max_c,
                 ],
                 "perimeter": perimeter,
-                "boundary_cells": len(boundary_cells),
+                "boundary_cells": boundary_cell_count,
                 "neighbors": {},
             }
 
