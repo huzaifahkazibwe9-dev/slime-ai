@@ -110,11 +110,14 @@ class ScreenshotIngestorTests(unittest.TestCase):
             ingest(
                 image_path, baseline_path, output_path,
                 capture_session_id="session-2026-11-23-A",
+                captured_at="2026-11-23T12:30:00+03:00",
             )
             result = json.loads(output_path.read_text())
             self.assertEqual(
                 result["capture_session_id"], "session-2026-11-23-A"
             )
+            self.assertEqual(result["captured_at"], "2026-11-23T12:30:00+03:00")
+            self.assertTrue(result["timestamp_identified"])
 
     def test_ingest_rejects_malformed_capture_session_id(self):
         with tempfile.TemporaryDirectory() as directory:
