@@ -35,8 +35,10 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     known_ids = set(shooter_ids)
     grouped_ids = set()
     for group_index, group in enumerate(groups):
-        if len(group) > 3:
-            raise ValueError(f"Bonded group {group_index} exceeds the maximum size of 3")
+        if len(group) < 2 or len(group) > 3:
+            raise ValueError(
+                f"Bonded group {group_index} must contain between 2 and 3 shooters"
+            )
         if any(not isinstance(member, str) or not member for member in group):
             raise ValueError(f"Bonded group {group_index} contains an invalid shooter ID")
         if len(group) != len(set(group)):
