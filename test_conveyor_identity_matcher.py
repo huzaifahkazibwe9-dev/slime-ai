@@ -3,6 +3,7 @@ import unittest
 from conveyor_identity_matcher import (
     validate_visual_observations,
     validate_visual_provenance,
+    validate_observation_provenance,
 )
 
 
@@ -34,6 +35,27 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             "timestamp_identified": True,
         }), [])
 
+
+    def test_observation_capture_mismatch_is_rejected(self):
+        visual = {
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        }
+        data = observations()
+        data[0]["board_snapshot_id"] = "sha256:" + "b" * 64
+        errors = validate_observation_provenance(data, visual)
+        self.assertTrue(any("board_snapshot_id conflicts" in item for item in errors))
+
+    def test_observation_without_duplicate_metadata_inherits_parent(self):
+        visual = {
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        }
+        self.assertEqual(validate_observation_provenance(observations(), visual), [])
 
     def test_malformed_snapshot_id_is_rejected(self):
         errors = validate_visual_provenance({
