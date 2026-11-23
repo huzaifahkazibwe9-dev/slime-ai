@@ -145,11 +145,15 @@ def main():
     args = parser.parse_args()
 
     report = json.loads(Path(args.input).read_text())
+    confidence_snapshot_id = None
+    confidence_snapshot_match_verified = False
     if args.board:
         source = json.loads(Path(args.board).read_text())
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
         confidence_matrix = observation_confidence(source["board"])
+        confidence_snapshot_id = source_snapshot_id
+        confidence_snapshot_match_verified = True
     else:
         board_data = load_board()
         confidence_matrix = board_data.get("confidence")
@@ -158,6 +162,11 @@ def main():
         raise ValueError("No board confidence data is available")
 
     report = annotate_report(report, confidence_matrix)
+    report["confidence_audit"]["source_snapshot_id"] = confidence_snapshot_id
+    report["confidence_audit"]["snapshot_match_verified"] = (
+        confidence_snapshot_match_verified
+        and confidence_snapshot_id == report.get("board_snapshot_id")
+    )
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2))
