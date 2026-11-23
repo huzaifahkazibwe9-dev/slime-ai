@@ -57,6 +57,31 @@ def resolve_candidate_report_path(data_dir, explicit_path=None):
     return root / candidates[0], "missing"
 
 
+
+def _capture_metadata_matches(planning, identity, snapshot, candidates):
+    sources = (planning, identity, snapshot, candidates)
+    if not all(isinstance(item, dict) for item in sources):
+        return False
+    fingerprint = identity.get("board_snapshot_id")
+    session = identity.get("capture_session_id")
+    captured = identity.get("captured_at")
+    if not _valid_snapshot_fingerprint(fingerprint) or not _valid_capture_session_id(session) or not _valid_aware_capture_timestamp(captured):
+        return False
+    base_time = datetime.fromisoformat(captured.replace("Z", "+00:00"))
+    for source in (planning, snapshot, candidates):
+        source_time_text = source.get("captured_at")
+        if (
+            source.get("board_snapshot_id") != fingerprint
+            or source.get("capture_session_id") != session
+            or source.get("timestamp_identified") is not True
+            or not _valid_aware_capture_timestamp(source_time_text)
+        ):
+            return False
+        source_time = datetime.fromisoformat(source_time_text.replace("Z", "+00:00"))
+        if abs((source_time - base_time).total_seconds()) > 120:
+            return False
+    return True
+
 def evidence_status(planning, identity, snapshot, candidates):
     checks = {
         "planning_report_present": isinstance(planning, dict),
@@ -116,6 +141,9 @@ def evidence_status(planning, identity, snapshot, candidates):
         "candidate_capture_provenance_verified": (
             isinstance(candidates, dict)
             and candidates.get("candidate_provenance_verified") is True
+        ),
+        "all_evidence_sources_share_capture": _capture_metadata_matches(
+            planning, identity, snapshot, candidates
         ),
     }
     return {
