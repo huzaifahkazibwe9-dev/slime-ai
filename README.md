@@ -26,6 +26,25 @@ It does not tap the game, start background loops, or change MacroDroid settings.
 
 ## Manual workflow
 
+For a same-capture board/shooter run, create the local, ignored file
+`data/shooter_capture_config.json` with the actual shooter-panel bounds in
+full-screenshot coordinates, a session label, and the screenshot capture time:
+
+```json
+{
+  "panel_bounds": [LEFT, TOP, RIGHT, BOTTOM],
+  "capture_session_id": "level39-session-01",
+  "captured_at": "2026-11-23T12:30:00+03:00"
+}
+```
+
+Replace the four coordinate placeholders with integer values. The timestamp
+must be the real capture time and include its UTC offset. The session label
+must identify that capture; do not reuse it for a different screenshot.
+When this file exists, the build pipeline ingests the board and generates the
+shooter panel from the same source screenshot. Without it, legacy detection is
+kept diagnostic-only and the evidence gate blocks planning.
+
 1. Ingest a complete game screenshot:
    `python screenshot_ingestor.py screenshots/level39.jpg`
 2. If the panel crop is available, refresh shooter detection:
