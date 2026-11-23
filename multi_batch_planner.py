@@ -74,6 +74,14 @@ def simulate_batch_schedule(
             reject("GROUP_NOT_PREVIOUSLY_SCHEDULED")
             break
 
+        if any(g in seen for g in requested):
+            reject("GROUP_SCHEDULED_MORE_THAN_ONCE")
+            break
+        if any(any(by_id[mid].selected for mid in groups[g])
+               for g in requested):
+            reject("GROUP_ALREADY_ON_CONVEYOR_OR_RETURNED")
+            break
+
         # Preflight the entire transition before mutating simulator state.
         # Multiple reactivations and newly selected groups share one capacity
         # budget; checking each group against the same free count is unsafe.
@@ -128,14 +136,6 @@ def simulate_batch_schedule(
                 break
             seen.remove(group_id)
         if not valid:
-            break
-
-        if any(g in seen for g in requested):
-            reject("GROUP_SCHEDULED_MORE_THAN_ONCE")
-            break
-        if any(any(by_id[mid].selected for mid in groups[g])
-               for g in requested):
-            reject("GROUP_ALREADY_ON_CONVEYOR_OR_RETURNED")
             break
 
         needed = sum(len(groups[g]) for g in requested)
