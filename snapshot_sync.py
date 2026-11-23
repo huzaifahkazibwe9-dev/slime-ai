@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,9 +24,19 @@ def validate_capture_freshness(board_timestamp, observation_timestamp,
                                now=None, max_age_seconds=300,
                                max_skew_seconds=120):
     """Require timezone-aware, recent capture times with limited clock skew."""
-    now = now or datetime.now(timezone.utc)
-    if now.tzinfo is None or now.utcoffset() is None:
-        raise ValueError("now must be timezone-aware")
+    now = datetime.now(timezone.utc) if now is None else now
+    if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("now must be a timezone-aware datetime")
+    for name, value in (
+        ("max_age_seconds", max_age_seconds),
+        ("max_skew_seconds", max_skew_seconds),
+    ):
+        if (
+            type(value) not in (int, float)
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise ValueError(f"{name} must be a finite non-negative number")
     board_time = _parse_aware_timestamp(board_timestamp)
     observation_time = _parse_aware_timestamp(observation_timestamp)
     checks = {
@@ -67,6 +78,8 @@ def validate_capture_freshness(board_timestamp, observation_timestamp,
 
 
 def synchronise_audit(board, observations):
+    if not isinstance(board, dict) or not isinstance(observations, dict):
+        raise ValueError("Board and observation metadata must be JSON objects")
     board_id = board.get("snapshot_id")
     observation_board_id = observations.get("board_snapshot_id")
 
