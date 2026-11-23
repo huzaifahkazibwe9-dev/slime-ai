@@ -80,7 +80,7 @@ class DynamicBoardTests(unittest.TestCase):
     def test_reports_region_graph_and_shot_profiling(self):
         report = simulate_dynamic_board(self.make_state([["red", "red", "red"]]), "S1")
         metrics = report["performance"]
-        self.assertGreater(metrics["region_graph_build_calls"], 0)
+        self.assertEqual(metrics["region_graph_build_calls"], 4)
         self.assertGreaterEqual(metrics["region_graph_build_seconds"], 0)
         self.assertGreaterEqual(metrics["shot_simulation_seconds"], 0)
         self.assertGreaterEqual(metrics["lane_inspection_seconds"], 0)
