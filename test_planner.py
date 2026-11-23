@@ -4,7 +4,7 @@ from planner import plan_next_move
 
 
 def make_state():
-    return GameState(
+    state = GameState(
         board=[["red", "blue"], ["green", "red"]],
         level=39,
         shooters={
@@ -13,6 +13,8 @@ def make_state():
             "C": Shooter("C", "green", 10, accessible=False),
         },
     )
+    state.snapshot_id = "snap-39"
+    return state
 
 
 def make_evidence():
@@ -155,6 +157,16 @@ class PlannerEvidenceTests(unittest.TestCase):
         e = list(make_evidence())
         e[3]["synchronised"] = False
         self.assertIsNone(run_plan(e))
+
+    def test_loaded_board_snapshot_mismatch_rejected(self):
+        state = make_state()
+        state.snapshot_id = "different-board"
+        self.assertIsNone(plan_next_move(state, *make_evidence()))
+
+    def test_loaded_board_snapshot_missing_rejected(self):
+        state = make_state()
+        del state.snapshot_id
+        self.assertIsNone(plan_next_move(state, *make_evidence()))
 
     def test_snapshot_id_mismatch_rejected(self):
         e = list(make_evidence())
