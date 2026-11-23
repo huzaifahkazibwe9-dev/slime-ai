@@ -56,37 +56,46 @@ class SnapshotSyncTests(unittest.TestCase):
         return board, *artifacts
 
     def test_bundle_requires_all_artifacts_from_same_capture(self):
-        board, conveyor, identity, candidates = self.bundle()
-        result = synchronise_bundle(board, conveyor, identity, candidates)
+        board, conveyor, identity, candidates, planning = self.bundle()
+        result = synchronise_bundle(board, conveyor, identity, candidates, planning)
         self.assertTrue(result["synchronised"])
         self.assertTrue(result["planning_allowed_by_sync"])
         self.assertFalse(result["game_taps_enabled"])
 
     def test_bundle_rejects_mixed_screenshot_snapshot(self):
-        board, conveyor, identity, candidates = self.bundle()
+        board, conveyor, identity, candidates, planning = self.bundle()
         identity["board_snapshot_id"] = "different-screenshot"
-        result = synchronise_bundle(board, conveyor, identity, candidates)
+        result = synchronise_bundle(board, conveyor, identity, candidates, planning)
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["planning_allowed_by_sync"])
         self.assertFalse(result["checks"]["identity_snapshot_matches_board"])
 
     def test_bundle_rejects_mixed_capture_session(self):
-        board, conveyor, identity, candidates = self.bundle()
+        board, conveyor, identity, candidates, planning = self.bundle()
         candidates["capture_session_id"] = "other-session"
-        result = synchronise_bundle(board, conveyor, identity, candidates)
+        result = synchronise_bundle(board, conveyor, identity, candidates, planning)
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["checks"]["candidates_session_matches_board"])
 
     def test_bundle_rejects_missing_provenance(self):
-        board, conveyor, identity, candidates = self.bundle()
+        board, conveyor, identity, candidates, planning = self.bundle()
         del conveyor["board_snapshot_id"]
-        result = synchronise_bundle(board, conveyor, identity, candidates)
+        result = synchronise_bundle(board, conveyor, identity, candidates, planning)
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["checks"]["conveyor_snapshot_id_present"])
 
+    def test_bundle_rejects_planning_from_different_capture(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        planning["capture_session_id"] = "stale-session"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(result["checks"]["planning_session_matches_board"])
+
     def test_bundle_rejects_missing_artifact(self):
-        board, conveyor, identity, _ = self.bundle()
-        result = synchronise_bundle(board, conveyor, identity, None)
+        board, conveyor, identity, _, planning = self.bundle()
+        result = synchronise_bundle(board, conveyor, identity, None, planning)
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["checks"]["candidates_artifact_present"])
 
