@@ -169,20 +169,32 @@ class GameState:
         ]
 
     def bonded_group(self, shooter_id):
-        shooter = self.shooters.get(shooter_id)
-
-        if shooter is None:
+        """Return the full connected bonded component, in stable order."""
+        if shooter_id not in self.shooters:
             return []
 
-        group = [shooter_id] + list(shooter.bonded_ids)
+        pending = [shooter_id]
+        visited = set()
+        ordered = []
 
-        if any(member not in self.shooters for member in group):
-            return []
+        while pending:
+            current = pending.pop(0)
+            if current in visited:
+                continue
+            shooter = self.shooters.get(current)
+            if shooter is None:
+                return []
+            visited.add(current)
+            ordered.append(current)
+            for member in shooter.bonded_ids:
+                if member not in self.shooters:
+                    return []
+                if member not in visited and member not in pending:
+                    pending.append(member)
+            if len(visited) > 3:
+                return []
 
-        if len(group) > 3:
-            return []
-
-        return group
+        return ordered
 
     def can_select_group(self, shooter_id):
         group = self.bonded_group(shooter_id)
@@ -241,6 +253,24 @@ class GameState:
                     errors.append(
                         f"Asymmetric bond: {shooter_id} and {member}"
                     )
+
+        # A bonded component is one atomic selectable unit. Validate the
+        # whole connected component, not just each shooter's direct links.
+        checked_groups = set()
+        for shooter_id in self.shooters:
+            if shooter_id in checked_groups:
+                continue
+            group = self.bonded_group(shooter_id)
+            if not group:
+                # Missing references and oversized components are already
+                # reported by the per-edge checks below / above.
+                continue
+            checked_groups.update(group)
+            if len(group) > 3:
+                errors.append(
+                    "Bonded group exceeds maximum size of 3: "
+                                       + ", ".join(group)
+                )
 
         occupied = self.conveyor + self.storage
 
