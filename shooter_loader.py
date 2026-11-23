@@ -62,11 +62,15 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     geometry_observations = geometry_observations or {}
 
     group_lookup = {}
+    bonded_lookup = {}
 
     for index, group in enumerate(groups, start=1):
         group_id = f"bond_{index}"
         for shooter_id in group:
             group_lookup[shooter_id] = group_id
+            bonded_lookup[shooter_id] = [
+                member for member in group if member != shooter_id
+            ]
 
     shooters = {}
 
@@ -81,7 +85,8 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
             color=color_data["name"],
             ammo=item["ammo"],
             accessible=False,
-            bonded_ids=item.get("bonded_ids", []),
+            # Derive bonds from the validated group list, not duplicated JSON fields.
+            bonded_ids=bonded_lookup.get(shooter_id, []),
             group_id=group_lookup.get(shooter_id),
             # Detection coordinates belong to the selection panel.
             panel_center=tuple(center) if center else None,
