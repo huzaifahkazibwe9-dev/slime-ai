@@ -1,5 +1,6 @@
 """Build11AE: dynamic board simulation connected to multi-batch scheduling."""
 import copy
+import time
 
 from game_state import GameState
 from bonded_group_simulator import simulate_bonded_group
@@ -66,8 +67,17 @@ def simulate_dynamic_multi_batch(
         }
 
     config = config or SimulatorConfig()
-    original = copy.deepcopy(state)
-    working = copy.deepcopy(state)
+    performance = {"deepcopy_calls": 0, "deepcopy_seconds": 0.0, "group_simulation_calls": 0, "group_simulation_seconds": 0.0, "scheduler_seconds": 0.0}
+
+    def clone(value):
+        started = time.perf_counter()
+        result = copy.deepcopy(value)
+        performance["deepcopy_calls"] += 1
+        performance["deepcopy_seconds"] += time.perf_counter() - started
+        return result
+
+    original = clone(state)
+    working = clone(state)
     group_roots = _group_index(state)
     prepared_batches = []
     group_reports = []
@@ -95,7 +105,7 @@ def simulate_dynamic_multi_batch(
         # cannot become selectable until the next batch boundary.
         batch_accessible = None
         if accessibility_resolver is not None:
-            observed = accessibility_resolver(copy.deepcopy(working))
+            observed = accessibility_resolver(clone(working))
             batch_accessible = normalize_accessible_ids(observed)
 
         calculated_shots = {}
@@ -127,7 +137,7 @@ def simulate_dynamic_multi_batch(
 
             # The conveyor scheduler independently checks capacity and
             # batch legality. This isolated copy is used only for board math.
-            isolated = copy.deepcopy(working)
+            isolated = clone(working)
             isolated.conveyor = []
             isolated.storage = []
             if batch_accessible is not None:
@@ -144,7 +154,10 @@ def simulate_dynamic_multi_batch(
                 for shooter_id, shooter in isolated.shooters.items():
                     shooter.accessible = str(shooter_id) in batch_accessible
 
+            simulation_started = time.perf_counter()
             group_report = simulate_bonded_group(isolated, root)
+            performance["group_simulation_calls"] += 1
+            performance["group_simulation_seconds"] += time.perf_counter() - simulation_started
             if group_report.get("status") != "SIMULATED":
                 failure = {
                     "reason": "DYNAMIC_GROUP_SIMULATION_FAILED",
@@ -181,7 +194,7 @@ def simulate_dynamic_multi_batch(
                 "after_batch": batch_index,
                 "after_group": group_id,
                 "remaining_pixels": working.remaining_pixels,
-                "board": copy.deepcopy(working.board),
+                "board": clone(working.board),
             })
 
         if failure:
@@ -218,16 +231,20 @@ def simulate_dynamic_multi_batch(
             "game_taps_enabled": False,
         }
 
+    scheduler_started = time.perf_counter()
     schedule = run_multi_batch_schedule(
         state,
         prepared_batches,
         config=config,
         allow_storage_reactivation=allow_storage_reactivation,
     )
+    performance["scheduler_seconds"] = time.perf_counter() - scheduler_started
+    performance = {**{key: round(value, 6) if key.endswith("_seconds") else value for key, value in performance.items()}, "timing_clock": "time.perf_counter", "note": "Local simulation profiling only; not gameplay latency."}
 
     unchanged = state == original
     return {
         "engine": "build11ae_dynamic_multi_batch",
+        "performance": performance,
         "status": (
             "SIMULATED"
             if schedule.get("schedule_valid")
