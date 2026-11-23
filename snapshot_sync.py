@@ -125,7 +125,12 @@ def synchronise_audit(board, observations):
 
 
 
-def _nested_capture_metadata_consistent(artifact, require_metadata=False):
+def _nested_capture_metadata_consistent(
+    artifact,
+    require_metadata=False,
+    require_observations=False,
+    require_tracks=False,
+):
     """Check nested visual records cannot contradict their parent capture."""
     if not isinstance(artifact, dict):
         return False
@@ -165,6 +170,8 @@ def _nested_capture_metadata_consistent(artifact, require_metadata=False):
                 return False
         return True
 
+    if require_observations and "observations" not in artifact:
+        return False
     if "observations" in artifact:
         observations = artifact.get("observations")
         if not isinstance(observations, list) or not observations:
@@ -172,6 +179,8 @@ def _nested_capture_metadata_consistent(artifact, require_metadata=False):
         if not all(check_record(item, require_metadata) for item in observations):
             return False
 
+    if require_tracks and "tracks" not in artifact:
+        return False
     if "tracks" in artifact:
         tracks = artifact.get("tracks")
         if not isinstance(tracks, dict) or not tracks:
@@ -260,6 +269,8 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
                 _nested_capture_metadata_consistent(
                     artifact,
                     require_metadata=(name == "candidates"),
+                    require_observations=(name == "conveyor"),
+                    require_tracks=(name == "candidates"),
                 )
             )
 
