@@ -194,6 +194,7 @@ def _verified_group(state, group, report, mapping):
             item.get("planning_eligible") is not True
             or item.get("geometrically_reachable") is not True
             or item.get("ammunition_available") is not True
+            or item.get("ammunition_evidence_verified") is not True
             or type(item.get("observed_ammo")) is not int
             or item["observed_ammo"] <= 0
             or type(item.get("exposed_matching_count")) is not int
