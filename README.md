@@ -97,6 +97,18 @@ existing first-row OCR path is used, and lower-row ammunition is not inferred.
 The fixed grid and its offsets still require validation against the complete
 panel in a real capture.
 
+## Low-confidence shooter filtering
+
+New shooter-panel observations include a local sample-quality status. When a
+sample is labelled `LOW_CONFIDENCE_SAMPLE`, the screenshot loader excludes
+that shooter from the candidate game state rather than treating a background
+or noisy patch as a reliable colour. If that shooter belongs to a confirmed
+bonded group, the entire group is withheld rather than loading an incomplete
+group. Legacy shooter files without the optional quality field remain
+compatible. This is a conservative input filter, not proof of shooter
+identity, accessibility, or correct colour mapping; gameplay and tap gates
+remain disabled.
+
 ## Bonded-shooter confirmation
 
 The detector does not infer bonded relationships from fixed screen positions.
