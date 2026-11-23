@@ -206,8 +206,15 @@ def audit(board_data, calibration, observations):
         and observations.get("timestamp_identified", False)
     )
 
+    from snapshot_sync import validate_capture_freshness
+
+    capture_freshness = validate_capture_freshness(
+        board_data.get("captured_at"),
+        observations.get("captured_at"),
+    )
     same_state = (
         timestamps_known
+        and capture_freshness["fresh"]
         and bool(board_id)
         and board_id == observation_board_id
         and observations.get("same_board_state_confirmed", False)
@@ -221,6 +228,7 @@ def audit(board_data, calibration, observations):
     )
 
     report["board_timestamp_identified"] = timestamps_known
+    report["capture_freshness"] = capture_freshness
     report["same_board_state_confirmed"] = same_state
     report["planning_eligibility_requires"] = [
         "matching board and observation snapshot",
