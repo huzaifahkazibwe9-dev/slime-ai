@@ -186,7 +186,9 @@ class GameState:
                 return []
             visited.add(current)
             ordered.append(current)
-            for member in shooter.bonded_ids:
+            # Older planner fixtures may use lightweight shooter objects
+            # without an explicit bond list; treat those as unbonded singles.
+            for member in getattr(shooter, "bonded_ids", ()):
                 if member not in self.shooters:
                     return []
                 if member not in visited and member not in pending:
@@ -206,9 +208,9 @@ class GameState:
         if not members:
             return None
         explicit = {
-            str(self.shooters[member].group_id)
+            str(getattr(self.shooters[member], "group_id", None))
             for member in members
-            if self.shooters[member].group_id is not None
+            if getattr(self.shooters[member], "group_id", None) is not None
         }
         if len(explicit) > 1:
             return None
