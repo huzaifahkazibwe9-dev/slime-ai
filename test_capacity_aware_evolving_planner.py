@@ -98,7 +98,7 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
         state = make_state()
         from evolving_board_planner import plan_evolving_board
         board_plan = plan_evolving_board(state, max_nodes=20, beam_width=10)
-        state.remaining_pixels += 1
+        state.board[0][0] = None
         with self.assertRaisesRegex(ValueError, "does not match"):
             plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
 
