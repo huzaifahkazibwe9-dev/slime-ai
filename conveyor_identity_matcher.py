@@ -1,6 +1,9 @@
 import json
+import re
 from datetime import datetime
 from pathlib import Path
+
+from capture_provenance import validate_capture_session_id
 
 DATA = Path("data")
 ORDER = ["bottom", "right", "top", "left"]
@@ -59,10 +62,17 @@ def validate_visual_provenance(visual):
     if not isinstance(visual, dict):
         return ["Visual observation artifact must be an object"]
     errors = []
-    for key in ("board_snapshot_id", "capture_session_id"):
-        value = visual.get(key)
-        if not isinstance(value, str) or not value.strip():
-            errors.append(f"Missing or invalid {key}")
+    snapshot_id = visual.get("board_snapshot_id")
+    if not isinstance(snapshot_id, str) or not re.fullmatch(
+        r"sha256:[0-9a-f]{64}", snapshot_id
+    ):
+        errors.append("Missing or invalid board_snapshot_id")
+    try:
+        validate_capture_session_id(visual.get("capture_session_id"))
+    except ValueError:
+        errors.append("Missing or invalid capture_session_id")
+    if visual.get("capture_session_id") is None:
+        errors.append("Missing or invalid capture_session_id")
     captured_at = visual.get("captured_at")
     if not isinstance(captured_at, str) or not captured_at.strip():
         errors.append("Missing capture timestamp")
