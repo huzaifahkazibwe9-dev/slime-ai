@@ -13,7 +13,11 @@ def make_report():
         "capture_session_id": "capture-1",
         "conveyor_identity_verified": False,
         "gameplay_verified": False,
-        "confidence_audit": {"game_taps_enabled": False},
+        "confidence_audit": {
+            "game_taps_enabled": False,
+            "source_snapshot_id": "board-1",
+            "snapshot_match_verified": True,
+        },
         "results": [{
             "position_id": "left_2",
             "observed_ammo": 0,
@@ -51,6 +55,16 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report)
         self.assertIn(
             "CAPTURE_TIMESTAMPS_NOT_FRESH_AND_ALIGNED",
+            result["results"][0]["blockers"],
+        )
+        self.assertFalse(result["results"][0]["planning_eligible"])
+
+    def test_unmatched_confidence_snapshot_rejected(self):
+        report = make_report()
+        report["confidence_audit"]["source_snapshot_id"] = "different-board"
+        result = evaluate_planning(report)
+        self.assertIn(
+            "CONFIDENCE_BOARD_SNAPSHOT_UNVERIFIED",
             result["results"][0]["blockers"],
         )
         self.assertFalse(result["results"][0]["planning_eligible"])
