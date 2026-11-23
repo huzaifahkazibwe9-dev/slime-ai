@@ -121,6 +121,44 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_ammo_reading_without_explicit_provenance_is_unverified(self):
+        board = [["white"] for _ in range(3)]
+        board_data = {
+            "board": board,
+            "snapshot_id": "board-1",
+            "timestamp_identified": True,
+        }
+        calibration = {
+            "verified_by_user": True,
+            "image_size": [1080, 2220],
+            "shooters": [{
+                "id": "top_1",
+                "segment": "top",
+                "center": [500, 179],
+            }],
+        }
+        observations = {
+            "observations": [{
+                "position_id": "top_1",
+                "colour": "white",
+                "ammo": 5,
+            }],
+            "timestamp_identified": True,
+            "identity_verified": True,
+            "gameplay_verified": True,
+            "board_snapshot_id": "board-1",
+            "same_board_state_confirmed": True,
+        }
+        report = audit(board_data, calibration, observations)
+        position = report["results"][0]
+        self.assertFalse(position["ammo_evidence"]["verified"])
+        self.assertFalse(position["ammunition_evidence_verified"])
+        self.assertFalse(position["planning_eligible"])
+        self.assertIn(
+            "AMMUNITION_OBSERVATION_UNVERIFIED",
+            position["planning_blockers"],
+        )
+
     def test_cli_traces_screenshot_observation_without_unlocking_planning(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
