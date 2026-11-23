@@ -51,6 +51,10 @@ def simulate_dynamic_multi_batch(
             "failure": {
                 "reason": "DYNAMIC_STORAGE_REACTIVATION_NOT_SUPPORTED",
             },
+            "simulation_complete": False,
+            "full_level_complete": False,
+            "live_level_completion_verified": False,
+            "conveyor_timing_calibrated": False,
             "source_state_unchanged": True,
             "source_state_integrity_checked": True,
             "simulation_complete": False,
