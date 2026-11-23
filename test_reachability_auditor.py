@@ -1,6 +1,12 @@
 import json
+import runpy
+import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from reachability_auditor import audit, trace_lane
 
@@ -114,6 +120,79 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(report["same_board_state_confirmed"])
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
+
+    def test_cli_traces_screenshot_observation_without_unlocking_planning(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            board = [["white"] * 35 for _ in range(35)]
+            board[2][15] = "red"
+            rgb = [
+                [[245, 245, 245] for _ in range(35)]
+                for _ in range(35)
+            ]
+            rgb[2][15] = [230, 30, 30]
+            counts = {"white": 1224, "red": 1}
+            board_data = {
+                "image_size": [1080, 2220],
+                "grid_size": [35, 35],
+                "bounds": [201, 431, 881, 1113],
+                "board": board,
+                "raw_rgb": rgb,
+                "counts": counts,
+                "source_sha256": "e" * 64,
+                "snapshot_id": "sha256:" + "e" * 64,
+                "timestamp_identified": False,
+                "gameplay_verified": False,
+                "vision_classification_verified": False,
+                "game_taps_enabled": False,
+            }
+            calibration = {
+                "verified_by_user": True,
+                "image_size": [1080, 2220],
+                "shooters": [{
+                    "id": "top_1",
+                    "segment": "top",
+                    "center": [500, 179],
+                }],
+                "directions": {"top": "down"},
+            }
+            observations = {
+                "observations": [{
+                    "position_id": "top_1",
+                    "colour": "white",
+                    "ammo": 40,
+                }],
+                "timestamp_identified": False,
+                "identity_verified": False,
+                "gameplay_verified": False,
+                "board_snapshot_id": None,
+                "same_board_state_confirmed": False,
+            }
+            board_path = root / "board.json"
+            calibration_path = root / "calibration.json"
+            observations_path = root / "observations.json"
+            output_path = root / "report.json"
+            board_path.write_text(json.dumps(board_data))
+            calibration_path.write_text(json.dumps(calibration))
+            observations_path.write_text(json.dumps(observations))
+
+            argv = [
+                "reachability_auditor.py",
+                "--board", str(board_path),
+                "--calibration", str(calibration_path),
+                "--observations", str(observations_path),
+                "--output", str(output_path),
+            ]
+            output = StringIO()
+            with patch.object(sys, "argv", argv), redirect_stdout(output):
+                runpy.run_module("reachability_auditor", run_name="__main__")
+
+            report = json.loads(output_path.read_text())
+            self.assertEqual(report["board_snapshot_id"], board_data["snapshot_id"])
+            self.assertEqual(report["planning_ready_positions"], 0)
+            self.assertFalse(report["gameplay_verified"])
+            self.assertFalse(report["game_taps_enabled"])
+            self.assertIn("Board colour truth verified: False", output.getvalue())
 
     @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_actual_level39_has_eight_positions(self):
