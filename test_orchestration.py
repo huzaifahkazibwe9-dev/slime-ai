@@ -152,6 +152,54 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(result["full_level_complete"])
         self.assertFalse(result["game_taps_enabled"])
 
+    def test_capacity_aware_diagnostic_is_fail_closed(self):
+        from orchestration import run_capacity_aware_evolving_diagnostic
+        import capacity_aware_evolving_planner
+        state = GameState([["red"]])
+        simulated = {
+            "engine": "test_capacity",
+            "status": "SIMULATED_SCHEDULE_COMPLETE",
+            "board_plan": {"sequence": [{"group_id": "A"}]},
+            "batches": [{"groups": ["A"]}],
+            "schedule_valid": True,
+            "initial_pixels": 1,
+            "simulated_pixels_removed": 1,
+            "simulated_remaining_pixels": 0,
+            "board_cleared": True,
+            "known_group_count": 1,
+            "planned_group_count": 1,
+            "unplanned_group_ids": [],
+            "full_level_complete": True,
+            "blockers": [],
+            "source_state_unchanged": True,
+            "limitations": [],
+        }
+        with patch.object(
+            capacity_aware_evolving_planner,
+            "plan_capacity_aware_evolving_schedule",
+            return_value=simulated,
+        ) as planner:
+            result = run_capacity_aware_evolving_diagnostic(state)
+        planner.assert_called_once()
+        self.assertIsNone(planner.call_args.kwargs["accessibility_resolver"])
+        self.assertTrue(result["schedule_valid"])
+        self.assertFalse(result["full_level_complete"])
+        self.assertFalse(result["evidence_verified"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_capacity_aware_diagnostic_fails_closed(self):
+        from orchestration import run_capacity_aware_evolving_diagnostic
+        import capacity_aware_evolving_planner
+        with patch.object(
+            capacity_aware_evolving_planner,
+            "plan_capacity_aware_evolving_schedule",
+            side_effect=RuntimeError("synthetic failure"),
+        ):
+            result = run_capacity_aware_evolving_diagnostic(GameState([["red"]]))
+        self.assertEqual(result["status"], "CAPACITY_AWARE_DIAGNOSTIC_ERROR")
+        self.assertFalse(result["full_level_complete"])
+        self.assertFalse(result["game_taps_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()
