@@ -181,8 +181,9 @@ def main():
     parser.add_argument("screenshot", help="Path to a complete game screenshot")
     parser.add_argument("--baseline", default=str(BASELINE))
     parser.add_argument("--output", default=str(OUTPUT))
+    parser.add_argument("--capture-session-id")
     args = parser.parse_args()
-    ingest(args.screenshot, args.baseline, args.output)
+    ingest(args.screenshot, args.baseline, args.output, args.capture_session_id)
 
 
 if __name__ == "__main__":
