@@ -54,12 +54,29 @@ class ControllerTests(unittest.TestCase):
                 result = controller.execute("PLAN")
 
         self.assertTrue(result["accepted"])
-        self.assertTrue(result["plan_available"])
-        self.assertEqual(result["recommended_group"], ["A", "B"])
+        self.assertFalse(result["plan_available"])
+        self.assertIsNone(result["recommended_group"])
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(result["touch_events_sent"])
         self.assertFalse(result["live_execution_allowed"])
         run.assert_called_once()
+
+    def test_controller_hides_candidate_when_evidence_gate_fails(self):
+        fake_report = {
+            "planner": {"recommended_group": ["A"]},
+            "decision": "BLOCKED_NO_VERIFIED_PLAN",
+            "evidence": {"evidence_gate_passed": False},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            controller = SlimeController(data_dir=directory)
+            with patch(
+                "orchestration.run_orchestration",
+                return_value=fake_report,
+            ):
+                result = controller.execute("PLAN")
+        self.assertFalse(result["plan_available"])
+        self.assertIsNone(result["recommended_group"])
+        self.assertFalse(result["evidence_gate_passed"])
 
     def test_no_candidate_is_reported_as_no_plan(self):
         fake_report = {
@@ -85,6 +102,7 @@ class ControllerTests(unittest.TestCase):
             report_path.write_text(json.dumps({
                 "gameplay_ready": True,
                 "game_taps_enabled": True,
+                "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
                 "evidence": {"evidence_gate_passed": True},
                 "planner": {"recommended_group": ["A"]},
             }))
