@@ -312,6 +312,30 @@ class SnapshotSyncTests(unittest.TestCase):
             result["checks"]["planning_source_digest_matches_snapshot"]
         )
 
+    def test_capture_freshness_rejects_invalid_thresholds(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        for value in (-1, True, float("nan"), float("inf"), "300"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    validate_capture_freshness(
+                        "2026-11-23T09:59:00+00:00",
+                        "2026-11-23T09:59:30+00:00",
+                        now=now,
+                        max_age_seconds=value,
+                    )
+
+    def test_capture_freshness_rejects_invalid_now(self):
+        from snapshot_sync import validate_capture_freshness
+        with self.assertRaisesRegex(ValueError, "timezone-aware datetime"):
+            validate_capture_freshness("x", "y", now="not-a-datetime")
+
+    def test_sync_audit_rejects_non_object_metadata(self):
+        for board, observations in (([], {}), ({}, []), (None, {})):
+            with self.subTest(board=board, observations=observations):
+                with self.assertRaisesRegex(ValueError, "JSON objects"):
+                    synchronise_audit(board, observations)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
