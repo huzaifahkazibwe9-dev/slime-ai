@@ -23,11 +23,9 @@ def _collect_groups(state):
         if any(member not in state.shooters for member in group):
             continue
 
-        root_shooter = state.shooters[group[0]]
-        group_id = str(
-            getattr(root_shooter, "group_id", None)
-            or min(group)
-        )
+        group_id = state.bonded_group_id(group[0])
+        if group_id is None or set(group) != set(state.bonded_group(group[0])):
+            continue
 
         if group_id in seen:
             continue
@@ -50,13 +48,11 @@ def _collect_groups(state):
 
 def _all_known_group_ids(state):
     """Return every bonded-group identity represented in the loaded state."""
-    result = set()
-    for shooter_id, shooter in state.shooters.items():
-        members = [str(shooter_id)] + [
-            str(member) for member in getattr(shooter, "bonded_ids", [])
-        ]
-        result.add(str(getattr(shooter, "group_id", None) or min(members)))
-    return result
+    return {
+        group_id
+        for shooter_id in state.shooters
+        if (group_id := state.bonded_group_id(shooter_id)) is not None
+    }
 
 def _pack_batches(ordered_groups, initial_free, config):
     """Pack whole bonded groups without exceeding conveyor capacity."""
