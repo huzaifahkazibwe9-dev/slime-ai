@@ -103,8 +103,13 @@ def read_ammunition(image, box, temp):
     digits = re.findall(r"\d+", result.stdout)
     return int(digits[0]) if len(digits)==1 else None
 
-def verify_panel_crop(source_path, panel_path, bounds, tolerance=8):
-    """Verify that a panel crop corresponds to a region of one full screenshot."""
+def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
+    """Verify a panel image against a region of the full source screenshot.
+
+    Resizing and JPEG recompression are expected in the panel-crop workflow.
+    The crop's aspect ratio must remain calibrated, and pixel differences are
+    bounded using robust mean and 99th-percentile thresholds.
+    """
     if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
             or any(type(v) is not int for v in bounds)):
         raise ValueError("Panel bounds must be four integer coordinates")
@@ -116,16 +121,26 @@ def verify_panel_crop(source_path, panel_path, bounds, tolerance=8):
                 and 0 <= top < bottom <= source.height):
             raise ValueError("Panel bounds are outside the source screenshot")
         crop = source.crop((left, top, right, bottom))
+        expected_ratio = crop.width / crop.height
+        actual_ratio = panel.width / panel.height
+        if abs(expected_ratio - actual_ratio) / expected_ratio > 0.02:
+            raise ValueError("Panel crop aspect ratio does not match source region")
         if crop.size != panel.size:
-            raise ValueError("Panel crop dimensions do not match source region")
+            crop = crop.resize(panel.size, Image.Resampling.LANCZOS)
         delta = np.abs(
             np.asarray(crop, dtype=np.int16)
             - np.asarray(panel, dtype=np.int16)
         )
-        if delta.size and int(delta.max()) > tolerance:
-            raise ValueError("Panel image does not match the supplied screenshot region")
+        if delta.size:
+            mean_difference = float(delta.mean())
+            percentile_difference = float(np.percentile(delta, 99))
+            if (mean_difference > mean_tolerance
+                    or percentile_difference > percentile_tolerance):
+                raise ValueError(
+                    "Panel image does not match the supplied screenshot region "
+                    f"(mean={mean_difference:.2f}, p99={percentile_difference:.2f})"
+                )
     return hashlib.sha256(Path(source_path).read_bytes()).hexdigest()
-
 
 def main():
     parser = argparse.ArgumentParser()
