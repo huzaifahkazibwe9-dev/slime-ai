@@ -192,6 +192,10 @@ class PlanningGateTests(unittest.TestCase):
         )
         self.assertTrue(result["results"][0]["planning_eligible"])
         self.assertEqual(result["counts"]["eligible_scenarios"], 1)
+        self.assertTrue(result["planning_evidence_verified"])
+        self.assertFalse(result["planning_evidence_verified"])
+        self.assertFalse(result["gameplay_verified"])
+        self.assertFalse(result["game_taps_enabled"])
 
     def test_missing_conveyor_timing_calibration_blocks_otherwise_valid_plan(self):
         report = make_report()
