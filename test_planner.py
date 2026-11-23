@@ -14,6 +14,7 @@ def make_state():
         },
     )
     state.snapshot_id = "snap-39"
+    state.shooter_capture_provenance_verified = True
     return state
 
 
@@ -116,6 +117,16 @@ def run_plan(evidence):
 class PlannerEvidenceTests(unittest.TestCase):
     def test_complete_verified_evidence_accepts_group(self):
         self.assertEqual(run_plan(make_evidence()), ("A", "B"))
+
+    def test_unbound_shooter_capture_rejected_even_with_other_verified_evidence(self):
+        state = make_state()
+        state.shooter_capture_provenance_verified = False
+        self.assertIsNone(plan_next_move(state, *make_evidence()))
+
+    def test_missing_shooter_capture_provenance_rejected(self):
+        state = make_state()
+        del state.shooter_capture_provenance_verified
+        self.assertIsNone(plan_next_move(state, *make_evidence()))
 
     def test_missing_identity_audit_rejected(self):
         e = list(make_evidence())
