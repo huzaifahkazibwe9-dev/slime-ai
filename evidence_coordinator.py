@@ -92,7 +92,7 @@ def audit_transition(previous, current):
     }
 
 
-def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None):
+def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, captured_at=None):
     import screenshot_ingestor
 
     image_path = Path(image_path).expanduser().resolve()
@@ -124,11 +124,16 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None):
 
     from PIL import Image
     from capture_provenance import (
+        parse_aware_capture_timestamp,
         parse_exif_capture_time,
         validate_capture_session_id,
     )
     with Image.open(image_path) as img:
         exif_time = parse_exif_capture_time(img.getexif())
+    exif_time = (
+        parse_aware_capture_timestamp(captured_at)
+        if captured_at is not None else exif_time
+    )
     capture_session_id = validate_capture_session_id(capture_session_id)
 
     result = {
@@ -208,5 +213,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("screenshot")
     parser.add_argument("--capture-session-id")
+    parser.add_argument("--captured-at", help="Explicit ISO-8601 capture time with UTC offset")
     args = parser.parse_args()
-    coordinate(args.screenshot, capture_session_id=args.capture_session_id)
+    coordinate(args.screenshot, capture_session_id=args.capture_session_id, captured_at=args.captured_at)
