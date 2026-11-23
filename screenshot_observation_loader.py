@@ -6,7 +6,6 @@ verification. It never marks colours, removals, shooter accessibility, or
 live actions as verified.
 """
 import argparse
-import hashlib
 import json
 import math
 from collections import Counter
@@ -110,6 +109,8 @@ def load_observed_level(
     width, height, board, counts = _require_grid(data)
 
     shooter_data = json.loads(shooter_path.read_text())
+    if not isinstance(shooter_data, dict):
+        raise ValueError("Shooter detection must be a JSON object")
     shooter_provenance = shooter_data.get("capture_provenance", {})
     board_capture_matches = bool(
         isinstance(shooter_provenance, dict)
