@@ -19,7 +19,6 @@ def build_region_graph(board):
 
     labels = [[None] * w for _ in range(h)]
     regions = {}
-    counts = Counter()
     next_id = 0
 
     for r in range(h):
@@ -35,10 +34,16 @@ def build_region_graph(board):
             queue = deque([(r, c)])
             labels[r][c] = region_id
             cells = []
+            min_r = max_r = r
+            min_c = max_c = c
 
             while queue:
                 cr, cc = queue.popleft()
                 cells.append((cr, cc))
+                min_r = min(min_r, cr)
+                max_r = max(max_r, cr)
+                min_c = min(min_c, cc)
+                max_c = max(max_c, cc)
 
                 for nr, nc in (
                     (cr - 1, cc), (cr + 1, cc),
@@ -66,16 +71,15 @@ def build_region_graph(board):
                         perimeter += 1
                         boundary_cells.add((cr, cc))
 
-            counts[colour] += 1
             regions[region_id] = {
                 "id": region_id,
                 "colour": colour,
                 "size": len(cells),
                 "bounds": [
-                    min(x[0] for x in cells),
-                    min(x[1] for x in cells),
-                    max(x[0] for x in cells),
-                    max(x[1] for x in cells),
+                    min_r,
+                    min_c,
+                    max_r,
+                    max_c,
                 ],
                 "perimeter": perimeter,
                 "boundary_cells": len(boundary_cells),
