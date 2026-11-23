@@ -72,7 +72,7 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
     if not isinstance(confidence_data, dict):
         raise ValueError("Invalid confidence report")
 
-    if confidence_data.get("grid_size") != [width, height]:
+    if confidence_data.get("grid_size") != [height, width]:
         raise ValueError("Confidence grid dimensions do not match board")
 
     confidence_cells = confidence_data.get("cells")
