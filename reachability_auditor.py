@@ -336,7 +336,10 @@ def main():
     print("Gameplay verified:", report["gameplay_verified"])
     print("Game taps enabled:", report["game_taps_enabled"])
     print("No game actions performed.")
-    print("Board source:", report["board_source"])\n    print("Board snapshot:", report["board_snapshot_id"])\n    print("Board colour truth verified:", report["board_colour_truth_verified"])\n    print("Report:", output_path)
+    print("Board source:", report["board_source"])
+    print("Board snapshot:", report["board_snapshot_id"])
+    print("Board colour truth verified:", report["board_colour_truth_verified"])
+    print("Report:", output_path)
 
 
 if __name__ == "__main__":
