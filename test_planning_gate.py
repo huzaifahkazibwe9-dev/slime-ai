@@ -193,7 +193,6 @@ class PlanningGateTests(unittest.TestCase):
         self.assertTrue(result["results"][0]["planning_eligible"])
         self.assertEqual(result["counts"]["eligible_scenarios"], 1)
         self.assertTrue(result["planning_evidence_verified"])
-        self.assertFalse(result["planning_evidence_verified"])
         self.assertFalse(result["gameplay_verified"])
         self.assertFalse(result["game_taps_enabled"])
 
@@ -552,6 +551,7 @@ class PlanningGateTests(unittest.TestCase):
 
     def test_safety_flags_always_disabled(self):
         result = evaluate_planning(make_report())
+        self.assertFalse(result["planning_evidence_verified"])
         self.assertFalse(result["gameplay_verified"])
         self.assertFalse(result["game_taps_enabled"])
         self.assertFalse(result["actions_performed"])
