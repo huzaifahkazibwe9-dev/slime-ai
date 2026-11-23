@@ -42,11 +42,26 @@ if [[ -f "screenshots/shooter_panel.jpg" || -f "data/shooter_capture_config.json
 fi
 
 echo
-echo "[3/4] Installing declared Python dependencies"
+echo "[3/5] Checking the Termux Python environment"
+if ! command -v python >/dev/null 2>&1; then
+    echo "ERROR: Python is not available in this Termux environment." >&2
+    echo "Install it with: pkg install python" >&2
+    exit 2
+fi
+python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "ERROR: Slime AI requires Python 3.10 or newer.")'
+if ! python -m pip --version >/dev/null 2>&1; then
+    echo "ERROR: Python pip is unavailable in this Termux environment." >&2
+    echo "Repair the Termux Python installation before deployment." >&2
+    exit 2
+fi
+python --version
+
+echo
+echo "[4/5] Installing declared Python dependencies"
 python -m pip install -r requirements.txt
 
 echo
-echo "[4/4] Running the validated build pipeline"
+echo "[5/5] Running the validated build pipeline"
 bash build_pipeline.sh
 
 echo
