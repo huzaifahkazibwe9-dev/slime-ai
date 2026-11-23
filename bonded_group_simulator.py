@@ -5,7 +5,7 @@ from dynamic_board_simulator import simulate_dynamic_board
 from region_graph import build_region_graph
 
 
-def simulate_bonded_group(state, shooter_id):
+def simulate_bonded_group(state, shooter_id, *, consume_state=False):
     """Dry-run one complete legal bonded group on an isolated state copy."""
     if not isinstance(state, GameState):
         raise TypeError("Expected a GameState")
@@ -31,8 +31,13 @@ def simulate_bonded_group(state, shooter_id):
             "game_taps_enabled": False,
         }
 
+    if type(consume_state) is not bool:
+        raise TypeError("consume_state must be a bool")
     original = copy.deepcopy(state)
-    working = copy.deepcopy(state)
+    # Internal callers may hand over an already-isolated disposable state.
+    # Consuming it avoids a second full GameState deepcopy; public default
+    # retains the original non-mutating contract.
+    working = state if consume_state else copy.deepcopy(state)
 
     if not working.select_group(shooter_id):
         raise RuntimeError("Group selection failed on simulation copy")
