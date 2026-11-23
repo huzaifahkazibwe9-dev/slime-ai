@@ -20,11 +20,11 @@ if [[ -z "${PREFIX:-}" || "${PREFIX}" != *"/com.termux/"* ]]; then
 fi
 
 echo
-echo "[1/4] Synchronising the project"
+echo "[1/5] Synchronising the project"
 git pull --ff-only
 
 echo
-echo "[2/4] Checking local screenshot inputs"
+echo "[2/5] Checking local screenshot inputs"
 if [[ ! -f "screenshots/level39.jpg" ]]; then
     echo "ERROR: screenshots/level39.jpg is missing." >&2
     exit 2
