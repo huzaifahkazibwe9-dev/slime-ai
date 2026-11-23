@@ -50,6 +50,23 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
         self.assertFalse(report["live_execution_allowed"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_groups_accessible_at_batch_start_are_packed_together(self):
+        state = make_state(second_accessible=True)
+        report = plan_capacity_aware_evolving_schedule(
+            state,
+            accessibility_resolver=lambda current: ["A", "B"],
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+            max_nodes=20,
+            beam_width=10,
+        )
+        self.assertTrue(report["schedule_valid"])
+        self.assertEqual(
+            [batch["groups"] for batch in report["batches"]],
+            [["A", "B"]],
+        )
+        self.assertEqual(report["simulated_remaining_pixels"], 0)
+        self.assertFalse(report["game_taps_enabled"])
+
     def test_no_resolver_does_not_invent_newly_exposed_access(self):
         report = plan_capacity_aware_evolving_schedule(
             make_state(),
