@@ -129,12 +129,79 @@ def extract_board(image_path, calibration):
     }
 
 
-def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
-    image_path = Path(image_path).expanduser().resolve()
-    baseline = json.loads(Path(baseline_path).read_text())
+def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calibration):
+    """Accept cached pixels only for an exact source/configuration match."""
+    if not isinstance(cached, dict):
+        return False
+    if cached.get("source_sha256") != digest:
+        return False
+    if cached.get("calibration_sha256") != calibration_digest:
+        return False
+    if cached.get("image_size") != list(image_size):
+        return False
 
-    extracted = extract_board(image_path, baseline)
+    grid_size = calibration.get("grid_size")
+    bounds = calibration.get("bounds")
+    if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
+        return False
+    board = cached.get("board")
+    counts = cached.get("counts")
+    if (not isinstance(grid_size, list) or len(grid_size) != 2
+            or not isinstance(counts, dict)
+            or not isinstance(board, list) or len(board) != grid_size[1]):
+        return False
+    if any(not isinstance(row, list) or len(row) != grid_size[0]
+           or any(not isinstance(label, str) for label in row)
+           for row in board):
+        return False
+
+    actual_counts = {}
+    for row in board:
+        for label in row:
+            actual_counts[label] = actual_counts.get(label, 0) + 1
+    return counts == actual_counts
+
+
+def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
+    started = time.perf_counter()
+    image_path = Path(image_path).expanduser().resolve()
+    output_path = Path(output_path)
+    baseline = json.loads(Path(baseline_path).read_text())
+    if not isinstance(baseline, dict):
+        raise ValueError("Calibration must be a JSON object")
+
+    # Hash exact bytes, not a perceptual approximation. Calibration is
+    # fingerprinted separately so any edit invalidates cached extraction.
     digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    calibration_bytes = json.dumps(
+        baseline, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    calibration_digest = hashlib.sha256(calibration_bytes).hexdigest()
+
+    with Image.open(image_path) as source_image:
+        image_size = source_image.size
+
+    cached = None
+    try:
+        cached = json.loads(output_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if _cached_board_is_valid(
+        cached, digest, calibration_digest, image_size, baseline
+    ):
+        extracted = {
+            key: cached[key]
+            for key in (
+                "image_size", "grid_size", "bounds", "board", "raw_rgb",
+                "counts", "sampling_method"
+            )
+        }
+        extracted["processing_seconds"] = 0.0
+        cache_status = "EXACT_MATCH_REUSED"
+    else:
+        extracted = extract_board(image_path, baseline)
+        cache_status = "FULL_ANALYSIS"
 
     stat = image_path.stat()
     file_time = datetime.fromtimestamp(
@@ -160,6 +227,9 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         **extracted,
         "source": str(image_path),
         "source_sha256": digest,
+        "calibration_sha256": calibration_digest,
+        "analysis_cache_status": cache_status,
+        "ingestion_seconds": round(time.perf_counter() - started, 6),
         "snapshot_id": snapshot_id,
         "board_snapshot_id": snapshot_id,
         "captured_at": exif_time,
