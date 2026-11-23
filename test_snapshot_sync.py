@@ -239,6 +239,28 @@ class SnapshotSyncTests(unittest.TestCase):
             result["checks"]["candidates_nested_capture_metadata_consistent"]
         )
 
+    def test_bundle_rejects_missing_nested_conveyor_observations(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        conveyor.pop("observations")
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["conveyor_nested_capture_metadata_consistent"]
+        )
+
+    def test_bundle_rejects_missing_candidate_tracks(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        candidates.pop("tracks")
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["candidates_nested_capture_metadata_consistent"]
+        )
+
     def test_bundle_rejects_missing_artifact(self):
         board, conveyor, identity, _, planning = self.bundle()
         result = synchronise_bundle(board, conveyor, identity, None, planning)
