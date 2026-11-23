@@ -11,6 +11,7 @@ from shooter_detector import (
     scale_point,
     validate_panel_image_size,
     verify_panel_crop,
+    extract_panel_crop,
 )
 
 
@@ -40,6 +41,33 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         box = scale_box((235, 150, 435, 285), sx, sy)
         self.assertTrue(0 <= box[0] < box[2] <= 830)
         self.assertTrue(0 <= box[1] < box[3] <= 540)
+
+    def test_panel_extractor_creates_calibrated_crop_from_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = Image.new("RGB", (400, 300), (30, 80, 120))
+            source_path = root / "source.png"
+            output_path = root / "panel.jpg"
+            source.save(source_path)
+            extract_panel_crop(
+                source_path, [20, 30, 327, 230], output_path
+            )
+            with Image.open(output_path) as panel:
+                self.assertEqual(panel.size, (REF_W, REF_H))
+            digest = verify_panel_crop(
+                source_path, output_path, [20, 30, 327, 230]
+            )
+            self.assertEqual(len(digest), 64)
+
+    def test_panel_extractor_rejects_uncalibrated_aspect_ratio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.png"
+            Image.new("RGB", (200, 200)).save(source_path)
+            with self.assertRaisesRegex(ValueError, "aspect ratio"):
+                extract_panel_crop(
+                    source_path, [10, 10, 110, 90], root / "panel.jpg"
+                )
 
     def test_panel_crop_is_bound_to_exact_source_screenshot_region(self):
         with tempfile.TemporaryDirectory() as directory:
