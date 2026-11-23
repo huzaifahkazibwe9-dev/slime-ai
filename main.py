@@ -1,5 +1,6 @@
 from pathlib import Path
 from collections import Counter
+import argparse
 import sys
 
 # Make module paths independent of the current working directory.
@@ -22,7 +23,7 @@ def section(title):
     print("=" * 48)
 
 
-def run_diagnostics():
+def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     section("SLIME AI CENTRAL DIAGNOSTIC")
 
     print("Project:", PROJECT_DIR)
@@ -34,23 +35,22 @@ def run_diagnostics():
     print("Timer running:", resource_manager.status()["timer_running"])
     print("Game taps enabled:", resource_manager.game_taps_enabled)
 
-
-    # Load level data.
+    # Load either the legacy baseline or an explicit screenshot observation.
     section("LEVEL LOADING")
-
-    state, vision_verified = load_level(level=39)
+    state, vision_verified = load_level(
+        level=level,
+        observation_path=observation_path,
+        shooter_path=shooter_path,
+    )
 
     print("Level:", state.level)
     print("Board dimensions:", state.width, "x", state.height)
-    print("Starting tiles:", state.remaining_pixels)
+    print("Starting observed tiles:", state.remaining_pixels)
     print("Shooters loaded:", len(state.shooters))
-    print("Vision occupancy verified:", vision_verified)
+    print("Vision evidence:", vision_verified)
 
-    # Validate board and game state.
     section("GAME STATE VALIDATION")
-
     errors = state.validate()
-
     if errors:
         for error in errors:
             print("ERROR:", error)
@@ -60,21 +60,14 @@ def run_diagnostics():
     print("Conveyor free spaces:", state.conveyor_free)
     print("Storage free spaces:", state.storage_free)
 
-    # Board colour distribution.
     section("BOARD COLOUR DISTRIBUTION")
-
     counts = Counter(
-        pixel
-        for row in state.board
-        for pixel in row
+        pixel for row in state.board for pixel in row if pixel is not None
     )
-
     for colour, count in sorted(counts.items()):
         print(f"{colour:12} {count}")
 
-    # Shooter inspection.
     section("SHOOTER STATUS")
-
     for shooter_id, shooter in state.shooters.items():
         print(
             shooter_id,
@@ -82,45 +75,35 @@ def run_diagnostics():
             "| Ammo:", shooter.ammo,
             "| Bonds:", shooter.bonded_ids,
             "| Accessible:", shooter.accessible,
-            "| Position:", (shooter.x, shooter.y),
-            "| Direction:", shooter.direction
+            "| Panel position:", shooter.panel_center,
+            "| Conveyor position:", shooter.screen_center,
+            "| Direction:", shooter.direction,
         )
-
     print("Accessible shooters:", len(state.accessible_shooters()))
 
-    # Colour mapping verification.
     section("COLOUR MAPPING STATUS")
-
-    for shooter_id, mapping in state.colour_mappings.items():
+    mappings = getattr(state, "colour_mappings", {})
+    for shooter_id, mapping in mappings.items():
         print(
-            shooter_id,
-            "->",
-            mapping["board_colour"],
-            "| Status:",
-            mapping["status"]
+            shooter_id, "->", mapping["board_colour"],
+            "| Status:", mapping["status"]
         )
-
     print(
         "Mappings gameplay-verified:",
-        state.colour_mappings_verified
+        getattr(state, "colour_mappings_verified", False),
     )
 
-    # Planner diagnostic.
     section("PLANNER DIAGNOSTIC")
     resource_manager.set_mode("ANALYSE")
-
-
     if errors:
         print("Planner skipped: game state has validation errors.")
         move = None
+    elif resource_manager.can_process("ANALYSE"):
+        move = planner.plan_next_move(state)
     else:
-        if resource_manager.can_process("ANALYSE"):
-            move = planner.plan_next_move(state)
-        else:
-            move = None
+        move = None
 
     print("Recommended candidate:", move)
-
     if move is None:
         print("No currently valid selection candidate.")
     else:
@@ -128,18 +111,12 @@ def run_diagnostics():
     resource_manager.stop()
     print("Resource manager after analysis:", resource_manager.status())
 
-
-    # Read learning data without adding test observations.
     section("LEARNING ENGINE")
-
     learner = Learner()
-
     try:
         print("Shooting confidence:", learner.confidence("shooting"))
         print("Recent recorded observations:")
-
         history = learner.history(limit=5)
-
         if history:
             for item in history:
                 print(item)
@@ -148,30 +125,23 @@ def run_diagnostics():
     finally:
         learner.close()
 
-    # Final safety assessment.
     section("AUTOMATION READINESS")
-
     checks = {
-        "Board dimensions correct": (
-            state.width == 35 and state.height == 35
-        ),
-        "All starting tiles preserved": (
-            state.remaining_pixels == 1225
-        ),
+        "Board dimensions correct": state.width == 35 and state.height == 35,
+        "Observed cell count correct": state.remaining_pixels == 1225,
         "Game state valid": not errors,
-        "Vision verified": (
-            vision_verified.get("vision_occupancy_verified", False)
-            and vision_verified.get("colour_classification_verified", False)
+        "Vision occupancy verified": vision_verified.get(
+            "vision_occupancy_verified", False
         ),
-        "Colour mappings verified": bool(
-            state.colour_mappings_verified
+        "Colour classification verified": vision_verified.get(
+            "colour_classification_verified", False
         ),
-        "At least one accessible shooter": bool(
-            state.accessible_shooters()
+        "Colour mappings verified": getattr(
+            state, "colour_mappings_verified", False
         ),
+        "At least one accessible shooter": bool(state.accessible_shooters()),
         "Real game taps enabled": GAME_TAPS_ENABLED,
     }
-
     for name, passed in checks.items():
         print(f"{'[PASS]' if passed else '[PENDING]'} {name}")
 
@@ -180,8 +150,25 @@ def run_diagnostics():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Slime AI diagnostics")
+    parser.add_argument(
+        "--observation",
+        help="Use the latest screenshot-ingestor JSON instead of the legacy board baseline",
+    )
+    parser.add_argument(
+        "--shooters",
+        default="data/shooter_detection.json",
+        help="Shooter detector JSON (used with --observation)",
+    )
+    parser.add_argument("--level", type=int, default=39)
+    args = parser.parse_args()
+
     try:
-        run_diagnostics()
+        run_diagnostics(
+            observation_path=args.observation,
+            shooter_path=args.shooters if args.observation else None,
+            level=args.level,
+        )
     except Exception as error:
         print("\nDIAGNOSTIC FAILED")
         print(type(error).__name__ + ":", error)
