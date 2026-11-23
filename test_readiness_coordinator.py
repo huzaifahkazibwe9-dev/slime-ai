@@ -151,36 +151,46 @@ class ReadinessAssessTests(unittest.TestCase):
 
 
 class ReadinessPlannerIntegrationTests(unittest.TestCase):
-    def test_planner_receives_the_same_evidence_bundle_as_diagnostics(self):
+    def test_missing_capture_bundle_blocks_readiness_planner(self):
         reports = {
             "conveyor_calibration.json": {"timing_calibrated_to_game": True},
             "identity_audit_report.json": {"identity_verified": True},
             "firing_observations.json": {"actual_firing_verified": True},
             "planning_gate_latest.json": {"report": "planning"},
             "conveyor_identity_candidates.json": {"report": "candidates"},
-            "snapshot_sync_report.json": {"report": "snapshot"},
+            "snapshot_sync_report.json": {
+                "synchronised": True,
+                "planning_allowed_by_sync": True,
+            },
         }
         with tempfile.TemporaryDirectory() as directory:
-            state = FakeState()
             with (
                 patch.object(readiness, "DATA", Path(directory)),
-                patch.object(readiness, "load_level", return_value=(state, {})),
+                patch.object(readiness, "load_level",
+                             return_value=(FakeState(), {})),
                 patch.object(readiness, "read_json",
                              side_effect=lambda name, default=None:
                              reports.get(name, default)),
                 patch.object(readiness, "learning_summary",
                              return_value={"available": False,
                                            "gameplay_records": 0}),
-                patch.object(readiness, "plan_next_move", return_value=None) as planner,
+                patch.object(readiness, "plan_next_move",
+                             return_value=None) as planner,
             ):
                 readiness.main(observation_path="board.json",
                                shooter_path="shooters.json")
 
-            kwargs = planner.call_args.kwargs
-            self.assertEqual(kwargs["planning_report"], reports["planning_gate_latest.json"])
-            self.assertEqual(kwargs["identity_audit"], reports["identity_audit_report.json"])
-            self.assertEqual(kwargs["candidate_report"], reports["conveyor_identity_candidates.json"])
-            self.assertEqual(kwargs["snapshot_report"], reports["snapshot_sync_report.json"])
+            planner.assert_not_called()
+            report = json.loads(
+                (Path(directory) / "readiness_report.json").read_text()
+            )
+            self.assertFalse(
+                report["planning_evidence_gate"]["evidence_gate_passed"]
+            )
+            self.assertFalse(
+                report["evidence_bundle_synchronisation"]["synchronised"]
+            )
+            self.assertIsNone(report["planner_candidate"])
 
 
 class LearningSummaryTests(unittest.TestCase):
