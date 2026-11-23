@@ -26,6 +26,13 @@ The build script:
 It does not tap the game, start background loops, or change MacroDroid settings.
 
 ## Performance profiling and OCR workload
+Board screenshot ingestion also uses NumPy to compute each cell's 3×3
+per-channel median from an in-memory pixel array, instead of issuing nine PIL
+pixel reads per cell. Its extraction time and sampling method are included in
+the board observation report. This preserves the existing median-sampling
+rule while reducing Python-level per-pixel overhead; actual speedup depends on
+the phone, image dimensions, and NumPy build.
+
 
 The shooter detector records local processing measurements in
 `data/shooter_detection.json` under `performance`: total shooter-detection
