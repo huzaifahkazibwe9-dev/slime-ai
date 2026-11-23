@@ -37,8 +37,6 @@ class Shooter:
             raise ValueError("Completed laps cannot be negative")
         if not isinstance(self.selected, bool) or not isinstance(self.returned, bool):
             raise ValueError("Selected and returned flags must be booleans")
-        if self.returned and not self.selected:
-            raise ValueError("A returned shooter must have been selected")
 
 
 @dataclass
@@ -90,8 +88,6 @@ class ConveyorSimulator:
         for shooter in self.shooters:
             if shooter.position >= self.config.ticks_per_lap:
                 raise ValueError("Shooter position is outside the configured lap")
-            if shooter.returned and not shooter.selected:
-                raise ValueError("Returned shooter must be selected")
         self._by_id = {s.shooter_id: s for s in self.shooters}
 
     @property
