@@ -92,7 +92,7 @@ def audit_transition(previous, current):
     }
 
 
-def coordinate(image_path, baseline_path=BASELINE):
+def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None):
     import screenshot_ingestor
 
     image_path = Path(image_path).expanduser().resolve()
@@ -122,14 +122,14 @@ def coordinate(image_path, baseline_path=BASELINE):
         stat.st_mtime, timezone.utc
     ).isoformat()
 
-    exif_time = None
-    try:
-        from PIL import Image
-        with Image.open(image_path) as img:
-            exif = img.getexif()
-            exif_time = exif.get(36867) or exif.get(306)
-    except Exception:
-        pass
+    from PIL import Image
+    from capture_provenance import (
+        parse_exif_capture_time,
+        validate_capture_session_id,
+    )
+    with Image.open(image_path) as img:
+        exif_time = parse_exif_capture_time(img.getexif())
+    capture_session_id = validate_capture_session_id(capture_session_id)
 
     result = {
         "version": 1,
@@ -140,7 +140,7 @@ def coordinate(image_path, baseline_path=BASELINE):
         "captured_at": exif_time,
         "file_modified_at": modified,
         "timestamp_identified": bool(exif_time),
-        "capture_session_id": None,
+        "capture_session_id": capture_session_id,
         "board_dimensions": extracted["grid_size"],
         "transition": transition,
         "same_board_state_confirmed": False,
