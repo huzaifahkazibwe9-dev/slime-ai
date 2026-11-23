@@ -19,10 +19,26 @@ class Shooter:
     returned: bool = False
 
     def __post_init__(self):
-        if not self.shooter_id or not self.group_id:
-            raise ValueError("Shooter and group IDs must be non-empty")
+        if (not isinstance(self.shooter_id, str) or not self.shooter_id
+                or not isinstance(self.group_id, str) or not self.group_id):
+            raise ValueError("Shooter and group IDs must be non-empty strings")
+        for name, value in (
+            ("ammo", self.ammo),
+            ("position", self.position),
+            ("completed_laps", self.completed_laps),
+        ):
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise ValueError(f"{name} must be an integer")
         if self.ammo < 0:
             raise ValueError("Ammo cannot be negative")
+        if self.position < 0:
+            raise ValueError("Position cannot be negative")
+        if self.completed_laps < 0:
+            raise ValueError("Completed laps cannot be negative")
+        if not isinstance(self.selected, bool) or not isinstance(self.returned, bool):
+            raise ValueError("Selected and returned flags must be booleans")
+        if self.returned and not self.selected:
+            raise ValueError("A returned shooter must have been selected")
 
 
 @dataclass
@@ -32,9 +48,13 @@ class SimulatorConfig:
     ticks_per_lap: int = 5
 
     def __post_init__(self):
-        if min(self.conveyor_capacity, self.storage_capacity,
-               self.ticks_per_lap) < 1:
-            raise ValueError("Capacities and ticks_per_lap must be positive")
+        for name, value in (
+            ("conveyor_capacity", self.conveyor_capacity),
+            ("storage_capacity", self.storage_capacity),
+            ("ticks_per_lap", self.ticks_per_lap),
+        ):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
 
 
 @dataclass
@@ -49,11 +69,29 @@ class ConveyorSimulator:
     returned_ids: List[str] = field(default_factory=list)
 
     def __post_init__(self):
+        if not isinstance(self.config, SimulatorConfig):
+            raise ValueError("config must be a SimulatorConfig")
+        if (not isinstance(self.storage_occupied, int)
+                or isinstance(self.storage_occupied, bool)):
+            raise ValueError("Initial storage occupancy must be an integer")
+        if not 0 <= self.storage_occupied <= self.config.storage_capacity:
+            raise ValueError("Initial storage occupancy is out of range")
+        if not isinstance(self.tick_count, int) or isinstance(self.tick_count, bool) or self.tick_count < 0:
+            raise ValueError("tick_count must be a non-negative integer")
+        if not isinstance(self.failed, bool):
+            raise ValueError("failed must be a boolean")
+        if not isinstance(self.shooters, list) or any(
+            not isinstance(shooter, Shooter) for shooter in self.shooters
+        ):
+            raise ValueError("shooters must be a list of Shooter records")
         ids = [s.shooter_id for s in self.shooters]
         if len(ids) != len(set(ids)):
             raise ValueError("Shooter IDs must be unique")
-        if not 0 <= self.storage_occupied <= self.config.storage_capacity:
-            raise ValueError("Initial storage occupancy is out of range")
+        for shooter in self.shooters:
+            if shooter.position >= self.config.ticks_per_lap:
+                raise ValueError("Shooter position is outside the configured lap")
+            if shooter.returned and not shooter.selected:
+                raise ValueError("Returned shooter must be selected")
         self._by_id = {s.shooter_id: s for s in self.shooters}
 
     @property
@@ -110,7 +148,8 @@ class ConveyorSimulator:
 
     def record_shots(self, shooter_id, shots):
         """Record externally observed/simulated shots; never fires a tap."""
-        if self.failed or shots < 0:
+        if (not isinstance(shots, int) or isinstance(shots, bool)
+                or shots < 0 or self.failed):
             return False
         shooter = self._by_id.get(shooter_id)
         if shooter is None or not shooter.selected or shooter.returned:
@@ -129,8 +168,8 @@ class ConveyorSimulator:
 
     def tick(self, count=1):
         """Advance the abstract conveyor by a number of rotation steps."""
-        if count < 0:
-            raise ValueError("Tick count cannot be negative")
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError("Tick count must be a non-negative integer")
         if self.failed:
             return False
 
@@ -263,13 +302,13 @@ def create_simulator(shooter_records, storage_occupied=0, config=None):
     for item in shooter_records:
         shooters.append(
             Shooter(
-                shooter_id=str(item["id"]),
-                group_id=str(item.get("group_id", item["id"])),
-                ammo=int(item["ammo"]),
-                position=int(item.get("position", 0)),
-                completed_laps=int(item.get("completed_laps", 0)),
-                selected=bool(item.get("selected", False)),
-                returned=bool(item.get("returned", False)),
+                shooter_id=item["id"],
+                group_id=item.get("group_id", item["id"]),
+                ammo=item["ammo"],
+                position=item.get("position", 0),
+                completed_laps=item.get("completed_laps", 0),
+                selected=item.get("selected", False),
+                returned=item.get("returned", False),
             )
         )
     return ConveyorSimulator(
