@@ -74,25 +74,28 @@ def simulate_batch_schedule(
             reject("GROUP_NOT_PREVIOUSLY_SCHEDULED")
             break
 
-        if any(g in seen for g in requested):
-            reject("GROUP_SCHEDULED_MORE_THAN_ONCE")
-            break
-        if any(any(by_id[mid].selected for mid in groups[g])
-               for g in requested):
-            reject("GROUP_ALREADY_ON_CONVEYOR_OR_RETURNED")
-            break
-
-        # Preflight the entire transition before mutating simulator state.
-        # Multiple reactivations and newly selected groups share one capacity
-        # budget; checking each group against the same free count is unsafe.
+        # A group may appear in both lists: it is restored from storage
+        # and then selected onto the conveyor as part of this same batch.
         overlap = sorted(set(reactivate) & set(requested))
-        if overlap:
+        repeated = sorted(set(requested) & (seen - set(reactivate)))
+        if repeated:
+            reject("GROUP_SCHEDULED_MORE_THAN_ONCE", group_ids=repeated)
+            break
+        unavailable = [
+            g for g in requested
+            if g not in overlap
+            and any(by_id[mid].selected for mid in groups[g])
+        ]
+        if unavailable:
             reject(
-                "GROUP_CANNOT_BE_REACTIVATED_AND_SELECTED_IN_SAME_BATCH",
-                group_ids=overlap,
+                "GROUP_ALREADY_ON_CONVEYOR_OR_RETURNED",
+                group_ids=unavailable,
             )
             break
 
+        # Preflight the entire transition before mutating simulator state.
+        # Reactivated groups are counted once: their storage-to-conveyor
+        # transition and subsequent selection occupy the same physical slots.
         reactivation_slots = 0
         for group_id in reactivate:
             members = groups[group_id]
@@ -107,10 +110,17 @@ def simulate_batch_schedule(
             break
 
         selection_slots = sum(len(groups[g]) for g in requested)
-        total_required_slots = reactivation_slots + selection_slots
+        overlap_slots = sum(len(groups[g]) for g in overlap)
+        total_required_slots = (
+            reactivation_slots + selection_slots - overlap_slots
+        )
         if total_required_slots > sim.conveyor_free:
+            reason = (
+                "INSUFFICIENT_CONVEYOR_SPACE_FOR_BATCH_TRANSITION"
+                if reactivate else "INSUFFICIENT_CONVEYOR_SPACE"
+            )
             reject(
-                "INSUFFICIENT_CONVEYOR_SPACE_FOR_BATCH_TRANSITION",
+                reason,
                 reactivation_slots=reactivation_slots,
                 selection_slots=selection_slots,
                 required_slots=total_required_slots,
