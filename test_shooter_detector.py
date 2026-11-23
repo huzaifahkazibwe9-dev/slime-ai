@@ -38,9 +38,10 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             image.save(panel_path)
             with patch("shooter_detector.IMAGE", panel_path), \
                  patch("shooter_detector.OUTPUT", output_path), \
-                 patch("shooter_detector.read_ammunition", return_value=None), \
+                 patch("shooter_detector.read_ammunition", return_value=None) as ocr, \
                  patch.object(sys, "argv", ["shooter_detector.py"]):
                 main()
+                self.assertEqual(ocr.call_count, 4)
             payload = json.loads(output_path.read_text())
             observations = payload["panel_slot_observations"]
             self.assertEqual(len(observations), 12)
@@ -48,6 +49,9 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                              [1] * 4 + [2] * 4 + [3] * 4)
             self.assertTrue(all(not x["selectable_candidate"] for x in observations))
             self.assertEqual(len(payload["visible_shooters"]), 4)
+            self.assertEqual(payload["performance"]["ammunition_ocr_calls"], 4)
+            self.assertEqual(payload["performance"]["panel_slots_observed"], 12)
+            self.assertGreaterEqual(payload["performance"]["shooter_detection_seconds"], 0)
 
     def test_reference_panel_dimensions_are_valid(self):
         self.assertTrue(validate_panel_image_size(REF_W, REF_H))
