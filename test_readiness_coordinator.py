@@ -166,6 +166,7 @@ class ReadinessPlannerIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with (
                 patch.object(readiness, "DATA", Path(directory)),
+                patch.object(readiness, "REPORT", Path(directory) / "readiness_report.json"),
                 patch.object(readiness, "load_level",
                              return_value=(FakeState(), {})),
                 patch.object(readiness, "read_json",
