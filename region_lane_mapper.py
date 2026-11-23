@@ -1,4 +1,5 @@
 
+import argparse
 import json
 from collections import Counter
 from pathlib import Path
@@ -139,19 +140,80 @@ def map_lane_regions(board, graph, reachability, confidence=None):
     }
 
 
-def audit_files():
-    loaded = load_board()
-    board = loaded["board"]
-    calibration = json.loads(CALIBRATION_FILE.read_text())
-    observations = json.loads(OBSERVATIONS_FILE.read_text())
 
+
+def build_observation_confidence(board):
+    """Mark screenshot-derived cells provisional; never mark them confirmed."""
+    if not isinstance(board, list) or not board:
+        raise ValueError("Board must be a non-empty list")
+    height = len(board)
+    width = len(board[0]) if isinstance(board[0], list) else 0
+    if width < 1 or any(
+        not isinstance(row, list) or len(row) != width for row in board
+    ):
+        raise ValueError("Board must be rectangular")
+    return [
+        [
+            "requires_confirmation"
+            if row in (0, height - 1) or col in (0, width - 1)
+            else "provisional"
+            for col in range(width)
+        ]
+        for row in range(height)
+    ]
+
+
+def audit_observation(board_data, calibration, observations):
+    """Map calibrated lanes onto a screenshot board without authorizing moves."""
+    from screenshot_observation_loader import _require_grid
+
+    width, height, board, _ = _require_grid(board_data)
+    confidence = build_observation_confidence(board)
     graph = build_region_graph(board)
-    reachability = _audit_core(
-        {"board": board}, calibration, observations
-    )
+    reachability = _audit_core({"board": board}, calibration, observations)
     report = map_lane_regions(
-        board, graph, reachability, confidence=loaded["confidence"]
+        board, graph, reachability, confidence=confidence
     )
+    report["source"] = "screenshot_observation"
+    report["snapshot_id"] = board_data["snapshot_id"]
+    report["board_colour_truth_verified"] = False
+    report["planning_authorized"] = False
+    report["gameplay_verified"] = False
+    report["game_taps_enabled"] = False
+    report["confidence_summary"] = {
+        "requires_confirmation": sum(
+            cell == "requires_confirmation"
+            for row in confidence for cell in row
+        ),
+        "provisional": sum(
+            cell == "provisional"
+            for row in confidence for cell in row
+        ),
+        "confirmed": 0,
+    }
+    if report["grid_size"] != [height, width]:
+        raise ValueError("Mapped lane grid dimensions changed unexpectedly")
+    return report
+
+
+def audit_files(board_path=None, calibration_path=CALIBRATION_FILE,
+                observations_path=OBSERVATIONS_FILE):
+    calibration = json.loads(Path(calibration_path).read_text())
+    observations = json.loads(Path(observations_path).read_text())
+
+    if board_path is not None:
+        source = json.loads(Path(board_path).read_text())
+        report = audit_observation(source, calibration, observations)
+    else:
+        loaded = load_board()
+        board = loaded["board"]
+        graph = build_region_graph(board)
+        reachability = _audit_core(
+            {"board": board}, calibration, observations
+        )
+        report = map_lane_regions(
+            board, graph, reachability, confidence=loaded["confidence"]
+        )
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text(json.dumps(report, indent=2))
@@ -187,4 +249,18 @@ def audit_files():
 
 
 if __name__ == "__main__":
-    audit_files()
+    parser = argparse.ArgumentParser(
+        description="Map shooter firing lanes onto board colour regions"
+    )
+    parser.add_argument(
+        "--board",
+        help="Optional screenshot-ingestor observation JSON",
+    )
+    parser.add_argument("--calibration", default=str(CALIBRATION_FILE))
+    parser.add_argument("--observations", default=str(OBSERVATIONS_FILE))
+    args = parser.parse_args()
+    audit_files(
+        board_path=args.board,
+        calibration_path=args.calibration,
+        observations_path=args.observations,
+    )
