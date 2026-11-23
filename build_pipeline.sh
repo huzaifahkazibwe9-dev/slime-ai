@@ -20,7 +20,7 @@ if [[ ! -f "$SCREENSHOT" ]]; then
     exit 2
 fi
 
-echo "[1/8] Ingesting the board screenshot"
+echo "[1/9] Ingesting the board screenshot"
 python screenshot_ingestor.py "$SCREENSHOT"
 
 if [[ -f "$SHOOTER_PANEL" ]]; then
