@@ -60,6 +60,8 @@ class Build11AETests(unittest.TestCase):
         metrics = report["performance"]
         self.assertGreater(metrics["deepcopy_calls"], 0)
         self.assertGreater(metrics["group_simulation_calls"], 0)
+        self.assertGreater(metrics["board_copy_calls"], 0)
+        self.assertGreaterEqual(metrics["board_copy_seconds"], 0)
         self.assertGreaterEqual(metrics["deepcopy_seconds"], 0)
         self.assertGreaterEqual(metrics["group_simulation_seconds"], 0)
         self.assertGreaterEqual(metrics["scheduler_seconds"], 0)
