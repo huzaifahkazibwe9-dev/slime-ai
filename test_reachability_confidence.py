@@ -1,4 +1,12 @@
+import json
+import runpy
+import sys
+import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+from unittest.mock import patch
 
 from reachability_confidence import annotate_report, observation_confidence
 
@@ -112,6 +120,59 @@ class ReachabilityConfidenceTests(unittest.TestCase):
         )
         self.assertFalse(annotated["confidence_audit"]["gameplay_verified"])
         self.assertFalse(annotated["confidence_audit"]["game_taps_enabled"])
+
+    def test_cli_uses_screenshot_board_confidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            board = [["white"] * 35 for _ in range(35)]
+            rgb = [[[245, 245, 245] for _ in range(35)] for _ in range(35)]
+            board_data = {
+                "image_size": [1080, 2220],
+                "grid_size": [35, 35],
+                "bounds": [201, 431, 881, 1113],
+                "board": board,
+                "raw_rgb": rgb,
+                "counts": {"white": 1225},
+                "source_sha256": "9" * 64,
+                "snapshot_id": "sha256:" + "9" * 64,
+                "gameplay_verified": False,
+                "vision_classification_verified": False,
+                "game_taps_enabled": False,
+            }
+            reachability = {
+                "board_dimensions": [35, 35],
+                "game_taps_enabled": False,
+                "results": [{
+                    "position_id": "top_1",
+                    "scenarios": [{
+                        "target_colour": "white",
+                        "planning_eligible": True,
+                        "lane_cells": [
+                            {"row": 0, "column": 15},
+                            {"row": 1, "column": 15},
+                        ],
+                    }],
+                }],
+            }
+            board_path = root / "board.json"
+            input_path = root / "reachability.json"
+            output_path = root / "confidence.json"
+            board_path.write_text(json.dumps(board_data))
+            input_path.write_text(json.dumps(reachability))
+            argv = [
+                "reachability_confidence.py",
+                "--input", str(input_path),
+                "--board", str(board_path),
+                "--output", str(output_path),
+            ]
+            output = StringIO()
+            with patch.object(sys, "argv", argv), redirect_stdout(output):
+                runpy.run_module("reachability_confidence", run_name="__main__")
+            result = json.loads(output_path.read_text())
+            scenario = result["results"][0]["scenarios"][0]
+            self.assertFalse(scenario["confidence_eligible"])
+            self.assertFalse(scenario["planning_eligible"])
+            self.assertFalse(result["confidence_audit"]["game_taps_enabled"])
 
     def test_dimension_mismatch_rejected(self):
         with self.assertRaises(ValueError):
