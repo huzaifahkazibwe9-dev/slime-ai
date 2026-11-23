@@ -8,6 +8,10 @@ OUTPUT_FILE = Path("data/planning_gate_latest.json")
 def evaluate_planning(report):
     confidence_audit = report.get("confidence_audit", {})
     board_synced = bool(report.get("same_board_state_confirmed", False))
+    freshness = report.get("capture_freshness", {})
+    capture_freshness_verified = (
+        isinstance(freshness, dict) and freshness.get("fresh") is True
+    )
     identity_verified = bool(report.get("conveyor_identity_verified", False))
     mappings_verified = bool(report.get("gameplay_verified", False))
 
@@ -66,6 +70,8 @@ def evaluate_planning(report):
                 blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
             if not board_synced:
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
+            if not capture_freshness_verified:
+                blockers.append("CAPTURE_TIMESTAMPS_NOT_FRESH_AND_ALIGNED")
             if not identity_verified or not position.get(
                 "identity_verified", False
             ):
@@ -103,6 +109,7 @@ def evaluate_planning(report):
         "board_dimensions": report.get("board_dimensions"),
         "board_snapshot_id": report.get("board_snapshot_id"),
         "capture_session_id": report.get("capture_session_id"),
+        "capture_freshness_verified": capture_freshness_verified,
         "counts": counts,
         "results": results,
         "decision": (
