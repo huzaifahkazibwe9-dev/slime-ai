@@ -62,7 +62,7 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
     ):
         return False
 
-    for track in tracks.values():
+    for track_name, track in tracks.items():
         if not isinstance(track, dict):
             return False
         if (
@@ -75,6 +75,7 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
         if (
             track_time is None
             or abs((track_time - board_time).total_seconds()) > 120
+            or abs((track_time - captured_at).total_seconds()) > 120
         ):
             return False
         observations = track.get("observations")
@@ -92,14 +93,13 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
                 or observation.get("timestamp_identified") is not True
                 or observed_time is None
                 or abs((observed_time - board_time).total_seconds()) > 120
+                or abs((observed_time - captured_at).total_seconds()) > 120
+                or abs((observed_time - track_time).total_seconds()) > 120
             ):
                 return False
         if (
             len(set(observed_positions)) != 4
-            or set(observed_positions) != expected_positions.get(
-                next((name for name, value in tracks.items() if value is track), ""),
-                set(),
-            )
+            or set(observed_positions) != expected_positions[track_name]
         ):
             return False
     return True
