@@ -64,6 +64,19 @@ class DynamicBoardTests(unittest.TestCase):
         self.assertFalse(r["live_execution_allowed"])
         self.assertFalse(r["game_taps_enabled"])
 
+    def test_consume_state_updates_only_disposable_state(self):
+        disposable = self.make_state([["red", "red"]])
+        untouched = self.make_state([["red", "red"]])
+        report = simulate_dynamic_board(disposable, "S1", consume_state=True)
+        self.assertEqual(report["status"] if "status" in report else "SIMULATED", "SIMULATED")
+        self.assertEqual(disposable.board, report["final_board"])
+        self.assertEqual(untouched.board, [["red", "red"]])
+        self.assertEqual(untouched.shooters["S1"].ammo, 5)
+
+    def test_consume_state_requires_boolean(self):
+        with self.assertRaises(TypeError):
+            simulate_dynamic_board(self.make_state([["red"]]), "S1", consume_state=1)
+
     def test_invalid_shot_limit(self):
         with self.assertRaises(ValueError):
             simulate_dynamic_board(self.make_state([["red"]]), "S1", max_shots=0)
