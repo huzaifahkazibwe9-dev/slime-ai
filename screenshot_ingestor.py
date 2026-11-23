@@ -5,6 +5,9 @@ import hashlib
 import json
 import math
 import statistics
+import time
+
+import numpy as np
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -53,6 +56,7 @@ def median_rgb(img, x, y):
 
 
 def extract_board(image_path, calibration):
+    started = time.perf_counter()
     image_path = Path(image_path)
     if not image_path.is_file():
         raise FileNotFoundError(image_path)
@@ -92,6 +96,7 @@ def extract_board(image_path, calibration):
 
         cell_width = (right - left) / cols
         cell_height = (bottom - top) / rows
+        pixels = np.asarray(img, dtype=np.uint8)
 
         board, raw_rgb = [], []
         counts = {}
@@ -101,7 +106,10 @@ def extract_board(image_path, calibration):
             for col in range(cols):
                 x = round(left + (col + 0.5) * cell_width)
                 y = round(top + (row + 0.5) * cell_height)
-                rgb = median_rgb(img, x, y)
+                # NumPy computes the exact 3x3 per-channel median in one
+                # vectorised operation, avoiding nine PIL getpixel calls.
+                patch = pixels[y - 1:y + 2, x - 1:x + 2]
+                rgb = tuple(int(v) for v in np.median(patch, axis=(0, 1)))
                 colour = classify_rgb(rgb)
                 labels.append(colour)
                 rgb_row.append(list(rgb))
@@ -116,6 +124,8 @@ def extract_board(image_path, calibration):
         "board": board,
         "raw_rgb": raw_rgb,
         "counts": counts,
+        "processing_seconds": round(time.perf_counter() - started, 6),
+        "sampling_method": "numpy_vectorized_3x3_median",
     }
 
 
