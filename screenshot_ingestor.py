@@ -137,6 +137,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT):
         "source": str(image_path),
         "source_sha256": digest,
         "snapshot_id": snapshot_id,
+        "board_snapshot_id": snapshot_id,
         "captured_at": exif_time,
         "file_modified_at": file_time,
         "timestamp_identified": bool(exif_time),
