@@ -104,7 +104,8 @@ def _simulate_conveyor_batch(original, state, groups):
 
     selected = True
     for group in groups:
-        if not sim.select_group(str(group[0])):
+        canonical_group_id = original.bonded_group_id(str(group[0]))
+        if canonical_group_id is None or not sim.select_group(str(canonical_group_id)):
             selected = False
             break
 
