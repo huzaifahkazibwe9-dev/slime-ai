@@ -408,6 +408,49 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report, candidate_report=candidates)
         self.assertFalse(result["candidate_capture_provenance_verified"])
 
+    def test_decision_contains_exact_board_and_shooter_evidence_trace(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 7
+        position["ammo_evidence"] = {
+            "position_id": "left_2",
+            "ammo": 7,
+            "board_snapshot_id": report["board_snapshot_id"],
+            "capture_session_id": report["capture_session_id"],
+            "observed_at": report["captured_at"],
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer", "position_identity_matches",
+                "capture_session_present", "board_snapshot_present",
+                "observation_timestamp_present", "explicit_user_confirmation",
+            )},
+        }
+        result = evaluate_planning(
+            report, candidate_report=make_candidate_report(report)
+        )
+        trace = result["results"][0]["evidence_trace"]
+        self.assertEqual(
+            trace["board_capture"]["board_snapshot_id"],
+            report["board_snapshot_id"],
+        )
+        self.assertEqual(
+            trace["board_capture"]["capture_session_id"],
+            report["capture_session_id"],
+        )
+        self.assertEqual(trace["shooter_observation"]["position_id"], "left_2")
+        self.assertEqual(trace["shooter_observation"]["ammo"], 7)
+        self.assertTrue(trace["shooter_observation"]["verified"])
+        self.assertTrue(trace["candidate_capture_provenance_verified"])
+
+    def test_missing_ammo_evidence_remains_visible_in_decision_trace(self):
+        result = evaluate_planning(make_report())
+        trace = result["results"][0]["evidence_trace"]
+        self.assertEqual(trace["board_capture"]["board_snapshot_id"],
+                         make_report()["board_snapshot_id"])
+        self.assertIsNone(trace["shooter_observation"]["position_id"])
+        self.assertFalse(trace["shooter_observation"]["verified"])
+        self.assertFalse(trace["candidate_capture_provenance_verified"])
+
     def test_safety_flags_always_disabled(self):
         result = evaluate_planning(make_report())
         self.assertFalse(result["gameplay_verified"])
