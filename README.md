@@ -43,6 +43,29 @@ measurement aid only: it does not detect the panel, certify the coordinates,
 or verify shooter identities. Keep gameplay actions disabled until the
 resulting capture and game observations are independently checked.
 
+## Bonded-shooter confirmation
+
+The detector does not infer bonded relationships from fixed screen positions.
+By default it records no bonded groups. If the current game screen independently
+shows a bonded group and you have confirmed its membership, create the local,
+git-ignored file `data/bonded_groups_confirmed.json`:
+
+```json
+{
+  "verified_by_user": true,
+  "bonded_groups": [
+    ["top_1", "top_2"]
+  ]
+}
+```
+
+Replace the example IDs and membership with what is actually visible in the
+current game. The file is optional; without it, all detected shooters are
+treated as unbonded for diagnostic purposes. Groups must contain two or three
+known shooter IDs, without duplicate or overlapping membership. This explicit
+confirmation is separate from visual detection and does not enable gameplay
+actions.
+
 ## Manual workflow
 
 For a same-capture board/shooter run, create the local, ignored file
