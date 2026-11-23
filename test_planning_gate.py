@@ -313,6 +313,29 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report)
         self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
 
+    def test_boolean_ammo_count_is_rejected(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 1
+        position["ammo_evidence"] = {
+            "position_id": position["position_id"],
+            "ammo": True,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": "board-1",
+            "observed_at": "2026-11-23T10:00:00+03:00",
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer",
+                "position_identity_matches",
+                "capture_session_present",
+                "board_snapshot_present",
+                "observation_timestamp_present",
+                "explicit_user_confirmation",
+            )},
+        }
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
+
     def test_ammo_evidence_count_must_match_observation(self):
         report = make_report()
         position = report["results"][0]
