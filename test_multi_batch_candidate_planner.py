@@ -127,6 +127,58 @@ class Build11AFTests(unittest.TestCase):
         self.assertEqual(result["candidate_count"], 1)
         self.assertTrue(result["search_truncated"])
 
+    def test_valid_partial_plan_is_not_reported_as_full_level_complete(self):
+        from game_state import Shooter
+
+        state = GameState([[None]], shooters={
+            "A": Shooter("A", "red", 1, group_id="A", accessible=True),
+            "B": Shooter("B", "blue", 1, group_id="B", accessible=False),
+        })
+
+        def fake_simulation(private_state, batches, **kwargs):
+            return {
+                "schedule_valid": True,
+                "simulated_pixels_removed": 1,
+                "simulated_remaining_pixels": 0,
+                "group_simulations": [],
+                "prepared_batches": batches,
+            }
+
+        with (
+            patch.object(planner, "available_groups", return_value=[("A",)]),
+            patch.object(planner, "simulate_dynamic_multi_batch", side_effect=fake_simulation),
+        ):
+            result = planner.plan_multi_batch_candidates(state)
+
+        self.assertEqual(result["status"], "SIMULATED")
+        self.assertFalse(result["completion"]["full_level_complete"])
+        self.assertEqual(result["completion"]["unplanned_group_ids"], ["B"])
+        self.assertIn("KNOWN_GROUPS_NOT_PLANNED", result["completion"]["blockers"])
+
+    def test_complete_plan_requires_cleared_board_and_all_known_groups(self):
+        from game_state import Shooter
+
+        state = GameState([[None]], shooters={
+            "A": Shooter("A", "red", 1, group_id="A", accessible=True),
+        })
+
+        def fake_simulation(private_state, batches, **kwargs):
+            return {
+                "schedule_valid": True,
+                "simulated_pixels_removed": 1,
+                "simulated_remaining_pixels": 0,
+                "group_simulations": [],
+                "prepared_batches": batches,
+            }
+
+        with (
+            patch.object(planner, "available_groups", return_value=[("A",)]),
+            patch.object(planner, "simulate_dynamic_multi_batch", side_effect=fake_simulation),
+        ):
+            result = planner.plan_multi_batch_candidates(state)
+
+        self.assertTrue(result["completion"]["full_level_complete"])
+        self.assertEqual(result["completion"]["blockers"], [])
     def test_live_execution_is_never_enabled(self):
         state = GameState([[None]])
 
