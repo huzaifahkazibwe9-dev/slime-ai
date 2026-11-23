@@ -276,6 +276,43 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(result["checks"]["candidate_capture_provenance_verified"])
 
+    def test_malformed_snapshot_fingerprint_blocks_identity_provenance(self):
+        result = evidence_status(
+            {}, {
+                "snapshot_linked": True,
+                "board_snapshot_id": "sha256:short",
+            }, {}, {}
+        )
+        self.assertFalse(
+            result["checks"]["identity_snapshot_provenance_complete"]
+        )
+
+    def test_naive_identity_timestamp_blocks_capture_provenance(self):
+        result = evidence_status(
+            {}, {
+                "capture_session_linked": True,
+                "capture_session_id": "session-1",
+                "timestamp_identified": True,
+                "captured_at": "2026-11-23T10:00:00",
+            }, {}, {}
+        )
+        self.assertFalse(
+            result["checks"]["identity_capture_session_provenance_complete"]
+        )
+
+    def test_malformed_identity_session_id_blocks_capture_provenance(self):
+        result = evidence_status(
+            {}, {
+                "capture_session_linked": True,
+                "capture_session_id": "invalid session id",
+                "timestamp_identified": True,
+                "captured_at": "2026-11-23T10:00:00+03:00",
+            }, {}, {}
+        )
+        self.assertFalse(
+            result["checks"]["identity_capture_session_provenance_complete"]
+        )
+
     def test_live_actions_always_disabled(self):
         result = evidence_status({}, {}, {}, {})
         self.assertIs(result["game_taps_enabled"], False)
