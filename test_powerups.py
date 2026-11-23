@@ -36,6 +36,18 @@ class PowerUpCatalogTests(unittest.TestCase):
         self.assertFalse(plan["purchase_performed"])
         self.assertEqual(inventory.gold, before)
 
+    def test_observed_level_reward_increases_gold(self):
+        inventory = PowerUpInventory(gold=15)
+        self.assertEqual(inventory.record_level_gold_reward(20), 35)
+
+    def test_level_reward_requires_known_balance_and_exact_integer(self):
+        with self.assertRaises(ValueError):
+            PowerUpInventory().record_level_gold_reward(10)
+        for bad in (True, -1, 1.5, "10"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    PowerUpInventory(gold=5).record_level_gold_reward(bad)
+
     def test_insufficient_gold_is_reported(self):
         inventory = PowerUpInventory(
             gold=10, prices={"dragon_roar": 25}
