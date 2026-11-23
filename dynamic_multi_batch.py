@@ -109,14 +109,7 @@ def simulate_dynamic_multi_batch(
             isolated.conveyor = []
             isolated.storage = []
             if batch_accessible is not None:
-                group_members = []
-                for shooter_id, shooter in isolated.shooters.items():
-                    members = [str(shooter_id)] + [
-                        str(member) for member in shooter.bonded_ids
-                    ]
-                    member_group_id = str(shooter.group_id or min(members))
-                    if member_group_id == group_id:
-                        group_members.append(str(shooter_id))
+                group_members = isolated.bonded_group(root)
                 if not group_members or not set(group_members).issubset(batch_accessible):
                     failure = {
                         "reason": "GROUP_NOT_ACCESSIBLE_AT_BATCH_START",
