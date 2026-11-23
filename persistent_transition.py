@@ -12,15 +12,45 @@ CALIBRATION = Path("data/vision_level39.json")
 
 
 def distance(a, b):
-    return math.sqrt(sum((float(a[i]) - float(b[i])) ** 2 for i in range(3)))
+    return math.sqrt(sum((a[i] - b[i]) ** 2 for i in range(3)))
+
+
+def _valid_rgb(sample):
+    return (
+        isinstance(sample, list) and len(sample) == 3
+        and all(type(value) is int and 0 <= value <= 255
+                for value in sample)
+    )
 
 
 def persistent_transition(baseline, first, second,
                           threshold=THRESHOLD,
                           stability=STABILITY_THRESHOLD):
+    if any(not isinstance(item, dict) for item in (baseline, first, second)):
+        raise ValueError("Each observation must be a JSON object")
+
     for key in ("image_size", "grid_size", "bounds"):
         if baseline.get(key) != first.get(key) or baseline.get(key) != second.get(key):
             raise ValueError(f"Incompatible {key}")
+
+    grid_size = baseline.get("grid_size")
+    if (not isinstance(grid_size, list) or len(grid_size) != 2
+            or any(type(value) is not int or value < 1 for value in grid_size)):
+        raise ValueError("Invalid grid_size")
+    image_size = baseline.get("image_size")
+    if (not isinstance(image_size, list) or len(image_size) != 2
+            or any(type(value) is not int or value < 1 for value in image_size)):
+        raise ValueError("Invalid image_size")
+    bounds = baseline.get("bounds")
+    if (not isinstance(bounds, list) or len(bounds) != 4
+            or any(type(value) not in (int, float) or not math.isfinite(value)
+                   for value in bounds)):
+        raise ValueError("Invalid board bounds")
+
+    if (type(threshold) not in (int, float) or not math.isfinite(threshold)
+            or threshold < 0 or type(stability) not in (int, float)
+            or not math.isfinite(stability) or stability < 0):
+        raise ValueError("Thresholds must be finite non-negative numbers")
 
     boards = [x.get("raw_rgb") for x in (baseline, first, second)]
     if any(not isinstance(board, list) or not board for board in boards):
@@ -42,7 +72,7 @@ def persistent_transition(baseline, first, second,
         for c in range(cols):
             a, b, d = boards[0][r][c], boards[1][r][c], boards[2][r][c]
 
-            if any(not isinstance(x, list) or len(x) != 3 for x in (a, b, d)):
+            if not all(_valid_rgb(sample) for sample in (a, b, d)):
                 raise ValueError("Invalid RGB sample")
 
             change1 = distance(a, b)
