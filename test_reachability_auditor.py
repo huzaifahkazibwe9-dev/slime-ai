@@ -123,6 +123,30 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_capture_metadata_is_propagated_to_reachability_report(self):
+        board = [["white"] * 35 for _ in range(35)]
+        captured_at = "2026-11-23T10:00:00+00:00"
+        board_data = {
+            "board": board,
+            "snapshot_id": "sha256:" + "a" * 64,
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+        }
+        calibration = {
+            "verified_by_user": True,
+            "image_size": [1080, 2220],
+            "shooters": [{"id": "top_1", "segment": "top", "center": [500, 179]}],
+        }
+        observations = {
+            "observations": [{"position_id": "top_1", "colour": "white", "ammo": 5}],
+            "timestamp_identified": False,
+            "identity_verified": False,
+            "gameplay_verified": False,
+        }
+        report = audit(board_data, calibration, observations)
+        self.assertEqual(report["captured_at"], captured_at)
+        self.assertTrue(report["timestamp_identified"])
+
     def test_ammo_reading_without_explicit_provenance_is_unverified(self):
         # The calibrated top shooter geometry targets column 15 of row 0;
         # use the real 35x35 board dimensions rather than a 3x1 stub.
