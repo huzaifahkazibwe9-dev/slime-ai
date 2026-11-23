@@ -64,14 +64,14 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
 
     def test_bonded_group_larger_than_conveyor_is_rejected(self):
         state = GameState(
-            board=[[None]],
+            board=[["red"]],
             shooters={
                 "A": Shooter(
-                    "A", "red", 0, "right", -1, 0,
+                    "A", "red", 1, "right", -1, 0,
                     accessible=True, bonded_ids=["B"], group_id="PAIR",
                 ),
                 "B": Shooter(
-                    "B", "red", 0, "right", -1, 0,
+                    "B", "red", 1, "right", -1, 0,
                     accessible=True, bonded_ids=["A"], group_id="PAIR",
                 ),
             },
