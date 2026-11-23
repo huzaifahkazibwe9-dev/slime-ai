@@ -51,7 +51,7 @@ class SnapshotSyncTests(unittest.TestCase):
         board = {"snapshot_id": "capture-001", "capture_session_id": "session-001"}
         artifacts = [
             {"board_snapshot_id": "capture-001", "capture_session_id": "session-001"}
-            for _ in range(3)
+            for _ in range(4)
         ]
         return board, *artifacts
 
