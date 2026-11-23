@@ -15,7 +15,7 @@ def parse_exif_capture_time(exif):
         return None
     try:
         captured = datetime.strptime(raw, "%Y:%m:%d %H:%M:%S")
-        match = re.fullmatch(r"([+-])(\\d{2}):(\\d{2})", offset.strip())
+        match = re.fullmatch(r"([+-])(\d{2}):(\d{2})", offset.strip())
         if not match:
             return None
         hours, minutes = int(match.group(2)), int(match.group(3))
