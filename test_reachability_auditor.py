@@ -156,6 +156,7 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(position["ammo_evidence"]["verified"])
         self.assertFalse(position["ammunition_evidence_verified"])
         self.assertFalse(position["planning_eligible"])
+        self.assertFalse(report["capture_freshness"]["fresh"])
         self.assertIn(
             "AMMUNITION_OBSERVATION_UNVERIFIED",
             position["planning_blockers"],
