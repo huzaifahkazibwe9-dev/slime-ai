@@ -150,6 +150,11 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
         return False
+    left, top, right, bottom = bounds
+    image_width, image_height = image_size
+    if (left < 1 or top < 1 or right <= left or bottom <= top
+            or right > image_width - 1 or bottom > image_height - 1):
+        return False
     board = cached.get("board")
     raw_rgb = cached.get("raw_rgb")
     counts = cached.get("counts")
