@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 DATA = Path("data")
@@ -52,6 +53,31 @@ def validate_visual_observations(observations, expected_positions):
         errors.append("Missing positions: " + ", ".join(missing))
     return errors
 
+
+def validate_visual_provenance(visual):
+    """Require explicit identity-frame linkage to a board capture session."""
+    if not isinstance(visual, dict):
+        return ["Visual observation artifact must be an object"]
+    errors = []
+    for key in ("board_snapshot_id", "capture_session_id"):
+        value = visual.get(key)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"Missing or invalid {key}")
+    captured_at = visual.get("captured_at")
+    if not isinstance(captured_at, str) or not captured_at.strip():
+        errors.append("Missing capture timestamp")
+    else:
+        try:
+            parsed = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                errors.append("Capture timestamp must include a UTC offset")
+        except ValueError:
+            errors.append("Capture timestamp is invalid")
+    if visual.get("timestamp_identified") is not True:
+        errors.append("Capture timestamp is not explicitly identified")
+    return errors
+
+
 def main():
     calibration = read("conveyor_calibration.json")
     visual = read("conveyor_visual_observations.json")
@@ -64,9 +90,14 @@ def main():
     validation_errors = validate_visual_observations(
         observations, positions
     )
+    validation_errors.extend(validate_visual_provenance(visual))
     if validation_errors:
         report = {
             "screenshot_order": ORDER,
+            "board_snapshot_id": visual.get("board_snapshot_id"),
+            "capture_session_id": visual.get("capture_session_id"),
+            "captured_at": visual.get("captured_at"),
+            "timestamp_identified": visual.get("timestamp_identified") is True,
             "observations_valid": False,
             "validation_errors": validation_errors,
             "tracks": {},
@@ -106,6 +137,10 @@ def main():
 
     report = {
         "screenshot_order": ORDER,
+        "board_snapshot_id": visual.get("board_snapshot_id"),
+        "capture_session_id": visual.get("capture_session_id"),
+        "captured_at": visual.get("captured_at"),
+        "timestamp_identified": visual.get("timestamp_identified") is True,
         "tracks": {},
         "checks": {"observations_valid": True},
         "identity_verified": False,
@@ -187,7 +222,10 @@ def main():
         ),
         "timestamps_known": (
             visual.get("timestamp_identified") is True
+            and bool(visual.get("captured_at"))
         ),
+        "snapshot_linked": bool(visual.get("board_snapshot_id")),
+        "capture_session_linked": bool(visual.get("capture_session_id")),
         "identity_previously_verified": (
             visual.get("identity_verified") is True
         ),
