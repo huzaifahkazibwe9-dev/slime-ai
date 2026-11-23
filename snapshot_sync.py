@@ -1,9 +1,69 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 BOARD_FILE = Path("data/vision_level39.json")
 OBS_FILE = Path("data/conveyor_visual_observations.json")
 OUTPUT = Path("data/snapshot_sync_report.json")
+
+
+def _parse_aware_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def validate_capture_freshness(board_timestamp, observation_timestamp,
+                               now=None, max_age_seconds=300,
+                               max_skew_seconds=120):
+    """Require timezone-aware, recent capture times with limited clock skew."""
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("now must be timezone-aware")
+    board_time = _parse_aware_timestamp(board_timestamp)
+    observation_time = _parse_aware_timestamp(observation_timestamp)
+    checks = {
+        "board_timestamp_parseable_and_timezone_aware": board_time is not None,
+        "observation_timestamp_parseable_and_timezone_aware": observation_time is not None,
+    }
+    if board_time is not None:
+        age = (now.astimezone(timezone.utc) - board_time).total_seconds()
+        checks["board_capture_not_in_future"] = age >= -5
+        checks["board_capture_fresh"] = -5 <= age <= max_age_seconds
+    else:
+        age = None
+        checks["board_capture_not_in_future"] = False
+        checks["board_capture_fresh"] = False
+    if observation_time is not None:
+        obs_age = (now.astimezone(timezone.utc) - observation_time).total_seconds()
+        checks["observation_capture_not_in_future"] = obs_age >= -5
+        checks["observation_capture_fresh"] = -5 <= obs_age <= max_age_seconds
+    else:
+        obs_age = None
+        checks["observation_capture_not_in_future"] = False
+        checks["observation_capture_fresh"] = False
+    if board_time is not None and observation_time is not None:
+        skew = abs((board_time - observation_time).total_seconds())
+    else:
+        skew = None
+    checks["capture_timestamps_within_skew_limit"] = (
+        skew is not None and skew <= max_skew_seconds
+    )
+    return {
+        "fresh": all(checks.values()),
+        "checks": checks,
+        "board_age_seconds": age,
+        "observation_age_seconds": obs_age,
+        "timestamp_skew_seconds": skew,
+        "max_age_seconds": max_age_seconds,
+        "max_skew_seconds": max_skew_seconds,
+    }
 
 
 def synchronise_audit(board, observations):
@@ -38,10 +98,17 @@ def synchronise_audit(board, observations):
         ),
     }
 
+    freshness = validate_capture_freshness(
+        board.get("captured_at"),
+        observations.get("captured_at"),
+    )
+    checks["capture_timestamps_fresh_and_aligned"] = freshness["fresh"]
+
     synchronised = all(checks.values())
 
     return {
         "synchronised": synchronised,
+        "capture_freshness": freshness,
         "planning_allowed_by_sync": synchronised,
         "checks": checks,
         "board_snapshot_id": board_id,
