@@ -76,10 +76,23 @@ def _simulate_conveyor_batch(original, state, groups):
     # Add candidate shooters as not-yet-selected.
     for group in groups:
         root = str(group[0])
+        canonical_group_id = original.bonded_group_id(root)
+        if canonical_group_id is None:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "INVALID_BONDED_GROUP_IDENTITY",
+            }
         for shooter_id in group:
+            if original.bonded_group_id(shooter_id) != canonical_group_id:
+                return {
+                    "failed": True,
+                    "batch_selection_valid": False,
+                    "failure_reason": "INCONSISTENT_BONDED_GROUP_MEMBERSHIP",
+                }
             records.append({
                 "id": str(shooter_id),
-                "group_id": root,
+                "group_id": str(canonical_group_id),
                 "ammo": int(original.shooters[shooter_id].ammo or 0),
             })
 
