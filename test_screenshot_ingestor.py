@@ -30,6 +30,8 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(len(result["board"]), 3)
             self.assertTrue(all(len(row) == 3 for row in result["board"]))
             self.assertEqual(sum(result["counts"].values()), 9)
+            self.assertGreaterEqual(result["processing_seconds"], 0)
+            self.assertEqual(result["sampling_method"], "numpy_vectorized_3x3_median")
         finally:
             path.unlink(missing_ok=True)
 
