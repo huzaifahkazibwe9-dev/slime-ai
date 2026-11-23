@@ -29,8 +29,10 @@ if [[ ! -f "screenshots/level39.jpg" ]]; then
     echo "ERROR: screenshots/level39.jpg is missing." >&2
     exit 2
 fi
-if [[ ! -f "screenshots/shooter_panel.jpg" && ! -f "data/shooter_detection.json" ]]; then
-    echo "ERROR: Need shooter_panel.jpg or data/shooter_detection.json." >&2
+if [[ ! -f "data/shooter_capture_config.json" \
+      && ! -f "screenshots/shooter_panel.jpg" \
+      && ! -f "data/shooter_detection.json" ]]; then
+    echo "ERROR: Need data/shooter_capture_config.json, shooter_panel.jpg, or data/shooter_detection.json." >&2
     exit 2
 fi
 if [[ -f "screenshots/shooter_panel.jpg" ]] && ! command -v tesseract >/dev/null 2>&1; then
