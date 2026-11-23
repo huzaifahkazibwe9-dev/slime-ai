@@ -39,7 +39,9 @@ def audit_data(data):
     rgb_grid = data.get("raw_rgb")
     grid_size = data.get("grid_size")
 
-    if not isinstance(grid_size, list) or len(grid_size) != 2:
+    if (not isinstance(grid_size, list) or len(grid_size) != 2
+            or any(type(value) is not int or value < 1
+                   for value in grid_size)):
         return {"passed": False, "errors": ["Invalid grid_size"]}
 
     width, height = grid_size
@@ -91,7 +93,9 @@ def audit_data(data):
                 })
 
     saved_counts = data.get("counts", {})
-    counts_match = dict(counts) == saved_counts
+    counts_match = (
+        isinstance(saved_counts, dict) and dict(counts) == saved_counts
+    )
 
     if not counts_match:
         errors.append("Saved colour counts do not match board labels")
@@ -109,7 +113,8 @@ def audit_data(data):
 
     occupancy = data.get("occupancy", {})
     occupancy_confirmed = (
-        occupancy.get("initial_occupancy_user_confirmed") is True
+        isinstance(occupancy, dict)
+        and occupancy.get("initial_occupancy_user_confirmed") is True
     )
 
     return {
