@@ -57,6 +57,70 @@ def synchronise_audit(board, observations):
     }
 
 
+
+def synchronise_bundle(board, conveyor, identity, candidates):
+    """Require every evidence artifact to name the same board capture.
+
+    Missing provenance is a blocker; timestamps or filenames are never
+    used to guess that two independently captured artifacts are aligned.
+    """
+    artifacts = {
+        "conveyor": conveyor,
+        "identity": identity,
+        "candidates": candidates,
+    }
+    board_id = board.get("snapshot_id") if isinstance(board, dict) else None
+    board_session = (
+        board.get("capture_session_id") if isinstance(board, dict) else None
+    )
+
+    checks = {
+        "board_snapshot_id_present": isinstance(board_id, str) and bool(board_id),
+        "board_capture_session_present": (
+            isinstance(board_session, str) and bool(board_session)
+        ),
+    }
+    artifact_ids = {}
+    artifact_sessions = {}
+
+    for name, artifact in artifacts.items():
+        valid_object = isinstance(artifact, dict)
+        snapshot_id = artifact.get("board_snapshot_id") if valid_object else None
+        session_id = artifact.get("capture_session_id") if valid_object else None
+        artifact_ids[name] = snapshot_id
+        artifact_sessions[name] = session_id
+        checks[f"{name}_artifact_present"] = valid_object
+        checks[f"{name}_snapshot_id_present"] = (
+            isinstance(snapshot_id, str) and bool(snapshot_id)
+        )
+        checks[f"{name}_snapshot_matches_board"] = (
+            bool(board_id) and snapshot_id == board_id
+        )
+        checks[f"{name}_session_present"] = (
+            isinstance(session_id, str) and bool(session_id)
+        )
+        checks[f"{name}_session_matches_board"] = (
+            bool(board_session) and session_id == board_session
+        )
+
+    synchronised = all(checks.values())
+    return {
+        "synchronised": synchronised,
+        "planning_allowed_by_sync": synchronised,
+        "checks": checks,
+        "board_snapshot_id": board_id,
+        "artifact_snapshot_ids": artifact_ids,
+        "board_capture_session": board_session,
+        "artifact_capture_sessions": artifact_sessions,
+        "game_taps_enabled": False,
+        "actions_performed": False,
+        "warning": (
+            "Every artifact must explicitly reference the same board snapshot "
+            "and capture session. Missing provenance is never inferred."
+        ),
+    }
+
+
 def main():
     board = json.loads(BOARD_FILE.read_text())
     observations = json.loads(OBS_FILE.read_text())
