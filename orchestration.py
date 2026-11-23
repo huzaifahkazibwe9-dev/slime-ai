@@ -88,6 +88,10 @@ def evidence_status(planning, identity, snapshot, candidates):
         "identity_report_present": isinstance(identity, dict),
         "snapshot_report_present": isinstance(snapshot, dict),
         "candidate_report_present": isinstance(candidates, dict),
+        "planning_conveyor_timing_calibrated": (
+            isinstance(planning, dict)
+            and planning.get("conveyor_timing_calibrated") is True
+        ),
         "planning_capture_freshness_verified": (
             isinstance(planning, dict)
             and planning.get("capture_freshness_verified") is True
