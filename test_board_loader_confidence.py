@@ -133,6 +133,24 @@ class BoardLoaderConfidenceTests(unittest.TestCase):
                     load_board(self.vision_path, self.confidence_path)
                 self.vision["occupancy"]["mask"][0][0] = 1
 
+    def test_non_list_board_row_rejected(self):
+        self.vision["board"][1] = 7
+        self.write_files()
+        with self.assertRaises(ValueError):
+            load_board(self.vision_path, self.confidence_path)
+
+    def test_non_dict_occupancy_metadata_rejected(self):
+        self.vision["occupancy"] = []
+        self.write_files()
+        with self.assertRaises(ValueError):
+            load_board(self.vision_path, self.confidence_path)
+
+    def test_non_dict_confidence_cell_rejected(self):
+        self.confidence["cells"][1][1] = "invalid"
+        self.write_files()
+        with self.assertRaises(ValueError):
+            load_board(self.vision_path, self.confidence_path)
+
     def test_safety_flags_remain_disabled(self):
         result = load_board(self.vision_path, self.confidence_path)
         self.assertFalse(result["tile_removals_verified"])
