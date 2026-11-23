@@ -84,6 +84,19 @@ measurement aid only: it does not detect the panel, certify the coordinates,
 or verify shooter identities. Keep gameplay actions disabled until the
 resulting capture and game observations are independently checked.
 
+## Shooter sample-quality checks
+
+Each of the 12 fixed-grid panel observations now compares its centre colour
+patch with the surrounding local context. The diagnostic records local RGB
+contrast and median absolute deviation, and labels the sample as distinct or
+low-confidence. This helps flag points that may have landed on panel
+background or a noisy boundary instead of a shooter circle. It is a quality
+heuristic, not circle detection, colour identity verification, or proof that a
+slot is available. All 12 observations remain non-selectable; only the
+existing first-row OCR path is used, and lower-row ammunition is not inferred.
+The fixed grid and its offsets still require validation against the complete
+panel in a real capture.
+
 ## Bonded-shooter confirmation
 
 The detector does not infer bonded relationships from fixed screen positions.
