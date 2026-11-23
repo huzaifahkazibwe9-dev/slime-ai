@@ -214,14 +214,15 @@ def run_multi_batch_diagnostic(state, max_candidates=200):
 
 
 def run_evolving_board_diagnostic(state, max_nodes=500, beam_width=40,
-                                  max_depth=None):
+                                  max_depth=None, result=None):
     """Run evolving-board search without inferring dynamic accessibility."""
     try:
-        from evolving_board_planner import plan_evolving_board
-        result = plan_evolving_board(
-            state, accessibility_resolver=None, max_nodes=max_nodes,
-            beam_width=beam_width, max_depth=max_depth,
-        )
+        if result is None:
+            from evolving_board_planner import plan_evolving_board
+            result = plan_evolving_board(
+                state, accessibility_resolver=None, max_nodes=max_nodes,
+                beam_width=beam_width, max_depth=max_depth,
+            )
         return {
             "engine": result.get("engine"),
             "status": result.get("status"),
@@ -256,13 +257,15 @@ def run_evolving_board_diagnostic(state, max_nodes=500, beam_width=40,
             "game_taps_enabled": False,
         }
 
-def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40):
+def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40,
+                                           board_plan=None):
     """Run evolving-board planning with conservative capacity batches."""
     try:
         from capacity_aware_evolving_planner import plan_capacity_aware_evolving_schedule
         result = plan_capacity_aware_evolving_schedule(
             state, accessibility_resolver=None,
             max_nodes=max_nodes, beam_width=beam_width,
+            board_plan=board_plan,
         )
         return {
             "engine": result.get("engine"),
@@ -404,13 +407,17 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     )
     timings["multi_batch_search_seconds"] = round(time.perf_counter() - stage_started, 6)
     stage_started = time.perf_counter()
+    from evolving_board_planner import plan_evolving_board
+    shared_board_plan = plan_evolving_board(
+        state, accessibility_resolver=None, max_nodes=500, beam_width=40,
+    )
     evolving_board_summary = run_evolving_board_diagnostic(
-        state, max_nodes=500, beam_width=40,
+        state, max_nodes=500, beam_width=40, result=shared_board_plan,
     )
     timings["evolving_board_search_seconds"] = round(time.perf_counter() - stage_started, 6)
     stage_started = time.perf_counter()
     capacity_evolving_summary = run_capacity_aware_evolving_diagnostic(
-        state, max_nodes=500, beam_width=40,
+        state, max_nodes=500, beam_width=40, board_plan=shared_board_plan,
     )
     timings["capacity_aware_search_seconds"] = round(time.perf_counter() - stage_started, 6)
     timings["bounded_searches_seconds"] = round(
