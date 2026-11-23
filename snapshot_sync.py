@@ -141,8 +141,17 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     board_session = (
         board.get("capture_session_id") if isinstance(board, dict) else None
     )
+    board_captured_at = (
+        _parse_aware_timestamp(board.get("captured_at"))
+        if isinstance(board, dict) else None
+    )
 
     checks = {
+        "board_capture_timestamp_identified": (
+            isinstance(board, dict)
+            and board.get("timestamp_identified") is True
+            and board_captured_at is not None
+        ),
         "board_snapshot_id_present": isinstance(board_id, str) and bool(board_id),
         "board_capture_session_present": (
             isinstance(board_session, str) and bool(board_session)
@@ -155,6 +164,10 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
         valid_object = isinstance(artifact, dict)
         snapshot_id = artifact.get("board_snapshot_id") if valid_object else None
         session_id = artifact.get("capture_session_id") if valid_object else None
+        artifact_time = (
+            _parse_aware_timestamp(artifact.get("captured_at"))
+            if valid_object else None
+        )
         artifact_ids[name] = snapshot_id
         artifact_sessions[name] = session_id
         checks[f"{name}_artifact_present"] = valid_object
@@ -169,6 +182,16 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
         )
         checks[f"{name}_session_matches_board"] = (
             bool(board_session) and session_id == board_session
+        )
+        checks[f"{name}_timestamp_identified"] = (
+            valid_object
+            and artifact.get("timestamp_identified") is True
+            and artifact_time is not None
+        )
+        checks[f"{name}_timestamp_matches_board"] = (
+            board_captured_at is not None
+            and artifact_time is not None
+            and artifact_time == board_captured_at
         )
 
     synchronised = all(checks.values())
