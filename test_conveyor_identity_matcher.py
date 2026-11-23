@@ -1,6 +1,9 @@
 import unittest
 
-from conveyor_identity_matcher import validate_visual_observations
+from conveyor_identity_matcher import (
+    validate_visual_observations,
+    validate_visual_provenance,
+)
 
 
 EXPECTED = [
@@ -21,6 +24,41 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         self.assertEqual(
             validate_visual_observations(observations(), EXPECTED), []
         )
+
+
+    def test_explicit_capture_provenance_is_valid(self):
+        self.assertEqual(validate_visual_provenance({
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        }), [])
+
+    def test_missing_snapshot_link_is_rejected(self):
+        errors = validate_visual_provenance({
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        })
+        self.assertTrue(any("board_snapshot_id" in item for item in errors))
+
+    def test_naive_capture_timestamp_is_rejected(self):
+        errors = validate_visual_provenance({
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00",
+            "timestamp_identified": True,
+        })
+        self.assertTrue(any("UTC offset" in item for item in errors))
+
+    def test_unidentified_capture_timestamp_is_rejected(self):
+        errors = validate_visual_provenance({
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": False,
+        })
+        self.assertTrue(any("not explicitly identified" in item for item in errors))
 
     def test_duplicate_position_rejected(self):
         data = observations()
