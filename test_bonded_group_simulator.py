@@ -64,6 +64,20 @@ class BondedGroupSimulatorTests(unittest.TestCase):
         )
         self.assertTrue(report["source_state_unchanged"])
 
+    def test_consume_state_uses_disposable_state_without_changing_default_contract(self):
+        disposable = self.make_state()
+        original = self.make_state()
+        report = simulate_bonded_group(disposable, "A", consume_state=True)
+        self.assertEqual(report["status"], "SIMULATED")
+        self.assertEqual(original.board, [["red", "blue"], ["red", "red"]])
+        self.assertEqual(disposable.board, report["final_board"])
+        self.assertEqual(disposable.shooters["A"].ammo, report["remaining_ammo"]["A"])
+        self.assertFalse(report["source_state_unchanged"])
+
+    def test_consume_state_requires_boolean(self):
+        with self.assertRaises(TypeError):
+            simulate_bonded_group(self.make_state(), "A", consume_state=1)
+
     def test_unknown_shooter_rejected(self):
         with self.assertRaises(ValueError):
             simulate_bonded_group(self.make_state(), "UNKNOWN")
