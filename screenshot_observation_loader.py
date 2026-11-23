@@ -105,6 +105,9 @@ def load_observed_level(
         shooters=shooters,
         level=level,
     )
+    # Preserve the legacy diagnostic interface without inventing mappings.
+    state.colour_mappings = {}
+    state.colour_mappings_verified = False
     errors = state.validate()
     if errors:
         raise ValueError("Invalid integrated game state: " + "; ".join(errors))
@@ -120,6 +123,8 @@ def load_observed_level(
         "shooter_panel_positions_only": True,
         "shooter_positions_gameplay_verified": False,
         "initial_occupancy_confirmed": False,
+        "vision_occupancy_verified": False,
+        "colour_classification_verified": False,
         "vision_classification_verified": False,
         "colour_mapping_verified": False,
         "board_transition_verified": False,
