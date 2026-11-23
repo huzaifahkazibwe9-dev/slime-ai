@@ -37,7 +37,7 @@ def inspect_lane(state, shooter_id, graph=None):
     }
 
 
-def simulate_dynamic_board(state, shooter_id, max_shots=None):
+def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=False):
     if not isinstance(state, GameState):
         raise TypeError("Expected a GameState")
     errors = state.validate()
@@ -52,8 +52,11 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None):
     if max_shots is not None and (type(max_shots) is not int or max_shots < 1):
         raise ValueError("max_shots must be a positive integer")
 
+    if type(consume_state) is not bool:
+        raise TypeError("consume_state must be a bool")
     original = copy.deepcopy(state)
-    simulated = copy.deepcopy(state)
+    # A caller may pass a disposable state copy to avoid another full clone.
+    simulated = state if consume_state else copy.deepcopy(state)
     graph = build_region_graph(simulated.board)
     steps, history = [], []
 
