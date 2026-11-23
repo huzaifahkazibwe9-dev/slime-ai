@@ -100,8 +100,11 @@ def read_ammunition(image, box, temp):
         timeout=15
     )
 
+    if result.returncode != 0:
+        return None
+
     digits = re.findall(r"\d+", result.stdout)
-    return int(digits[0]) if len(digits)==1 else None
+    return int(digits[0]) if len(digits) == 1 else None
 
 def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
     """Verify a panel image against a region of the full source screenshot.
