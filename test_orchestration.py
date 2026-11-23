@@ -99,7 +99,7 @@ class OrchestrationTests(unittest.TestCase):
         }
         candidates = {"identity_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
-        self.assertFalse(result["evidence_gate_passed"))
+        self.assertFalse(result["evidence_gate_passed"])
 
     def test_live_actions_always_disabled(self):
         result = evidence_status({}, {}, {}, {})
