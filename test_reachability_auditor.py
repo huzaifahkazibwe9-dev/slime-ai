@@ -72,6 +72,49 @@ class ReachabilityAuditorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             trace_lane([["white"]], (0, 0), "diagonal", "white")
 
+    def test_screenshot_observation_can_feed_lane_analysis(self):
+        board = [["white"] * 35 for _ in range(35)]
+        board[2][15] = "red"
+        board_data = {
+            "board": board,
+            "snapshot_id": "sha256:" + "d" * 64,
+            "timestamp_identified": False,
+        }
+        calibration = {
+            "verified_by_user": True,
+            "image_size": [1080, 2220],
+            "shooters": [{
+                "id": "top_1",
+                "segment": "top",
+                "center": [500, 179],
+            }],
+            "directions": {"top": "down"},
+        }
+        observations = {
+            "observations": [{
+                "position_id": "top_1",
+                "colour": "white",
+                "ammo": 40,
+            }],
+            "timestamp_identified": False,
+            "identity_verified": False,
+            "gameplay_verified": False,
+            "board_snapshot_id": None,
+            "same_board_state_confirmed": False,
+        }
+        report = audit(board_data, calibration, observations)
+        position = report["results"][0]
+        self.assertEqual(position["position_id"], "top_1")
+        self.assertEqual(position["scenarios"][0]["exposed_matching_count"], 2)
+        self.assertEqual(
+            position["scenarios"][0]["status"],
+            "MATCHING_RUN_THEN_BLOCKED",
+        )
+        self.assertEqual(report["planning_ready_positions"], 0)
+        self.assertFalse(report["same_board_state_confirmed"])
+        self.assertFalse(report["gameplay_verified"])
+        self.assertFalse(report["game_taps_enabled"])
+
     @unittest.skipUnless(HAS_LEVEL39_DATA, "Private Level 39 evidence is not included in the public repository")
     def test_actual_level39_has_eight_positions(self):
         board = json.loads(LEVEL39_FILES[0].read_text())
