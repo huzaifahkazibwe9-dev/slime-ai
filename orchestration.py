@@ -50,7 +50,8 @@ def evidence_status(planning, identity, snapshot, candidates):
     }
 
 
-def run_orchestration(data_dir="data", candidate_report_path=None,\n                      observation_path=None, shooter_path=None):
+def run_orchestration(data_dir="data", candidate_report_path=None,
+                      observation_path=None, shooter_path=None):
     from level_loader import load_level
     from planner import plan_next_move
 
