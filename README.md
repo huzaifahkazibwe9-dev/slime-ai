@@ -32,13 +32,13 @@ full-screenshot coordinates, a session label, and the screenshot capture time:
 
 ```json
 {
-  "panel_bounds": [LEFT, TOP, RIGHT, BOTTOM],
+  "panel_bounds": [100, 100, 990, 680],
   "capture_session_id": "level39-session-01",
   "captured_at": "2026-11-23T12:30:00+03:00"
 }
 ```
 
-Replace the four coordinate placeholders with integer values. The timestamp
+The numeric bounds above are illustrative only; replace them with the actual crop coordinates. The timestamp
 must be the real capture time and include its UTC offset. The session label
 must identify that capture; do not reuse it for a different screenshot.
 When this file exists, the build pipeline ingests the board and generates the
