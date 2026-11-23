@@ -25,6 +25,23 @@ class CaptureProvenanceTests(unittest.TestCase):
             36881: "+18:00",
         }))
 
+    def test_explicit_capture_timestamp_with_offset_is_accepted(self):
+        from capture_provenance import parse_aware_capture_timestamp
+        self.assertEqual(
+            parse_aware_capture_timestamp("2026-11-23T12:30:00+03:00"),
+            "2026-11-23T12:30:00+03:00",
+        )
+
+    def test_explicit_capture_timestamp_without_offset_is_rejected(self):
+        from capture_provenance import parse_aware_capture_timestamp
+        with self.assertRaisesRegex(ValueError, "UTC offset"):
+            parse_aware_capture_timestamp("2026-11-23T12:30:00")
+
+    def test_invalid_explicit_capture_timestamp_is_rejected(self):
+        from capture_provenance import parse_aware_capture_timestamp
+        with self.assertRaisesRegex(ValueError, "Invalid capture timestamp"):
+            parse_aware_capture_timestamp("yesterday")
+
     def test_explicit_capture_session_id_is_preserved(self):
         self.assertEqual(
             validate_capture_session_id("session-2026-11-23-A"),
