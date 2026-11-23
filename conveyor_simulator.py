@@ -88,6 +88,30 @@ class ConveyorSimulator:
         for shooter in self.shooters:
             if shooter.position >= self.config.ticks_per_lap:
                 raise ValueError("Shooter position is outside the configured lap")
+        active_count = sum(1 for shooter in self.shooters
+                           if shooter.selected and not shooter.returned)
+        returned_by_group = {}
+        selected_by_group = {}
+        for shooter in self.shooters:
+            if shooter.returned:
+                returned_by_group.setdefault(shooter.group_id, []).append(shooter)
+            elif shooter.selected:
+                selected_by_group.setdefault(shooter.group_id, []).append(shooter)
+        for group_id, members in selected_by_group.items():
+            total = sum(1 for shooter in self.shooters
+                        if shooter.group_id == group_id)
+            if len(members) != total:
+                raise ValueError("Restored conveyor contains a partial bonded group")
+        for group_id, members in returned_by_group.items():
+            total = sum(1 for shooter in self.shooters
+                        if shooter.group_id == group_id)
+            if len(members) != total:
+                raise ValueError("Restored storage contains a partial bonded group")
+        if active_count > self.config.conveyor_capacity:
+            raise ValueError("Restored conveyor exceeds configured capacity")
+        if len(returned_by_group) and sum(len(v) for v in returned_by_group.values()) > self.storage_occupied:
+            raise ValueError("Returned shooters exceed recorded storage occupancy")
+        self.returned_ids = [s.shooter_id for s in self.shooters if s.returned]
         self._by_id = {s.shooter_id: s for s in self.shooters}
 
     @property
