@@ -58,7 +58,7 @@ def synchronise_audit(board, observations):
 
 
 
-def synchronise_bundle(board, conveyor, identity, candidates):
+def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     """Require every evidence artifact to name the same board capture.
 
     Missing provenance is a blocker; timestamps or filenames are never
@@ -68,6 +68,7 @@ def synchronise_bundle(board, conveyor, identity, candidates):
         "conveyor": conveyor,
         "identity": identity,
         "candidates": candidates,
+        "planning": planning,
     }
     board_id = board.get("snapshot_id") if isinstance(board, dict) else None
     board_session = (
