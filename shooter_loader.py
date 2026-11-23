@@ -24,6 +24,7 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     # must not be converted into a Shooter colour. Older diagnostic files
     # without this optional field retain their legacy loading behaviour.
     eligible = []
+    low_confidence_ids = set()
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
@@ -35,15 +36,15 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
             if status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}:
                 raise ValueError(f"Shooter entry {index} has invalid sample quality status")
             if status == "LOW_CONFIDENCE_SAMPLE":
+                low_confidence_ids.add(item.get("id"))
                 continue
         eligible.append(item)
-    eligible_ids = {item.get("id") for item in eligible}
     # If a member of a confirmed bond has an unreliable visual sample, do not
-    # load the remaining members as an incomplete bonded group.
+    # load the remaining members as an incomplete bonded group. Preserve
+    # malformed/unknown group references so the normal validator rejects them.
     groups = [
         group for group in groups
-        if isinstance(group, list)
-        and all(member in eligible_ids for member in group)
+        if not any(member in low_confidence_ids for member in group)
     ]
     detected = eligible
     for index, item in enumerate(detected):
