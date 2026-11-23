@@ -51,6 +51,59 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                         "visible_shooters": [{"id": value}]
                     })
 
+
+    def test_rejects_duplicate_shooter_ids(self):
+        entry = {"id": "shooter-1", "color": {"name": "red"}, "ammo": 1}
+        with self.assertRaisesRegex(ValueError, "IDs must be unique"):
+            self.load_payload({"visible_shooters": [entry, dict(entry)]})
+
+    def test_rejects_invalid_bonded_group_members(self):
+        for group in ([None], [""], [1]):
+            with self.subTest(group=group):
+                with self.assertRaisesRegex(ValueError, "invalid shooter ID"):
+                    self.load_payload({
+                        "visible_shooters": [],
+                        "bonded_groups": [group],
+                    })
+
+    def test_rejects_unknown_bonded_group_members(self):
+        with self.assertRaisesRegex(ValueError, "unknown shooters"):
+            self.load_payload({
+                "visible_shooters": [],
+                "bonded_groups": [["missing"]],
+            })
+
+    def test_rejects_duplicate_members_in_bonded_group(self):
+        with self.assertRaisesRegex(ValueError, "duplicate shooter IDs"):
+            self.load_payload({
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 1}
+                ],
+                "bonded_groups": [["A", "A"]],
+            })
+
+    def test_rejects_shooter_in_multiple_bonded_groups(self):
+        shooters = [
+            {"id": name, "color": {"name": "red"}, "ammo": 1}
+            for name in ("A", "B", "C")
+        ]
+        with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
+            self.load_payload({
+                "visible_shooters": shooters,
+                "bonded_groups": [["A", "B"], ["A", "C"]],
+            })
+
+    def test_rejects_bonded_group_larger_than_three(self):
+        shooters = [
+            {"id": name, "color": {"name": "red"}, "ammo": 1}
+            for name in ("A", "B", "C", "D")
+        ]
+        with self.assertRaisesRegex(ValueError, "maximum size of 3"):
+            self.load_payload({
+                "visible_shooters": shooters,
+                "bonded_groups": [["A", "B", "C", "D"]],
+            })
+
     def test_rejects_invalid_colour_record(self):
         for value in (None, {}, {"name": ""}, {"name": 4}):
             with self.subTest(value=value):
