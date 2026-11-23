@@ -194,6 +194,8 @@ class ReachabilityConfidenceTests(unittest.TestCase):
                 "counts": {"white": 1225},
                 "source_sha256": "a" * 64,
                 "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            "board_snapshot_id": "sha256:" + "9" * 64,
                 "gameplay_verified": False,
                 "vision_classification_verified": False,
                 "game_taps_enabled": False,
