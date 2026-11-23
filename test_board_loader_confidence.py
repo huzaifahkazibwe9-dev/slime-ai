@@ -108,7 +108,7 @@ class BoardLoaderConfidenceTests(unittest.TestCase):
         self.vision["grid_size"] = [3, 2]
         self.vision["board"] = board
         self.vision["occupancy"]["mask"] = [[1] * 3 for _ in range(2)]
-        self.confidence["grid_size"] = [3, 2]
+        self.confidence["grid_size"] = [2, 3]
         self.confidence["cells"] = []
         for y, row in enumerate(board):
             confidence_row = []
