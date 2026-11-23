@@ -29,6 +29,21 @@ def parse_exif_capture_time(exif):
         return None
 
 
+def parse_aware_capture_timestamp(value):
+    """Validate an explicitly supplied ISO-8601 capture time with an offset."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("Capture timestamp must be a non-empty ISO-8601 value")
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Invalid capture timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Capture timestamp must include a UTC offset")
+    return parsed.isoformat()
+
+
 def validate_capture_session_id(value):
     """Accept an explicit, bounded session token; never invent one."""
     if value is None:
