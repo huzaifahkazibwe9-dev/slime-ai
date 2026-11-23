@@ -143,6 +143,32 @@ class Build11AETests(unittest.TestCase):
         self.assertEqual(calls, [2])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_duplicate_group_within_batch_is_rejected(self):
+        report = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A", "A"]}],
+            SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+        )
+        self.assertEqual(report["status"], "SIMULATION_INCOMPLETE")
+        self.assertEqual(
+            report["failure"]["reason"], "DUPLICATE_GROUP_IN_BATCH"
+        )
+        self.assertEqual(report["group_simulations"], [])
+        self.assertFalse(report["game_taps_enabled"])
+
+    def test_group_cannot_be_scheduled_again_in_later_batch(self):
+        report = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A"]}, {"groups": ["A"]}],
+            SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+        )
+        self.assertEqual(report["status"], "SIMULATION_INCOMPLETE")
+        self.assertEqual(
+            report["failure"]["reason"], "GROUP_SCHEDULED_MORE_THAN_ONCE"
+        )
+        self.assertEqual(len(report["group_simulations"]), 1)
+        self.assertFalse(report["game_taps_enabled"])
+
     def test_resolver_mapping_result_is_rejected(self):
         with self.assertRaises(TypeError):
             simulate_dynamic_multi_batch(
