@@ -5,7 +5,7 @@ to the evidence-gated planner and power-up scoring to the advisory evaluator.
 It never changes the state, inventory, or device.
 """
 from planner import plan_next_move
-from powerup_planner import evaluate_powerup_candidates
+from powerup_planner import evaluate_powerup_candidates, score_powerup_candidates
 
 
 def plan_next_decision(
@@ -34,6 +34,10 @@ def plan_next_decision(
             hidden_board_circles=hidden_board_circles,
             observed_extra_slots=observed_extra_slots,
         )
+        if powerup_result.get("eligible") is True:
+            powerup_result["strategic_ranking"] = score_powerup_candidates(
+                state, powerup_inventory, powerup_result
+            )
     return {
         "ordinary_move": ordinary_move,
         "ordinary_move_evidence_gated": True,
