@@ -25,6 +25,20 @@ The build script:
 
 It does not tap the game, start background loops, or change MacroDroid settings.
 
+## Exact-match board-analysis reuse
+
+Screenshot ingestion fingerprints both the complete screenshot bytes (SHA-256)
+and the canonical calibration JSON. If the latest observation contains a
+structurally valid board extraction with both fingerprints and image dimensions
+matching exactly, the board pixel classification is reused instead of repeated.
+Any screenshot change, calibration change, missing/corrupt cache, or shape/count
+mismatch forces a full extraction. This is exact duplicate-input reuse only;
+there is no perceptual-similarity shortcut and no cached gameplay decision or
+action is reused. Capture provenance is refreshed for each ingestion, and all
+gameplay/tap safety flags remain disabled. The optimisation saves board
+classification work on repeated identical inputs, but actual battery savings
+must be measured on the target Android device.
+
 ## Dynamic-board simulation profiling
 
 The dynamic-board simulator reports local `time.perf_counter` measurements for region-graph rebuild count and elapsed time, shot simulation time, and shooter-lane inspection time. Region graphs are still rebuilt after every successful pixel removal to preserve correctness as connected components change. These measurements are diagnostic simulation timings only; they are not Android gameplay latency or a device-speed guarantee. Any incremental graph-update optimisation must first demonstrate equivalence against full rebuilds across representative board transitions.
