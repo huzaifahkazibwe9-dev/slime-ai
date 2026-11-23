@@ -21,6 +21,7 @@ def plan_capacity_aware_evolving_schedule(
     max_nodes=500,
     beam_width=40,
     max_depth=None,
+    board_plan=None,
 ):
     if not isinstance(state, GameState):
         raise TypeError("Expected a GameState")
@@ -30,13 +31,18 @@ def plan_capacity_aware_evolving_schedule(
     config = config or SimulatorConfig()
     original = copy.deepcopy(state)
 
-    board_plan = plan_evolving_board(
-        state,
-        accessibility_resolver=accessibility_resolver,
-        max_nodes=max_nodes,
-        beam_width=beam_width,
-        max_depth=max_depth,
-    )
+    if board_plan is None:
+        board_plan = plan_evolving_board(
+            state,
+            accessibility_resolver=accessibility_resolver,
+            max_nodes=max_nodes,
+            beam_width=beam_width,
+            max_depth=max_depth,
+        )
+    elif not isinstance(board_plan, dict) or not isinstance(board_plan.get("sequence"), list):
+        raise ValueError("Precomputed board_plan must be a valid evolving-board report")
+    elif board_plan.get("source_state_unchanged") is not True:
+        raise ValueError("Precomputed board_plan must preserve its source state")
     sequence = board_plan.get("sequence", [])
 
     group_members = {}
