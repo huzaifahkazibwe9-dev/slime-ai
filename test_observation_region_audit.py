@@ -23,6 +23,7 @@ class ObservationRegionAuditTests(unittest.TestCase):
             "counts": {"cyan": 3, "white": 3},
             "source_sha256": "c" * 64,
             "snapshot_id": "sha256:" + "c" * 64,
+            "board_snapshot_id": "sha256:" + "c" * 64,
             "gameplay_verified": False,
             "vision_classification_verified": False,
             "game_taps_enabled": False,
