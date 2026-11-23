@@ -9,8 +9,26 @@ DETECTION_FILE = Path("data/shooter_detection.json")
 
 def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     data = json.loads(Path(path).read_text())
-    detected = data["visible_shooters"]
+    if not isinstance(data, dict):
+        raise ValueError("Shooter detection must be a JSON object")
+    detected = data.get("visible_shooters")
     groups = data.get("bonded_groups", [])
+    if not isinstance(detected, list):
+        raise ValueError("visible_shooters must be a list")
+    if not isinstance(groups, list):
+        raise ValueError("bonded_groups must be a list")
+    if any(not isinstance(group, list) for group in groups):
+        raise ValueError("Each bonded group must be a list")
+    for index, item in enumerate(detected):
+        if not isinstance(item, dict):
+            raise ValueError(f"Shooter entry {index} must be an object")
+        if not isinstance(item.get("id"), str) or not item["id"]:
+            raise ValueError(f"Shooter entry {index} has an invalid id")
+        color = item.get("color")
+        if (not isinstance(color, dict)
+                or not isinstance(color.get("name"), str)
+                or not color["name"]):
+            raise ValueError(f"Shooter entry {index} has an invalid colour")
 
     # Optional observations must come from separately verified
     # conveyor screenshots, never from the shooter panel image.
