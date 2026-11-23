@@ -213,6 +213,29 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
                 break
 
     candidates = read_report(candidate_path)
+
+    # Cross-link every evidence source to one explicitly identified board
+    # capture. Missing metadata blocks planning rather than being inferred.
+    from snapshot_sync import synchronise_bundle
+    board_observation = read_report(root / "board_observation_latest.json")
+    conveyor_observation = read_report(root / "conveyor_visual_observations.json")
+    bundle_sync = synchronise_bundle(
+        board_observation,
+        conveyor_observation,
+        identity,
+        candidates,
+    )
+    snapshot = dict(snapshot) if isinstance(snapshot, dict) else {}
+    snapshot["synchronised"] = (
+        snapshot.get("synchronised") is True
+        and bundle_sync["synchronised"]
+    )
+    snapshot["planning_allowed_by_sync"] = (
+        snapshot.get("planning_allowed_by_sync") is True
+        and bundle_sync["planning_allowed_by_sync"]
+    )
+    snapshot["bundle_synchronisation"] = bundle_sync
+
     gate = evidence_status(planning, identity, snapshot, candidates)
 
     recommended_group = None
@@ -271,6 +294,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "level": getattr(state, "level", None),
         "level_audit": level_audit,
         "evidence": gate,
+        "evidence_bundle_synchronisation": bundle_sync,
         "planner": {
             "recommended_group": (
                 list(recommended_group) if recommended_group else None
