@@ -152,3 +152,20 @@ the classifier matches the game's true tile colours or that a move is safe.
 Shooter identities, shooter-to-board colour mappings, conveyor timing, and tile
 removal semantics still require live-game evidence. All gameplay verification
 flags remain false and live game tapping remains disabled.
+
+## Shop power-ups and gold
+
+The four bottom shop buttons are represented in `powerups.py`, in left-to-right
+order:
+
+1. **Extra Tray** — increases conveyor capacity.
+2. **Magic Glove** — selects a board circle, including an unseen one, for the conveyor.
+3. **Angel Slime** — removes pixels matching the colour of the selected circle.
+4. **Dragon Roar** — removes all board pixels of the selected colour.
+
+Gold, prices, stock/charges, and the number of Extra Tray slots added are
+tracked only when observed. Unknown values remain unknown; the model does not
+guess shop prices or purchase automatically. Power-up effects are currently
+candidate planning descriptions only: no game button is pressed and no board
+state is changed. The planner can compare a normal move with a possible
+power-up use once current inventory and target evidence are available.
