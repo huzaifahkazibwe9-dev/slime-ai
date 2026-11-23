@@ -151,6 +151,18 @@ def main():
         source = json.loads(Path(args.board).read_text())
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
+        source_snapshot_id = source.get("snapshot_id")
+        report_snapshot_id = report.get("board_snapshot_id")
+        if (
+            not isinstance(source_snapshot_id, str)
+            or not source_snapshot_id
+            or not isinstance(report_snapshot_id, str)
+            or not report_snapshot_id
+            or source_snapshot_id != report_snapshot_id
+        ):
+            raise ValueError(
+                "Confidence screenshot snapshot does not match reachability audit"
+            )
         confidence_matrix = observation_confidence(source["board"])
         confidence_snapshot_id = source_snapshot_id
         confidence_snapshot_match_verified = True
