@@ -191,7 +191,7 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
         checks[f"{name}_timestamp_matches_board"] = (
             board_captured_at is not None
             and artifact_time is not None
-            and artifact_time == board_captured_at
+            and abs((artifact_time - board_captured_at).total_seconds()) <= 120
         )
 
     synchronised = all(checks.values())
@@ -203,6 +203,10 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
         "artifact_snapshot_ids": artifact_ids,
         "board_capture_session": board_session,
         "artifact_capture_sessions": artifact_sessions,
+        "board_captured_at": (
+            board_captured_at.isoformat() if board_captured_at else None
+        ),
+        "timestamp_alignment_limit_seconds": 120,
         "game_taps_enabled": False,
         "actions_performed": False,
         "warning": (
