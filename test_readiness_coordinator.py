@@ -33,7 +33,8 @@ class ReadinessAssessTests(unittest.TestCase):
     def complete_evidence(self):
         return (
             {"initial_occupancy_user_confirmed": True,
-             "colour_classification_verified": True},
+             "colour_classification_verified": True,
+             "shooter_capture_provenance_verified": True},
             {"shooters": [{"id": "s1"}],
              "timing_calibrated_to_game": True, "verified_by_user": True},
             {"identity_verified": True},
