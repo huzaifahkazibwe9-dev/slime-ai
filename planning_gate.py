@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,17 +19,27 @@ def _parse_aware_timestamp(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _valid_capture_session_id(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value) is not None
+    )
+
+
+def _valid_snapshot_id(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", value) is not None
+    )
+
+
 def _capture_provenance(report):
     snapshot_id = report.get("board_snapshot_id")
     session_id = report.get("capture_session_id")
     captured_at = _parse_aware_timestamp(report.get("captured_at"))
     valid = (
-        isinstance(snapshot_id, str)
-        and snapshot_id.startswith("sha256:")
-        and len(snapshot_id) == 71
-        and all(char in "0123456789abcdef" for char in snapshot_id[7:])
-        and isinstance(session_id, str)
-        and bool(session_id.strip())
+        _valid_snapshot_id(snapshot_id)
+        and _valid_capture_session_id(session_id)
         and report.get("timestamp_identified") is True
         and captured_at is not None
     )
@@ -51,8 +62,8 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
     captured_at = _parse_aware_timestamp(candidate_report.get("captured_at"))
     board_time = board_provenance.get("captured_at")
     if (
-        board_snapshot_id is None
-        or session_id is None
+        not _valid_snapshot_id(board_snapshot_id)
+        or not _valid_capture_session_id(session_id)
         or captured_at is None
         or board_snapshot_id != board_provenance.get("board_snapshot_id")
         or session_id != board_provenance.get("capture_session_id")
