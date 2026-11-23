@@ -15,6 +15,7 @@ from shooter_detector import (
     validate_panel_image_size,
     verify_panel_crop,
     extract_panel_crop,
+    load_user_confirmed_bonded_groups,
 )
 
 
@@ -183,6 +184,49 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
     def test_brown_shooter_colour_is_distinguished_from_orange(self):
         self.assertEqual(identify_color((193, 126, 63))["name"], "brown")
         self.assertEqual(identify_color((230, 140, 50))["name"], "orange")
+
+    def test_bonded_groups_are_empty_without_explicit_user_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            groups, source = load_user_confirmed_bonded_groups(
+                Path(directory) / "missing.json",
+                ["top_1", "top_2", "top_3", "top_4"],
+            )
+        self.assertEqual(groups, [])
+        self.assertEqual(source, "not_configured")
+
+    def test_unconfirmed_bonded_group_config_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text('{"verified_by_user": false, "bonded_groups": [["top_1", "top_2"]]}')
+            groups, source = load_user_confirmed_bonded_groups(
+                path, ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [])
+        self.assertEqual(source, "not_user_confirmed")
+
+    def test_explicitly_confirmed_bonded_groups_are_loaded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text('{"verified_by_user": true, "bonded_groups": [["top_1", "top_2"]]}')
+            groups, source = load_user_confirmed_bonded_groups(
+                path, ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [["top_1", "top_2"]])
+        self.assertEqual(source, "user_confirmed")
+
+    def test_confirmed_bonded_groups_reject_unknown_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text('{"verified_by_user": true, "bonded_groups": [["top_1", "missing"]]}')
+            with self.assertRaisesRegex(ValueError, "unknown shooters"):
+                load_user_confirmed_bonded_groups(path, ["top_1", "top_2"])
+
+    def test_confirmed_bonded_groups_reject_overlapping_membership(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text('{"verified_by_user": true, "bonded_groups": [["A", "B"], ["A", "C"]]}')
+            with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
+                load_user_confirmed_bonded_groups(path, ["A", "B", "C"])
 
 
 if __name__ == "__main__":
