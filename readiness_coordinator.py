@@ -135,6 +135,8 @@ def main(observation_path=None, shooter_path=None):
     identity_audit = read_json("identity_audit_report.json")
     candidate_report = read_json("conveyor_identity_candidates.json")
     snapshot_report = read_json("snapshot_sync_report.json")
+    board_observation = read_json("board_observation_latest.json")
+    conveyor_observation = read_json("conveyor_visual_observations.json")
     learning = learning_summary()
 
     result = assess(
@@ -142,17 +144,46 @@ def main(observation_path=None, shooter_path=None):
     )
     manager = ResourceManager()
 
-    # Use the same capture-bound evidence bundle as the central diagnostic.
-    # Missing, stale, or incomplete reports therefore produce no candidate.
-    manager.set_mode("ANALYSE")
-    candidate = plan_next_move(
-        state,
-        planning_report=planning,
-        identity_audit=identity_audit,
-        candidate_report=candidate_report,
-        snapshot_report=snapshot_report,
+    # Apply the same cross-artifact capture gate as orchestration.
+    from snapshot_sync import synchronise_bundle
+    from orchestration import evidence_status
+
+    bundle_sync = synchronise_bundle(
+        board_observation,
+        conveyor_observation,
+        identity_audit,
+        candidate_report,
+        planning,
     )
+    synchronized_snapshot = (
+        dict(snapshot_report) if isinstance(snapshot_report, dict) else {}
+    )
+    synchronized_snapshot["synchronised"] = (
+        synchronized_snapshot.get("synchronised") is True
+        and bundle_sync["synchronised"]
+    )
+    synchronized_snapshot["planning_allowed_by_sync"] = (
+        synchronized_snapshot.get("planning_allowed_by_sync") is True
+        and bundle_sync["planning_allowed_by_sync"]
+    )
+    synchronized_snapshot["bundle_synchronisation"] = bundle_sync
+    gate = evidence_status(
+        planning, identity_audit, synchronized_snapshot, candidate_report
+    )
+
+    manager.set_mode("ANALYSE")
+    candidate = None
+    if gate["evidence_gate_passed"]:
+        candidate = plan_next_move(
+            state,
+            planning_report=planning,
+            identity_audit=identity_audit,
+            candidate_report=candidate_report,
+            snapshot_report=synchronized_snapshot,
+        )
     manager.stop()
+    result["planning_evidence_gate"] = gate
+    result["evidence_bundle_synchronisation"] = bundle_sync
 
     result["level"] = state.level
     result["shooters"] = {
