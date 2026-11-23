@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from screenshot_observation_loader import load_observed_level
+from level_loader import load_level
 
 
 class ScreenshotObservationLoaderTests(unittest.TestCase):
@@ -74,6 +75,24 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertFalse(state.shooters["top_1"].accessible)
         self.assertEqual(state.validate(), [])
         self.assertEqual(audit["snapshot_id"], self.observation["snapshot_id"])
+
+    def test_unified_level_loader_accepts_explicit_screenshot_mode(self):
+        state, audit = load_level(
+            level=39,
+            observation_path=self.observation_path,
+            shooter_path=self.shooter_path,
+        )
+        self.assertEqual(state.level, 39)
+        self.assertEqual(state.width, 3)
+        self.assertEqual(state.height, 2)
+        self.assertEqual(audit["source"], "screenshot_observation")
+        self.assertFalse(audit["game_taps_enabled"])
+
+    def test_rejects_board_dimensions_that_do_not_match_grid(self):
+        self.observation["board"] = [["cyan"]]
+        self.write()
+        with self.assertRaisesRegex(ValueError, "Board row count"):
+            load_observed_level(self.observation_path, self.shooter_path)
 
     def test_all_verification_and_action_flags_stay_false(self):
         _, audit = load_observed_level(
