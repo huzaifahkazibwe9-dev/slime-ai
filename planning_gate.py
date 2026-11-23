@@ -191,6 +191,7 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
                 isinstance(ammo_evidence, dict)
                 and ammo_evidence.get("verified") is True
                 and ammo_evidence.get("position_id") == position.get("position_id")
+                and type(ammo_evidence.get("ammo")) is int
                 and ammo_evidence.get("ammo") == ammo
                 and _valid_capture_session_id(ammo_evidence.get("capture_session_id"))
                 and ammo_evidence.get("capture_session_id") == report.get("capture_session_id")
