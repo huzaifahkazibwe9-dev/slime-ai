@@ -171,7 +171,10 @@ def main(observation_path=None, shooter_path=None):
     )
     synchronized_snapshot["bundle_synchronisation"] = bundle_sync
     gate = evidence_status(
-        planning, identity_audit, synchronized_snapshot, candidate_report
+        planning, identity_audit, synchronized_snapshot, candidate_report,
+        shooter_capture_verified=(
+            audit.get("shooter_capture_provenance_verified") is True
+        ),
     )
 
     shooter_capture_verified = (
