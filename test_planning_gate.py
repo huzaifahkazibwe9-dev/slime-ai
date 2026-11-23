@@ -300,6 +300,40 @@ class PlanningGateTests(unittest.TestCase):
         self.assertFalse(result["capture_provenance_verified"])
         self.assertIn("BOARD_CAPTURE_PROVENANCE_INCOMPLETE", result["results"][0]["blockers"])
 
+    def test_ammo_evidence_cannot_replace_required_checks_with_arbitrary_flags(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["ammo_evidence"] = {
+            "position_id": "left_2", "ammo": 8,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": report["board_snapshot_id"],
+            "observed_at": report["captured_at"],
+            "verified": True,
+            "checks": {f"fake_{index}": True for index in range(6)},
+        }
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
+
+    def test_malformed_ammo_evidence_session_id_is_rejected(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["ammo_evidence"] = {
+            "position_id": "left_2", "ammo": 8,
+            "capture_session_id": "invalid session",
+            "board_snapshot_id": report["board_snapshot_id"],
+            "observed_at": report["captured_at"],
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer", "position_identity_matches",
+                "capture_session_present", "board_snapshot_present",
+                "observation_timestamp_present", "explicit_user_confirmation",
+            )},
+        }
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
+
     def test_naive_ammo_timestamp_is_rejected(self):
         report = make_report()
         report["same_board_state_confirmed"] = True
