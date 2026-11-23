@@ -20,6 +20,35 @@ from shooter_detector import (
 
 
 class ShooterDetectorCalibrationTests(unittest.TestCase):
+
+    def test_detector_observes_all_twelve_slots_without_unlocking_lower_rows(self):
+        from shooter_detector import SHOOTERS, main
+        import json
+        import sys
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            panel_path = root / "panel.jpg"
+            output_path = root / "detection.json"
+            image = Image.new("RGB", (REF_W, REF_H), (35, 35, 35))
+            for offset in (0, 300, 600):
+                for shooter in SHOOTERS:
+                    x, y = shooter["sample"]
+                    image.paste(Image.new("RGB", (9, 9), (220, 40, 40)),
+                                (x - 4, y + offset - 4))
+            image.save(panel_path)
+            with patch("shooter_detector.IMAGE", panel_path), \
+                 patch("shooter_detector.OUTPUT", output_path), \
+                 patch("shooter_detector.read_ammunition", return_value=None), \
+                 patch.object(sys, "argv", ["shooter_detector.py"]):
+                main()
+            payload = json.loads(output_path.read_text())
+            observations = payload["panel_slot_observations"]
+            self.assertEqual(len(observations), 12)
+            self.assertEqual([x["row"] for x in observations],
+                             [1] * 4 + [2] * 4 + [3] * 4)
+            self.assertTrue(all(not x["selectable_candidate"] for x in observations))
+            self.assertEqual(len(payload["visible_shooters"]), 4)
+
     def test_reference_panel_dimensions_are_valid(self):
         self.assertTrue(validate_panel_image_size(REF_W, REF_H))
 
