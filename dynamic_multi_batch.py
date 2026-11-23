@@ -67,6 +67,7 @@ def simulate_dynamic_multi_batch(
     group_reports = []
     board_history = []
     failure = None
+    scheduled_group_ids = set()
 
     for batch_index, batch in enumerate(batches):
         if not isinstance(batch, dict):
@@ -92,8 +93,23 @@ def simulate_dynamic_multi_batch(
             batch_accessible = normalize_accessible_ids(observed)
 
         calculated_shots = {}
-        for group_id in requested:
-            group_id = str(group_id)
+        batch_group_ids = [str(group_id) for group_id in requested]
+        if len(batch_group_ids) != len(set(batch_group_ids)):
+            failure = {
+                "reason": "DUPLICATE_GROUP_IN_BATCH",
+                "batch": batch_index,
+            }
+            break
+        repeated = sorted(set(batch_group_ids) & scheduled_group_ids)
+        if repeated:
+            failure = {
+                "reason": "GROUP_SCHEDULED_MORE_THAN_ONCE",
+                "batch": batch_index,
+                "group_ids": repeated,
+            }
+            break
+
+        for group_id in batch_group_ids:
             root = group_roots.get(group_id)
             if root is None:
                 failure = {
@@ -165,8 +181,9 @@ def simulate_dynamic_multi_batch(
         if failure:
             break
 
+        scheduled_group_ids.update(batch_group_ids)
         prepared_batches.append({
-            "groups": [str(group) for group in requested],
+            "groups": batch_group_ids,
             "shots": calculated_shots,
             "reactivate_groups": list(
                 batch.get("reactivate_groups", [])
