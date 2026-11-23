@@ -182,9 +182,49 @@ class PlanningGateTests(unittest.TestCase):
         scenario["confidence_eligible"] = True
         scenario["planning_eligible"] = True
 
-        result = evaluate_planning(report, candidate_report=make_candidate_report(report))
+        result = evaluate_planning(
+            report,
+            candidate_report=make_candidate_report(report),
+            conveyor_calibration={
+                "timing_calibrated_to_game": True,
+                "verified_by_user": True,
+            },
+        )
         self.assertTrue(result["results"][0]["planning_eligible"])
         self.assertEqual(result["counts"]["eligible_scenarios"], 1)
+
+    def test_missing_conveyor_timing_calibration_blocks_otherwise_valid_plan(self):
+        report = make_report()
+        report["same_board_state_confirmed"] = True
+        report["capture_freshness"] = {"fresh": True}
+        report["conveyor_identity_verified"] = True
+        report["gameplay_verified"] = True
+        position = report["results"][0]
+        position["observed_ammo"] = 10
+        position["identity_verified"] = True
+        position["ammo_evidence"] = {
+            "position_id": "left_2", "ammo": 10,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": report["board_snapshot_id"],
+            "observed_at": report["captured_at"],
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer", "position_identity_matches",
+                "capture_session_present", "board_snapshot_present",
+                "observation_timestamp_present", "explicit_user_confirmation",
+            )},
+        }
+        position["scenarios"][0]["confidence_eligible"] = True
+        position["scenarios"][0]["planning_eligible"] = True
+        result = evaluate_planning(
+            report, candidate_report=make_candidate_report(report)
+        )
+        self.assertFalse(result["results"][0]["planning_eligible"])
+        self.assertIn(
+            "CONVEYOR_TIMING_NOT_USER_CALIBRATED",
+            result["results"][0]["blockers"],
+        )
+        self.assertFalse(result["conveyor_timing_calibrated"])
 
     def test_unverified_ammo_provenance_rejected(self):
         report = make_report()
