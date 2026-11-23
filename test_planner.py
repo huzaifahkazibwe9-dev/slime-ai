@@ -21,7 +21,9 @@ def make_state():
 def make_evidence():
     planning = {
         "level": 39,
-        "gameplay_verified": True,
+        "planning_evidence_verified": True,
+        "gameplay_verified": False,
+        "game_taps_enabled": False,
         "actions_performed": False,
         "results": [
             {
@@ -189,10 +191,16 @@ class PlannerEvidenceTests(unittest.TestCase):
         e[3]["checks"]["same_state_explicitly_confirmed"] = False
         self.assertIsNone(run_plan(e))
 
-    def test_gameplay_unverified_rejected(self):
+    def test_unverified_planning_evidence_is_rejected(self):
+        e = list(make_evidence())
+        e[0]["planning_evidence_verified"] = False
+        self.assertIsNone(run_plan(e))
+
+    def test_verified_dry_run_plan_does_not_claim_gameplay(self):
         e = list(make_evidence())
         e[0]["gameplay_verified"] = False
-        self.assertIsNone(run_plan(e))
+        e[0]["game_taps_enabled"] = False
+        self.assertEqual(run_plan(e), ("A", "B"))
 
     def test_fabricated_legacy_boolean_not_accepted(self):
         self.assertIsNone(plan_next_move(
