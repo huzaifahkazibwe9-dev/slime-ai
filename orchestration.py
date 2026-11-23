@@ -2,6 +2,7 @@
 import argparse
 import json
 import re
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -297,14 +298,18 @@ def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40):
 
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
+    pipeline_started = time.perf_counter()
+    timings = {}
     from level_loader import load_level
     from planner import plan_next_move
 
     root = Path(data_dir)
+    stage_started = time.perf_counter()
     state, level_audit = load_level(
         observation_path=observation_path,
         shooter_path=shooter_path,
     )
+    timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     planning = read_report(root / "planning_gate_latest.json")
     identity = read_report(root / "identity_audit_report.json")
@@ -338,12 +343,14 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     )
     snapshot["bundle_synchronisation"] = bundle_sync
 
+    stage_started = time.perf_counter()
     gate = evidence_status(
         planning, identity, snapshot, candidates,
         shooter_capture_verified=(
             level_audit.get("shooter_capture_provenance_verified") is True
         ),
     )
+    timings["evidence_gate_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     recommended_group = None
     planner_error = None
@@ -363,6 +370,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     dry_summary = None
     dry_error = None
 
+    stage_started = time.perf_counter()
     try:
         from execution_engine import run_dry_simulation
         result = run_dry_simulation(state, max_candidates=25)
@@ -381,9 +389,11 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             dry_summary = {"result_type": type(result).__name__}
     except Exception as exc:
         dry_error = f"{type(exc).__name__}: {exc}"
+    timings["dry_simulation_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     # Search whole-batch sequences as a separate bounded planning pass.
     # It remains simulation-only and cannot authorize Android input.
+    stage_started = time.perf_counter()
     multi_batch_summary = run_multi_batch_diagnostic(
         state,
         max_candidates=200,
@@ -394,10 +404,17 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     capacity_evolving_summary = run_capacity_aware_evolving_diagnostic(
         state, max_nodes=500, beam_width=40,
     )
+    timings["bounded_searches_seconds"] = round(time.perf_counter() - stage_started, 6)
+    timings["orchestration_total_seconds"] = round(time.perf_counter() - pipeline_started, 6)
 
     report = {
         "build": "11M",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "performance": {
+            "timing_clock": "time.perf_counter",
+            "stage_seconds": timings,
+            "note": "Local diagnostic timings only; not gameplay latency or a device speed guarantee.",
+        },
         "level": getattr(state, "level", None),
         "level_audit": level_audit,
         "candidate_report": {
