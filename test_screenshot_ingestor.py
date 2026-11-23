@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -97,6 +98,71 @@ class ScreenshotIngestorTests(unittest.TestCase):
             )
             self.assertFalse(result["gameplay_verified"])
             self.assertFalse(result["game_taps_enabled"])
+
+    def test_identical_screenshot_and_calibration_reuse_exact_board_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline = {"grid_size": [3, 3], "bounds": [3, 3, 27, 27]}
+            baseline_path.write_text(json.dumps(baseline))
+
+            ingest(image_path, baseline_path, output_path)
+            first = json.loads(output_path.read_text())
+            self.assertEqual(first["analysis_cache_status"], "FULL_ANALYSIS")
+
+            from unittest.mock import patch
+            with patch("screenshot_ingestor.extract_board",
+                       side_effect=AssertionError("duplicate image was re-analysed")):
+                ingest(image_path, baseline_path, output_path)
+
+            second = json.loads(output_path.read_text())
+            self.assertEqual(second["analysis_cache_status"], "EXACT_MATCH_REUSED")
+            self.assertEqual(second["board"], first["board"])
+            self.assertEqual(second["source_sha256"], first["source_sha256"])
+            self.assertEqual(second["calibration_sha256"], first["calibration_sha256"])
+            self.assertFalse(second["gameplay_verified"])
+            self.assertFalse(second["game_taps_enabled"])
+
+    def test_calibration_change_invalidates_cached_board_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+            ingest(image_path, baseline_path, output_path)
+
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [4, 4, 26, 26]
+            }))
+            ingest(image_path, baseline_path, output_path)
+            result = json.loads(output_path.read_text())
+            self.assertEqual(result["analysis_cache_status"], "FULL_ANALYSIS")
+            self.assertEqual(result["bounds"], [4, 4, 26, 26])
+
+    def test_changed_screenshot_invalidates_cached_board_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+            ingest(image_path, baseline_path, output_path)
+
+            Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+            ingest(image_path, baseline_path, output_path)
+            result = json.loads(output_path.read_text())
+            self.assertEqual(result["analysis_cache_status"], "FULL_ANALYSIS")
+            self.assertEqual(set(result["counts"]), {"red"})
 
     def test_ingest_requires_explicit_session_to_bind_capture(self):
         with tempfile.TemporaryDirectory() as directory:
