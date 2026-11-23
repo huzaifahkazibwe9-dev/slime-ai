@@ -39,7 +39,11 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
     if not isinstance(candidate_report, dict) or not board_provenance.get("valid"):
         return False
     tracks = candidate_report.get("tracks")
-    if not isinstance(tracks, dict) or not tracks:
+    expected_positions = {
+        "white": {"bottom_1", "right_2", "top_2", "left_1"},
+        "blue_cyan": {"bottom_2", "right_1", "top_1", "left_2"},
+    }
+    if not isinstance(tracks, dict) or set(tracks) != set(expected_positions):
         return False
 
     board_snapshot_id = candidate_report.get("board_snapshot_id")
@@ -74,11 +78,13 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
         ):
             return False
         observations = track.get("observations")
-        if not isinstance(observations, list) or not observations:
+        if not isinstance(observations, list) or len(observations) != 4:
             return False
+        observed_positions = []
         for observation in observations:
             if not isinstance(observation, dict):
                 return False
+            observed_positions.append(observation.get("position_id"))
             observed_time = _parse_aware_timestamp(observation.get("captured_at"))
             if (
                 observation.get("board_snapshot_id") != board_snapshot_id
@@ -88,6 +94,14 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
                 or abs((observed_time - board_time).total_seconds()) > 120
             ):
                 return False
+        if (
+            len(set(observed_positions)) != 4
+            or set(observed_positions) != expected_positions.get(
+                next((name for name, value in tracks.items() if value is track), ""),
+                set(),
+            )
+        ):
+            return False
     return True
 
 
