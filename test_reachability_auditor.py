@@ -122,7 +122,9 @@ class ReachabilityAuditorTests(unittest.TestCase):
         self.assertFalse(report["game_taps_enabled"])
 
     def test_ammo_reading_without_explicit_provenance_is_unverified(self):
-        board = [["white"] for _ in range(3)]
+        # The calibrated top shooter geometry targets column 15 of row 0;
+        # use the real 35x35 board dimensions rather than a 3x1 stub.
+        board = [["white"] * 35 for _ in range(35)]
         board_data = {
             "board": board,
             "snapshot_id": "board-1",
