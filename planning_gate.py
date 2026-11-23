@@ -14,6 +14,14 @@ def evaluate_planning(report):
     )
     identity_verified = bool(report.get("conveyor_identity_verified", False))
     mappings_verified = bool(report.get("gameplay_verified", False))
+    confidence_audit = report.get("confidence_audit", {})
+    confidence_snapshot_verified = (
+        isinstance(confidence_audit, dict)
+        and confidence_audit.get("snapshot_match_verified") is True
+        and confidence_audit.get("source_snapshot_id")
+        == report.get("board_snapshot_id")
+        and bool(report.get("board_snapshot_id"))
+    )
 
     results = []
     counts = {
@@ -78,6 +86,8 @@ def evaluate_planning(report):
                 blockers.append("SHOOTER_IDENTITY_UNVERIFIED")
             if not mappings_verified:
                 blockers.append("GAMEPLAY_COLOUR_MAPPING_UNVERIFIED")
+            if not confidence_snapshot_verified:
+                blockers.append("CONFIDENCE_BOARD_SNAPSHOT_UNVERIFIED")
             if not scenario.get("confidence_eligible", False):
                 blockers.append("LANE_CONFIDENCE_UNCONFIRMED")
             if not position.get("planning_eligible", False):
@@ -110,6 +120,7 @@ def evaluate_planning(report):
         "board_snapshot_id": report.get("board_snapshot_id"),
         "capture_session_id": report.get("capture_session_id"),
         "capture_freshness_verified": capture_freshness_verified,
+        "confidence_snapshot_verified": confidence_snapshot_verified,
         "counts": counts,
         "results": results,
         "decision": (
