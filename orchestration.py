@@ -37,6 +37,14 @@ def evidence_status(planning, identity, snapshot, candidates):
             and snapshot.get("synchronised") is True
             and snapshot.get("planning_allowed_by_sync") is True
         ),
+        "evidence_bundle_synchronised": (
+            isinstance(snapshot, dict)
+            and isinstance(snapshot.get("bundle_synchronisation"), dict)
+            and snapshot["bundle_synchronisation"].get("synchronised") is True
+            and snapshot["bundle_synchronisation"].get(
+                "planning_allowed_by_sync"
+            ) is True
+        ),
         "candidate_identity_verified": (
             isinstance(candidates, dict)
             and candidates.get("identity_verified") is True
