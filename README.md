@@ -16,7 +16,7 @@ To run only the local diagnostics without synchronising or installing dependenci
 
 The build script:
 - ingests the saved Level 39 screenshot;
-- refreshes shooter detection if the shooter-panel crop exists;
+- uses the local same-capture configuration to extract and detect the shooter panel, or preserves existing evidence in diagnostic-only mode;
 - integrates the screenshot and shooter data into a candidate game state;
 - builds provisional colour regions;
 - runs lane reachability, confidence and planning gates when local conveyor evidence files exist;
