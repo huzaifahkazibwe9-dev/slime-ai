@@ -276,6 +276,19 @@ def main():
     }
 
     report["candidate_pair"] = ["top_1", "top_2"]
+    report["candidate_provenance_verified"] = all(
+        track.get("board_snapshot_id") == visual.get("board_snapshot_id")
+        and track.get("capture_session_id") == visual.get("capture_session_id")
+        and track.get("captured_at") == visual.get("captured_at")
+        and all(
+            record.get("board_snapshot_id") == visual.get("board_snapshot_id")
+            and record.get("capture_session_id") == visual.get("capture_session_id")
+            and record.get("captured_at") == visual.get("captured_at")
+            and record.get("timestamp_identified") is True
+            for record in track.get("observations", [])
+        )
+        for track in report["tracks"].values()
+    )
     report["identity_verified"] = False
 
     output = DATA / "conveyor_identity_candidates.json"
