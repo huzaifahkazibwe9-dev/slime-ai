@@ -94,6 +94,22 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
         self.assertTrue(report["source_state_unchanged"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_rejects_precomputed_plan_for_different_board(self):
+        state = make_state()
+        from evolving_board_planner import plan_evolving_board
+        board_plan = plan_evolving_board(state, max_nodes=20, beam_width=10)
+        state.remaining_pixels += 1
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
+
+    def test_rejects_malformed_precomputed_sequence(self):
+        state = make_state()
+        from evolving_board_planner import plan_evolving_board
+        board_plan = plan_evolving_board(state, max_nodes=20, beam_width=10)
+        board_plan["sequence"] = [{"unexpected": "entry"}]
+        with self.assertRaisesRegex(ValueError, "invalid sequence"):
+            plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
+
     def test_resolver_string_result_is_rejected(self):
         with self.assertRaises(TypeError):
             plan_capacity_aware_evolving_schedule(
