@@ -15,6 +15,7 @@ To run only the local diagnostics without synchronising or installing dependenci
 `bash build_pipeline.sh`
 
 The build script:
+- creates a coordinate-grid shooter-panel calibration preview when no local capture configuration exists;
 - ingests the saved Level 39 screenshot;
 - uses the local same-capture configuration to extract and detect the shooter panel, or preserves existing evidence in diagnostic-only mode;
 - integrates the screenshot and shooter data into a candidate game state;
