@@ -169,6 +169,42 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 {"id": "b", "ammo": 2, "selected": True},
             ], config=SimulatorConfig(conveyor_capacity=1))
 
+    def test_simultaneous_returns_use_explicit_input_order(self):
+        sim = create_simulator([
+            {"id": "first", "ammo": 0},
+            {"id": "second", "ammo": 0},
+        ], storage_occupied=4,
+           config=SimulatorConfig(storage_capacity=5, ticks_per_lap=1))
+        self.assertTrue(sim.select_group("first"))
+        self.assertTrue(sim.select_group("second"))
+        self.assertFalse(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["first"])
+        self.assertEqual(sim.storage_occupied, 5)
+        self.assertTrue(sim.failed)
+        returns = [event["shooter_id"] for event in sim.events
+                   if event["event"] == "SHOOTER_RETURNED_TO_STORAGE"]
+        self.assertEqual(returns, ["first"])
+        self.assertEqual(sim.failure_reason,
+                         "COMPLETED_SHOOTER_REACHED_RETURN_POINT "
+                         "BUT_STORAGE_IS_FULL")
+
+    def test_simultaneous_returns_succeed_when_storage_has_room(self):
+        sim = create_simulator([
+            {"id": "first", "ammo": 0},
+            {"id": "second", "ammo": 0},
+        ], config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1))
+        sim.select_group("first")
+        sim.select_group("second")
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["first", "second"])
+        self.assertEqual(sim.storage_occupied, 2)
+
+    def test_report_marks_return_order_as_uncalibrated(self):
+        report = create_simulator([{"id": "s", "ammo": 1}]).report()
+        self.assertEqual(report["simultaneous_return_order"],
+                         "shooter_input_order")
+        self.assertFalse(report["simultaneous_return_order_calibrated"])
+
     def test_report_never_enables_live_actions(self):
         sim = create_simulator([
             {"id": "single", "group_id": "single", "ammo": 3}
