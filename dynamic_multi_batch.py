@@ -10,12 +10,11 @@ from accessibility_utils import normalize_accessible_ids
 
 def _group_index(state):
     result = {}
-    for shooter_id, shooter in state.shooters.items():
-        members = [str(shooter_id)] + [
-            str(member) for member in shooter.bonded_ids
-        ]
-        group_id = str(shooter.group_id or min(members))
-        result[group_id] = str(shooter_id)
+    for shooter_id in state.shooters:
+        group_id = state.bonded_group_id(shooter_id)
+        members = state.bonded_group(shooter_id)
+        if group_id is not None and members:
+            result[group_id] = min(members)
     return result
 
 
