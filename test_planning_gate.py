@@ -80,6 +80,27 @@ def make_candidate_report(report=None):
 
 
 class PlanningGateTests(unittest.TestCase):
+    def test_truthy_non_boolean_evidence_flags_are_rejected(self):
+        report = make_report()
+        report["same_board_state_confirmed"] = "true"
+        report["conveyor_identity_verified"] = "true"
+        report["gameplay_verified"] = "true"
+        position = report["results"][0]
+        position["identity_verified"] = "true"
+        position["planning_eligible"] = "true"
+        position["scenarios"][0]["confidence_eligible"] = "true"
+        position["scenarios"][0]["planning_eligible"] = "true"
+
+        result = evaluate_planning(report)
+        item = result["results"][0]
+        self.assertIn("BOARD_STATE_NOT_SYNCHRONISED", item["blockers"])
+        self.assertIn("SHOOTER_IDENTITY_UNVERIFIED", item["blockers"])
+        self.assertIn("GAMEPLAY_COLOUR_MAPPING_UNVERIFIED", item["blockers"])
+        self.assertIn("LANE_CONFIDENCE_UNCONFIRMED", item["blockers"])
+        self.assertIn("REACHABILITY_AUDIT_NOT_ELIGIBLE", item["blockers"])
+        self.assertFalse(item["planning_eligible"])
+        self.assertFalse(result["planning_evidence_verified"])
+
     def test_zero_ammunition_rejected(self):
         result = evaluate_planning(make_report())
         item = result["results"][0]
