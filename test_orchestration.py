@@ -41,6 +41,12 @@ class OrchestrationTests(unittest.TestCase):
         identity = {
             "identity_verified": True,
             "timestamps_known": True,
+            "snapshot_linked": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_linked": True,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
             "errors": [],
             "blockers": [],
         }
@@ -66,6 +72,12 @@ class OrchestrationTests(unittest.TestCase):
         identity = {
             "identity_verified": True,
             "timestamps_known": True,
+            "snapshot_linked": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_linked": True,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
             "errors": [],
             "blockers": [],
         }
@@ -91,6 +103,12 @@ class OrchestrationTests(unittest.TestCase):
         identity = {
             "identity_verified": True,
             "timestamps_known": True,
+            "snapshot_linked": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_linked": True,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
             "errors": [],
             "blockers": [],
         }
@@ -112,6 +130,12 @@ class OrchestrationTests(unittest.TestCase):
         identity = {
             "identity_verified": True,
             "timestamps_known": True,
+            "snapshot_linked": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_linked": True,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
             "errors": [],
             "blockers": [],
         }
