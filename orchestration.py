@@ -68,6 +68,10 @@ def evidence_status(planning, identity, snapshot, candidates):
             isinstance(candidates, dict)
             and candidates.get("identity_verified") is True
         ),
+        "candidate_capture_provenance_verified": (
+            isinstance(candidates, dict)
+            and candidates.get("candidate_provenance_verified") is True
+        ),
     }
     return {
         "checks": checks,
