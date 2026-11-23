@@ -275,49 +275,48 @@ def main():
     sy = image.height/REF_H
 
     detected = []
+    slot_observations = []
     temp = Path("screenshots/ocr_temp.png")
 
-    for shooter in SHOOTERS:
-        x,y = scale_point(shooter["sample"],sx,sy)
-        box = scale_box(shooter["box"], sx, sy)
-
-        if not (4 <= x < image.width - 4 and 4 <= y < image.height - 4):
-            raise ValueError(f"Shooter sample for {shooter['id']} is outside the panel")
-        if not (
-            0 <= box[0] < box[2] <= image.width
-            and 0 <= box[1] < box[3] <= image.height
-        ):
-            raise ValueError(f"Ammo OCR box for {shooter['id']} is outside the panel")
-
-        patch = image.crop((x-4,y-4,x+5,y+5))
-        pixels = np.asarray(patch,dtype=np.uint8)
-        rgb = tuple(
-            int(round(v))
-            for v in np.median(pixels,axis=(0,1))
-        )
-
-        color = identify_color(rgb)
-        ammo = read_ammunition(
-            image,
-            scale_box(shooter["box"],sx,sy),
-            temp
-        )
-
-        center = (
-            round((box[0] + box[2]) / 2),
-            round((box[1] + box[3]) / 2)
-        )
-
-        detected.append({
-            "id": shooter["id"],
-            "color": color,
-            "ammo": ammo,
-            "screen_center": list(center),
-            "screen_box": list(box),
-            "screen_sample": [x, y],
-            "status": "visible",
-            "verified": False
-        })
+    # Observe every row, but keep lower-row records non-selectable until verified.
+    row_specs = [
+        ("visible", 0, "readable_candidate"),
+        ("question", 300, "unrevealed_candidate"),
+        ("lower", 600, "partially_occluded_candidate"),
+    ]
+    for row_index, (prefix, y_offset, row_status) in enumerate(row_specs, start=1):
+        for shooter in SHOOTERS:
+            column = int(shooter["id"].split("_")[-1])
+            shooter_id = shooter["id"] if row_index == 1 else f"{prefix}_{column}"
+            sample_ref = (shooter["sample"][0], shooter["sample"][1] + y_offset)
+            box_ref = (shooter["box"][0], shooter["box"][1] + y_offset,
+                       shooter["box"][2], shooter["box"][3] + y_offset)
+            x, y = scale_point(sample_ref, sx, sy)
+            box = scale_box(box_ref, sx, sy)
+            if not (4 <= x < image.width - 4 and 4 <= y < image.height - 4):
+                raise ValueError(f"Panel sample for {shooter_id} is outside the panel")
+            if not (0 <= box[0] < box[2] <= image.width
+                    and 0 <= box[1] < box[3] <= image.height):
+                raise ValueError(f"Panel OCR box for {shooter_id} is outside the panel")
+            pixels = np.asarray(image.crop((x-4, y-4, x+5, y+5)), dtype=np.uint8)
+            rgb = tuple(int(round(v)) for v in np.median(pixels, axis=(0, 1)))
+            color = identify_color(rgb)
+            ammo = read_ammunition(image, box, temp)
+            center = (round((box[0] + box[2]) / 2),
+                      round((box[1] + box[3]) / 2))
+            slot_observations.append({
+                "id": shooter_id, "row": row_index, "column": column,
+                "color_observation": color, "ammunition_observation": ammo,
+                "screen_center": list(center), "screen_box": list(box),
+                "screen_sample": [x, y], "status": row_status,
+                "verified": False, "selectable_candidate": False,
+            })
+            if row_index == 1:
+                detected.append({
+                    "id": shooter_id, "color": color, "ammo": ammo,
+                    "screen_center": list(center), "screen_box": list(box),
+                    "screen_sample": [x, y], "status": "visible", "verified": False
+                })
 
     # Bond relationships are never inferred from fixed screen positions.
     # They are loaded only from a separate, explicit user-confirmed file.
@@ -370,7 +369,7 @@ def main():
     result = {
         "capture_provenance": provenance,
         "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
-        "panel_slots": panel_slots,
+        "panel_slots": panel_slots,\n        "panel_slot_observations": slot_observations,
         "bond_relationships": {
             "status": "requires_user_confirmation",
             "verified_groups": bonded_groups,
