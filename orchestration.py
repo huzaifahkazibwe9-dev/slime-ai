@@ -13,6 +13,25 @@ def read_report(path):
         return None
 
 
+def resolve_candidate_report_path(data_dir, explicit_path=None):
+    """Prefer the canonical matcher output; never silently override an explicit path."""
+    if explicit_path is not None:
+        return Path(explicit_path), "explicit"
+
+    root = Path(data_dir)
+    candidates = (
+        "conveyor_identity_candidates.json",
+        "candidate_tracking_latest.json",
+        "candidate_tracks_latest.json",
+        "candidate_report_latest.json",
+    )
+    for name in candidates:
+        path = root / name
+        if path.is_file():
+            return path, "canonical" if name == candidates[0] else "legacy_fallback"
+    return root / candidates[0], "missing"
+
+
 def evidence_status(planning, identity, snapshot, candidates):
     checks = {
         "planning_report_present": isinstance(planning, dict),
@@ -234,20 +253,9 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     identity = read_report(root / "identity_audit_report.json")
     snapshot = read_report(root / "snapshot_sync_report.json")
 
-    if candidate_report_path:
-        candidate_path = Path(candidate_report_path)
-    else:
-        candidate_path = root / "candidate_tracking_latest.json"
-        for name in (
-            "candidate_tracking_latest.json",
-            "candidate_tracks_latest.json",
-            "candidate_report_latest.json",
-            "conveyor_identity_candidates.json",
-        ):
-            if (root / name).is_file():
-                candidate_path = root / name
-                break
-
+    candidate_path, candidate_path_source = resolve_candidate_report_path(
+        root, candidate_report_path
+    )
     candidates = read_report(candidate_path)
 
     # Cross-link every evidence source to one explicitly identified board
@@ -330,6 +338,11 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "level": getattr(state, "level", None),
         "level_audit": level_audit,
+        "candidate_report": {
+            "path": str(candidate_path),
+            "selection_source": candidate_path_source,
+            "loaded": isinstance(candidates, dict),
+        },
         "evidence": gate,
         "evidence_bundle_synchronisation": bundle_sync,
         "planner": {
