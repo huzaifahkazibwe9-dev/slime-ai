@@ -105,6 +105,41 @@ class ConveyorSimulatorTests(unittest.TestCase):
         ])
         self.assertEqual(after, before)
 
+    def test_config_rejects_boolean_or_fractional_tick_counts(self):
+        for value in (True, 2.5, 0, -1):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    SimulatorConfig(ticks_per_lap=value)
+
+    def test_shooter_rejects_invalid_position_and_boolean_ammo(self):
+        for kwargs in (
+            {"position": -1}, {"position": 5}, {"ammo": True},
+            {"completed_laps": -1}, {"selected": 1},
+        ):
+            with self.subTest(kwargs=kwargs):
+                values = {"shooter_id": "s", "group_id": "g", "ammo": 3}
+                values.update(kwargs)
+                with self.assertRaises(ValueError):
+                    Shooter(**values)
+
+    def test_factory_does_not_coerce_malformed_state_records(self):
+        malformed = [
+            {"id": "s", "ammo": True},
+            {"id": "s", "ammo": 3, "selected": "false"},
+            {"id": "s", "ammo": 3, "position": 1.8},
+        ]
+        for record in malformed:
+            with self.subTest(record=record):
+                with self.assertRaises((ValueError, TypeError)):
+                    create_simulator([record])
+
+    def test_simulator_rejects_position_outside_lap(self):
+        with self.assertRaises(ValueError):
+            ConveyorSimulator(
+                shooters=[Shooter("s", "g", 1, position=5)],
+                config=SimulatorConfig(ticks_per_lap=5),
+            )
+
     def test_report_never_enables_live_actions(self):
         sim = create_simulator([
             {"id": "single", "group_id": "single", "ammo": 3}
