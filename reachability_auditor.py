@@ -227,6 +227,8 @@ def audit(board_data, calibration, observations):
         observations.get("gameplay_verified", False)
     )
 
+    report["captured_at"] = board_data.get("captured_at")
+    report["timestamp_identified"] = board_data.get("timestamp_identified") is True
     report["board_timestamp_identified"] = timestamps_known
     report["capture_freshness"] = capture_freshness
     report["same_board_state_confirmed"] = same_state
