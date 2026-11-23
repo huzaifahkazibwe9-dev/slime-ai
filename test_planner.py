@@ -234,10 +234,6 @@ class PlannerEvidenceTests(unittest.TestCase):
         self.assertIsNone(run_plan(e))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ShooterRotationProgressValidationTests(unittest.TestCase):
     def test_rotation_progress_rejects_boolean_and_non_numeric_values(self):
         for value in (True, False, "0.5", None):
@@ -256,3 +252,6 @@ class ShooterRotationProgressValidationTests(unittest.TestCase):
             with self.subTest(value=value):
                 shooter = Shooter("S", "red", 1, rotation_progress=value)
                 self.assertTrue(shooter.valid())
+
+if __name__ == "__main__":
+    unittest.main()
