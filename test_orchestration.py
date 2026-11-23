@@ -1,5 +1,9 @@
 import unittest
-from orchestration import evidence_status
+from unittest.mock import patch
+
+from game_state import GameState
+from orchestration import evidence_status, run_multi_batch_diagnostic
+import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
@@ -51,6 +55,57 @@ class OrchestrationTests(unittest.TestCase):
         result = evidence_status({}, {}, {}, {})
         self.assertIs(result["game_taps_enabled"], False)
         self.assertIs(result["actions_performed"], False)
+
+
+    def test_multi_batch_diagnostic_returns_compact_plan_summary(self):
+        state = GameState([["red"]])
+        simulated = {
+            "engine": "test_multi_batch",
+            "status": "SIMULATED",
+            "accessible_group_count": 2,
+            "candidate_count": 4,
+            "valid_candidate_count": 3,
+            "search_truncated": False,
+            "best": {
+                "schedule_valid": True,
+                "candidate_order": ["A", "B"],
+                "candidate_batches": [{"groups": ["A", "B"]}],
+                "simulated_pixels_removed": 1,
+                "simulated_remaining_pixels": 0,
+                "board_history": [["large internal payload"]],
+            },
+            "source_state_unchanged": True,
+            "limitations": ["abstract timing"],
+        }
+        with patch.object(
+            multi_batch_candidate_planner,
+            "plan_multi_batch_candidates",
+            return_value=simulated,
+        ):
+            result = run_multi_batch_diagnostic(state)
+
+        self.assertEqual(result["status"], "SIMULATED")
+        self.assertEqual(result["candidate_count"], 4)
+        self.assertEqual(result["best"]["candidate_order"], ["A", "B"])
+        self.assertNotIn("board_history", result)
+        self.assertTrue(result["source_state_unchanged"])
+        self.assertFalse(result["evidence_verified"])
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_multi_batch_diagnostic_fails_closed_on_planner_error(self):
+        state = GameState([["red"]])
+        with patch.object(
+            multi_batch_candidate_planner,
+            "plan_multi_batch_candidates",
+            side_effect=RuntimeError("synthetic failure"),
+        ):
+            result = run_multi_batch_diagnostic(state)
+
+        self.assertEqual(result["status"], "MULTI_BATCH_DIAGNOSTIC_ERROR")
+        self.assertIn("synthetic failure", result["error"])
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["game_taps_enabled"])
 
 
 if __name__ == "__main__":
