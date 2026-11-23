@@ -500,6 +500,7 @@ class OrchestrationTests(unittest.TestCase):
             "engine": "test_evolving",
             "status": "PARTIAL_SEQUENCE",
             "nodes_examined": 3,
+            "performance": {"deepcopy_calls": 4},
             "search_truncated": False,
             "sequence": [{"group_id": "A", "shooter_ids": ["A"]}],
             "sequence_length": 1,
@@ -520,6 +521,7 @@ class OrchestrationTests(unittest.TestCase):
         planner.assert_called_once()
         self.assertIsNone(planner.call_args.kwargs["accessibility_resolver"])
         self.assertEqual(result["status"], "PARTIAL_SEQUENCE")
+        self.assertEqual(result["search_performance"]["deepcopy_calls"], 4)
         self.assertTrue(result["board_cleared"])
         self.assertFalse(result["full_level_complete"])
         self.assertFalse(result["evidence_verified"])
