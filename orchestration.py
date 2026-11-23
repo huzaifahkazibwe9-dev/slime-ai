@@ -104,8 +104,10 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
         "planning_has_verified_candidates": (
             isinstance(planning, dict)
             and planning.get("decision") == "ELIGIBLE_CANDIDATES_FOUND"
-            and planning.get("gameplay_verified") is True
+            and planning.get("planning_evidence_verified") is True
+            and planning.get("gameplay_verified") is False
             and planning.get("actions_performed") is False
+            and planning.get("game_taps_enabled") is False
         ),
         "identity_verified": (
             isinstance(identity, dict)
