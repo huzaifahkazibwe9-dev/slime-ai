@@ -32,6 +32,13 @@ class EvolvingBoardPlannerTests(unittest.TestCase):
         )
         self.assertTrue(report["source_state_unchanged"])
         self.assertEqual(state, before)
+        metrics = report["performance"]
+        self.assertGreater(metrics["deepcopy_calls"], 0)
+        self.assertGreater(metrics["state_key_calls"], 0)
+        self.assertGreater(metrics["simulation_calls"], 0)
+        self.assertGreaterEqual(metrics["deepcopy_seconds"], 0)
+        self.assertGreaterEqual(metrics["state_key_seconds"], 0)
+        self.assertGreaterEqual(metrics["simulation_seconds"], 0)
         self.assertFalse(report["full_level_complete"])
         self.assertFalse(report["game_taps_enabled"])
 
