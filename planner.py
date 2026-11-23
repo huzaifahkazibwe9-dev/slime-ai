@@ -82,9 +82,12 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
         return None
 
     snapshot_id = candidates.get("current_snapshot_id")
+    state_snapshot_id = getattr(state, "snapshot_id", None)
     if (
         not isinstance(snapshot_id, str)
         or not snapshot_id
+        or not isinstance(state_snapshot_id, str)
+        or state_snapshot_id != snapshot_id
         or snapshot.get("board_snapshot_id") != snapshot_id
         or snapshot.get("observation_board_snapshot_id") != snapshot_id
     ):
