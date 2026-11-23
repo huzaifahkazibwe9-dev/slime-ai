@@ -5,6 +5,8 @@ import subprocess
 import colorsys
 import re
 import json
+import argparse
+import hashlib
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -101,7 +103,41 @@ def read_ammunition(image, box, temp):
     digits = re.findall(r"\d+", result.stdout)
     return int(digits[0]) if len(digits)==1 else None
 
+def verify_panel_crop(source_path, panel_path, bounds, tolerance=8):
+    """Verify that a panel crop corresponds to a region of one full screenshot."""
+    if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
+            or any(type(v) is not int for v in bounds)):
+        raise ValueError("Panel bounds must be four integer coordinates")
+    left, top, right, bottom = bounds
+    with Image.open(source_path) as source, Image.open(panel_path) as panel:
+        source = source.convert("RGB")
+        panel = panel.convert("RGB")
+        if not (0 <= left < right <= source.width
+                and 0 <= top < bottom <= source.height):
+            raise ValueError("Panel bounds are outside the source screenshot")
+        crop = source.crop((left, top, right, bottom))
+        if crop.size != panel.size:
+            raise ValueError("Panel crop dimensions do not match source region")
+        delta = np.abs(
+            np.asarray(crop, dtype=np.int16)
+            - np.asarray(panel, dtype=np.int16)
+        )
+        if delta.size and int(delta.max()) > tolerance:
+            raise ValueError("Panel image does not match the supplied screenshot region")
+    return hashlib.sha256(Path(source_path).read_bytes()).hexdigest()
+
+
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source-screenshot")
+    parser.add_argument("--panel-bounds", nargs=4, type=int)
+    parser.add_argument("--capture-session-id")
+    parser.add_argument("--captured-at")
+    args = parser.parse_args()
+
+    if bool(args.source_screenshot) != bool(args.panel_bounds):
+        raise ValueError("--source-screenshot and --panel-bounds must be supplied together")
+
     if not IMAGE.exists():
         raise FileNotFoundError(IMAGE)
 
@@ -177,7 +213,31 @@ def main():
 
     temp.unlink(missing_ok=True)
 
+    provenance = {
+        "verified": False,
+        "source_sha256": None,
+        "capture_session_id": None,
+        "captured_at": None,
+    }
+    if args.source_screenshot:
+        from capture_provenance import (
+            parse_aware_capture_timestamp,
+            validate_capture_session_id,
+        )
+        source_hash = verify_panel_crop(
+            args.source_screenshot, IMAGE, args.panel_bounds
+        )
+        session_id = validate_capture_session_id(args.capture_session_id)
+        captured_at = parse_aware_capture_timestamp(args.captured_at)
+        provenance = {
+            "verified": bool(session_id and captured_at),
+            "source_sha256": source_hash,
+            "capture_session_id": session_id,
+            "captured_at": captured_at,
+        }
+
     result = {
+        "capture_provenance": provenance,
         "image_dimensions": list(image.size),
         "visible_shooters": detected,
         "bonded_groups": bonded_groups,
