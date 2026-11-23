@@ -131,6 +131,10 @@ def main(observation_path=None, shooter_path=None):
     calibration = read_json("conveyor_calibration.json", {})
     identity = read_json("identity_audit_report.json", {})
     firing = read_json("firing_observations.json", {})
+    planning = read_json("planning_gate_latest.json")
+    identity_audit = read_json("identity_audit_report.json")
+    candidate_report = read_json("conveyor_identity_candidates.json")
+    snapshot_report = read_json("snapshot_sync_report.json")
     learning = learning_summary()
 
     result = assess(
@@ -138,9 +142,16 @@ def main(observation_path=None, shooter_path=None):
     )
     manager = ResourceManager()
 
-    # Planner is used only for a diagnostic candidate.
+    # Use the same capture-bound evidence bundle as the central diagnostic.
+    # Missing, stale, or incomplete reports therefore produce no candidate.
     manager.set_mode("ANALYSE")
-    candidate = plan_next_move(state)
+    candidate = plan_next_move(
+        state,
+        planning_report=planning,
+        identity_audit=identity_audit,
+        candidate_report=candidate_report,
+        snapshot_report=snapshot_report,
+    )
     manager.stop()
 
     result["level"] = state.level
