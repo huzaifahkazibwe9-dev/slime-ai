@@ -15,6 +15,85 @@ def _colour_counts(board):
     return counts
 
 
+def score_powerup_candidates(state, inventory, result, *,
+                             purchase_cost_weight=0.20,
+                             last_charge_reserve_penalty=0.10,
+                             urgency_weight=0.20):
+    """Attach transparent heuristic use/purchase scores to candidate options.
+
+    Scores are decision-support heuristics, not calibrated win probabilities.
+    Use and purchase are scored separately so an owned charge is not confused
+    with an affordable shop purchase. Unknown evidence never becomes a score.
+    """
+    if not isinstance(inventory, PowerUpInventory) or inventory.validate():
+        return {"eligible": False, "reason": "INVALID_RESOURCE_STATE", "candidates": []}
+    if not isinstance(result, dict) or result.get("eligible") is not True:
+        return {"eligible": False, "reason": "INVALID_CANDIDATE_REPORT", "candidates": []}
+    weights = (purchase_cost_weight, last_charge_reserve_penalty, urgency_weight)
+    if any(isinstance(x, bool) or not isinstance(x, (int, float)) or x < 0 for x in weights):
+        return {"eligible": False, "reason": "INVALID_SCORING_WEIGHTS", "candidates": []}
+    remaining = getattr(state, "remaining_pixels", None)
+    if type(remaining) is not int or remaining < 0:
+        return {"eligible": False, "reason": "UNKNOWN_BOARD_REMAINING_COUNT", "candidates": []}
+
+    scored = []
+    for original in result.get("candidates", []):
+        if not isinstance(original, dict):
+            continue
+        item = dict(original)
+        impact = item.get("estimated_board_pixels_affected")
+        if type(impact) is not int or impact < 0:
+            item.update({"use_score": None, "purchase_score": None,
+                         "score_status": "IMPACT_UNQUANTIFIED"})
+            scored.append(item)
+            continue
+        impact_ratio = min(1.0, impact / remaining) if remaining else 0.0
+        detail = item.get("details") or {}
+        urgency = 0.0
+        if item.get("name") == "extra_tray":
+            free = detail.get("current_conveyor_free")
+            if type(free) is int and free >= 0:
+                urgency = max(0.0, min(1.0, (2 - free) / 2))
+        base_value = (1.0 - urgency_weight) * impact_ratio + urgency_weight * urgency
+        charges = item.get("charge_count")
+        reserve_penalty = last_charge_reserve_penalty if charges == 1 else 0.0
+        use_score = None
+        if item.get("use_eligibility") is True:
+            use_score = max(0.0, min(1.0, base_value - reserve_penalty))
+        purchase_score = None
+        if item.get("purchase_recommendation_eligibility") is True:
+            price = inventory.prices.get(item.get("name"))
+            gold = inventory.gold
+            if type(price) is int and type(gold) is int and gold > 0:
+                cost_ratio = min(1.0, price / gold)
+                purchase_score = max(0.0, min(1.0, base_value - purchase_cost_weight * cost_ratio))
+            elif price == 0 and gold == 0:
+                purchase_score = base_value
+        item.update({
+            "observed_impact_fraction": impact_ratio,
+            "conveyor_urgency": urgency,
+            "use_score": use_score,
+            "purchase_score": purchase_score,
+            "score_status": "HEURISTIC_ONLY_NOT_GAMEPLAY_CALIBRATED",
+        })
+        scored.append(item)
+    scored.sort(key=lambda item: max(
+        item.get("use_score") if item.get("use_score") is not None else -1.0,
+        item.get("purchase_score") if item.get("purchase_score") is not None else -1.0,
+    ), reverse=True)
+    return {
+        "eligible": True,
+        "ranking_basis": "transparent_heuristic_not_win_probability",
+        "weights": {
+            "purchase_cost": purchase_cost_weight,
+            "last_charge_reserve": last_charge_reserve_penalty,
+            "conveyor_urgency": urgency_weight,
+        },
+        "candidates": scored,
+        "game_action_performed": False,
+    }
+
+
 def evaluate_powerup_candidates(state, inventory, *, hidden_board_circles=None,
                                  observed_extra_slots=None):
     """Return ranked advisory candidates without changing state or inventory.
