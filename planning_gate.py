@@ -116,7 +116,7 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
     return True
 
 
-def evaluate_planning(report, candidate_report=None):
+def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
     confidence_audit = report.get("confidence_audit", {})
     board_synced = bool(report.get("same_board_state_confirmed", False))
     freshness = report.get("capture_freshness", {})
@@ -131,6 +131,11 @@ def evaluate_planning(report, candidate_report=None):
         candidate_report, provenance
     )
     mappings_verified = bool(report.get("gameplay_verified", False))
+    conveyor_timing_calibrated = (
+        isinstance(conveyor_calibration, dict)
+        and conveyor_calibration.get("timing_calibrated_to_game") is True
+        and conveyor_calibration.get("verified_by_user") is True
+    )
     confidence_audit = report.get("confidence_audit", {})
     confidence_snapshot_verified = (
         isinstance(confidence_audit, dict)
@@ -219,6 +224,8 @@ def evaluate_planning(report, candidate_report=None):
                 blockers.append("SHOOTER_IDENTITY_UNVERIFIED")
             if not mappings_verified:
                 blockers.append("GAMEPLAY_COLOUR_MAPPING_UNVERIFIED")
+            if not conveyor_timing_calibrated:
+                blockers.append("CONVEYOR_TIMING_NOT_USER_CALIBRATED")
             if not confidence_snapshot_verified:
                 blockers.append("CONFIDENCE_BOARD_SNAPSHOT_UNVERIFIED")
             if not scenario.get("confidence_eligible", False):
@@ -292,6 +299,7 @@ def evaluate_planning(report, candidate_report=None):
         "candidate_capture_provenance_verified": candidate_provenance_verified,
         "capture_freshness_verified": capture_freshness_verified,
         "confidence_snapshot_verified": confidence_snapshot_verified,
+        "conveyor_timing_calibrated": conveyor_timing_calibrated,
         "counts": counts,
         "results": results,
         "decision": (
@@ -312,7 +320,16 @@ def main():
         json.loads(candidate_path.read_text()) if candidate_path.is_file()
         else None
     )
-    result = evaluate_planning(report, candidate_report=candidate_report)
+    calibration_path = Path("data/conveyor_calibration.json")
+    conveyor_calibration = (
+        json.loads(calibration_path.read_text())
+        if calibration_path.is_file() else None
+    )
+    result = evaluate_planning(
+        report,
+        candidate_report=candidate_report,
+        conveyor_calibration=conveyor_calibration,
+    )
     OUTPUT_FILE.write_text(json.dumps(result, indent=2))
 
     print("SLIME AI — BUILD 11H PLANNING GATE")
