@@ -19,6 +19,33 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
         raise ValueError("bonded_groups must be a list")
     if any(not isinstance(group, list) for group in groups):
         raise ValueError("Each bonded group must be a list")
+
+    # New detector records include a sample-quality assessment. A weak sample
+    # must not be converted into a Shooter colour. Older diagnostic files
+    # without this optional field retain their legacy loading behaviour.
+    eligible = []
+    for index, item in enumerate(detected):
+        if not isinstance(item, dict):
+            raise ValueError(f"Shooter entry {index} must be an object")
+        quality = item.get("sample_quality")
+        if quality is not None:
+            if not isinstance(quality, dict):
+                raise ValueError(f"Shooter entry {index} has invalid sample quality")
+            status = quality.get("status")
+            if status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}:
+                raise ValueError(f"Shooter entry {index} has invalid sample quality status")
+            if status == "LOW_CONFIDENCE_SAMPLE":
+                continue
+        eligible.append(item)
+    eligible_ids = {item.get("id") for item in eligible}
+    # If a member of a confirmed bond has an unreliable visual sample, do not
+    # load the remaining members as an incomplete bonded group.
+    groups = [
+        group for group in groups
+        if isinstance(group, list)
+        and all(member in eligible_ids for member in group)
+    ]
+    detected = eligible
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
