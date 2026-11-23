@@ -77,6 +77,11 @@ def assess(state, audit, calibration, identity, firing):
         "conveyor_calibration_present": bool(
             calibration and calibration.get("shooters")
         ),
+        "conveyor_timing_calibrated": bool(
+            calibration
+            and calibration.get("timing_calibrated_to_game") is True
+            and calibration.get("verified_by_user") is True
+        ),
         "physical_shooter_identity_verified": bool(
             identity and identity.get("identity_verified") is True
         ),
