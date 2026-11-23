@@ -79,6 +79,10 @@ def run_multi_batch_diagnostic(state, max_candidates=200):
             "valid_candidate_count": result.get("valid_candidate_count", 0),
             "search_truncated": result.get("search_truncated", False),
             "best": best_summary,
+            "completion": result.get("completion", {
+                "full_level_complete": False,
+                "blockers": ["COMPLETION_AUDIT_UNAVAILABLE"],
+            }),
             "source_state_unchanged": result.get("source_state_unchanged") is True,
             "evidence_verified": False,
             "live_execution_allowed": False,
