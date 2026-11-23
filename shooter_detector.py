@@ -18,6 +18,18 @@ SHOOTERS = [
     {"id": "top_4", "box": (1135,150,1335,285), "sample": (1230,275)},
 ]
 
+def validate_panel_image_size(width, height, tolerance=0.02):
+    if type(width) is not int or type(height) is not int or width < 1 or height < 1:
+        raise ValueError("Shooter panel image dimensions must be positive integers")
+    expected_ratio = REF_W / REF_H
+    actual_ratio = width / height
+    if abs(actual_ratio - expected_ratio) / expected_ratio > tolerance:
+        raise ValueError(
+            "Shooter panel aspect ratio does not match the calibrated panel crop"
+        )
+    return True
+
+
 def scale_point(p, sx, sy):
     return round(p[0]*sx), round(p[1]*sy)
 
@@ -94,6 +106,7 @@ def main():
         raise FileNotFoundError(IMAGE)
 
     image = Image.open(IMAGE).convert("RGB")
+    validate_panel_image_size(image.width, image.height)
     sx = image.width/REF_W
     sy = image.height/REF_H
 
@@ -102,6 +115,15 @@ def main():
 
     for shooter in SHOOTERS:
         x,y = scale_point(shooter["sample"],sx,sy)
+        box = scale_box(shooter["box"], sx, sy)
+
+        if not (4 <= x < image.width - 4 and 4 <= y < image.height - 4):
+            raise ValueError(f"Shooter sample for {shooter['id']} is outside the panel")
+        if not (
+            0 <= box[0] < box[2] <= image.width
+            and 0 <= box[1] < box[3] <= image.height
+        ):
+            raise ValueError(f"Ammo OCR box for {shooter['id']} is outside the panel")
 
         patch = image.crop((x-4,y-4,x+5,y+5))
         pixels = np.asarray(patch,dtype=np.uint8)
@@ -116,8 +138,6 @@ def main():
             scale_box(shooter["box"],sx,sy),
             temp
         )
-
-        box = scale_box(shooter["box"], sx, sy)
 
         center = (
             round((box[0] + box[2]) / 2),
