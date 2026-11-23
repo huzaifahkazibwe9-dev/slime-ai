@@ -1,5 +1,6 @@
 import copy
 import unittest
+from unittest.mock import patch
 
 from game_state import GameState, Shooter
 from conveyor_simulator import SimulatorConfig
@@ -68,6 +69,29 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
             [["A", "B"]],
         )
         self.assertEqual(report["simulated_remaining_pixels"], 0)
+        self.assertFalse(report["game_taps_enabled"])
+
+    def test_reuses_precomputed_board_plan_without_searching_again(self):
+        state = make_state()
+        from evolving_board_planner import plan_evolving_board
+        board_plan = plan_evolving_board(
+            state, accessibility_resolver=None, max_nodes=20, beam_width=10,
+        )
+        with patch(
+            "capacity_aware_evolving_planner.plan_evolving_board",
+            side_effect=AssertionError("search should be reused"),
+        ):
+            report = plan_capacity_aware_evolving_schedule(
+                state,
+                config=SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+                max_nodes=20,
+                beam_width=10,
+                board_plan=board_plan,
+            )
+        self.assertEqual(
+            report["board_plan"]["sequence"], board_plan["sequence"]
+        )
+        self.assertTrue(report["source_state_unchanged"])
         self.assertFalse(report["game_taps_enabled"])
 
     def test_resolver_string_result_is_rejected(self):
