@@ -382,6 +382,25 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report, candidate_report=candidates)
         self.assertFalse(result["candidate_capture_provenance_verified"])
 
+    def test_candidate_track_timestamp_must_align_with_report_timestamp(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["captured_at"] = "2026-11-23T09:59:00+00:00"
+        candidates["tracks"]["white"]["captured_at"] = (
+            "2026-11-23T10:01:01+00:00"
+        )
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_candidate_observation_timestamp_must_align_with_track(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["tracks"]["blue_cyan"]["observations"][0]["captured_at"] = (
+            "2026-11-23T10:02:01+00:00"
+        )
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
     def test_candidate_track_without_identified_timestamp_is_rejected(self):
         report = make_report()
         candidates = make_candidate_report(report)
