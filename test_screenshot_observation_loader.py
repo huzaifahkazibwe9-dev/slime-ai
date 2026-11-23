@@ -34,6 +34,8 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "raw_rgb": rgb,
             "counts": {"cyan": 2, "white": 2, "orange": 1, "pink": 1},
             "source_sha256": "a" * 64,
+            "capture_session_id": "session-test-1",
+            "captured_at": "2026-11-23T12:30:00+03:00",
             "snapshot_id": "sha256:" + "a" * 64,
             "board_snapshot_id": "sha256:" + "a" * 64,
             "board_snapshot_id": "sha256:" + "a" * 64,
@@ -57,6 +59,12 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
                 },
             ],
             "bonded_groups": [["top_1", "top_2"]],
+            "capture_provenance": {
+                "verified": False,
+                "source_sha256": None,
+                "capture_session_id": None,
+                "captured_at": None,
+            },
         }
         self.write()
 
@@ -88,6 +96,34 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             self.observation["snapshot_id"],
         )
         self.assertFalse(state.timestamp_identified)
+
+    def test_matching_verified_shooter_capture_provenance_passes(self):
+        self.shooters["capture_provenance"] = {
+            "verified": True,
+            "source_sha256": "a" * 64,
+            "capture_session_id": "session-test-1",
+            "captured_at": "2026-11-23T12:30:00+03:00",
+        }
+        self.write()
+        _, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertTrue(audit["shooter_capture_provenance_verified"])
+        self.assertTrue(audit["shooter_capture_source_matches_board"])
+
+    def test_mismatched_shooter_capture_provenance_stays_unverified(self):
+        self.shooters["capture_provenance"] = {
+            "verified": True,
+            "source_sha256": "b" * 64,
+            "capture_session_id": "session-test-1",
+            "captured_at": "2026-11-23T12:30:00+03:00",
+        }
+        self.write()
+        _, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertFalse(audit["shooter_capture_provenance_verified"])
+        self.assertFalse(audit["shooter_capture_source_matches_board"])
 
     def test_unified_level_loader_accepts_explicit_screenshot_mode(self):
         state, audit = load_level(
@@ -125,6 +161,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         )
         for key in (
             "shooter_positions_gameplay_verified",
+            "shooter_capture_provenance_verified",
             "initial_occupancy_confirmed",
             "vision_classification_verified",
             "colour_mapping_verified",
