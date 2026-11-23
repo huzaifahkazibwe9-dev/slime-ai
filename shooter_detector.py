@@ -7,6 +7,7 @@ import re
 import json
 import argparse
 import hashlib
+import time
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -277,6 +278,9 @@ def main():
     detected = []
     slot_observations = []
     temp = Path("screenshots/ocr_temp.png")
+    detection_started = time.perf_counter()
+    ocr_seconds = 0.0
+    ocr_calls = 0
 
     # Observe every row, but keep lower-row records non-selectable until verified.
     row_specs = [
@@ -301,7 +305,14 @@ def main():
             pixels = np.asarray(image.crop((x-4, y-4, x+5, y+5)), dtype=np.uint8)
             rgb = tuple(int(round(v)) for v in np.median(pixels, axis=(0, 1)))
             color = identify_color(rgb)
-            ammo = read_ammunition(image, box, temp)
+            # Lower rows are observed for colour/layout, but are not yet
+            # readable/selectable. Avoid launching OCR for unverified slots.
+            ammo = None
+            if row_index == 1:
+                ocr_started = time.perf_counter()
+                ammo = read_ammunition(image, box, temp)
+                ocr_seconds += time.perf_counter() - ocr_started
+                ocr_calls += 1
             center = (round((box[0] + box[2]) / 2),
                       round((box[1] + box[3]) / 2))
             slot_observations.append({
@@ -365,8 +376,17 @@ def main():
         }
 
     panel_slots = build_panel_slot_inventory(image.width, image.height)
+    detection_seconds = time.perf_counter() - detection_started
 
     result = {
+        "performance": {
+            "shooter_detection_seconds": round(detection_seconds, 6),
+            "ammunition_ocr_seconds": round(ocr_seconds, 6),
+            "ammunition_ocr_calls": ocr_calls,
+            "panel_slots_observed": len(slot_observations),
+            "timing_clock": "perf_counter",
+            "note": "Local processing measurements; not a device-wide gameplay latency benchmark.",
+        },
         "capture_provenance": provenance,
         "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
         "panel_slots": panel_slots,
