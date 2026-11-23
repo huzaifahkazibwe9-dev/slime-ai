@@ -152,6 +152,54 @@ class ReadinessAssessTests(unittest.TestCase):
 
 
 class ReadinessPlannerIntegrationTests(unittest.TestCase):
+    def test_matching_bundle_still_blocks_without_shooter_capture_provenance(self):
+        reports = {
+            "conveyor_calibration.json": {},
+            "identity_audit_report.json": {},
+            "firing_observations.json": {},
+            "planning_gate_latest.json": {},
+            "conveyor_identity_candidates.json": {},
+            "snapshot_sync_report.json": {
+                "synchronised": True,
+                "planning_allowed_by_sync": True,
+            },
+        }
+        valid_bundle = {
+            "synchronised": True,
+            "planning_allowed_by_sync": True,
+        }
+        passed_gate = {"evidence_gate_passed": True}
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch.object(readiness, "DATA", Path(directory)),
+                patch.object(readiness, "REPORT", Path(directory) / "readiness_report.json"),
+                patch.object(readiness, "load_level",
+                             return_value=(FakeState(), {
+                                 "shooter_capture_provenance_verified": False
+                             })),
+                patch.object(readiness, "read_json",
+                             side_effect=lambda name, default=None:
+                             reports.get(name, default)),
+                patch.object(readiness, "learning_summary",
+                             return_value={"available": False,
+                                           "gameplay_records": 0}),
+                patch("snapshot_sync.synchronise_bundle",
+                      return_value=valid_bundle),
+                patch("orchestration.evidence_status",
+                      return_value=passed_gate),
+                patch.object(readiness, "plan_next_move",
+                             return_value=None) as planner,
+            ):
+                readiness.main(observation_path="board.json",
+                               shooter_path="shooters.json")
+
+            planner.assert_not_called()
+            report = json.loads(
+                (Path(directory) / "readiness_report.json").read_text()
+            )
+            self.assertFalse(report["shooter_capture_provenance_verified"])
+            self.assertIsNone(report["planner_candidate"])
+
     def test_missing_capture_bundle_blocks_readiness_planner(self):
         reports = {
             "conveyor_calibration.json": {"timing_calibrated_to_game": True},
