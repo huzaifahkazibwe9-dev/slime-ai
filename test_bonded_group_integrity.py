@@ -31,6 +31,17 @@ class BondedGroupIntegrityTests(unittest.TestCase):
         self.assertEqual(state.bonded_group("A"), [])
         self.assertFalse(state.can_select_group("A"))
 
+    def test_inconsistent_explicit_group_ids_in_component_are_invalid(self):
+        a = Shooter("A", "red", 1, accessible=True,
+                    bonded_ids=["B"], group_id="PAIR_A")
+        b = Shooter("B", "blue", 1, bonded_ids=["A"], group_id="PAIR_B")
+        state = GameState(board=[["red"]], shooters={"A": a, "B": b})
+        self.assertIsNone(state.bonded_group_id("A"))
+        self.assertTrue(any(
+            "Inconsistent group_id values" in error
+            for error in state.validate()
+        ))
+
     def test_unknown_bonded_member_invalidates_component(self):
         state = GameState(
             board=[["red"]],
