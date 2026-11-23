@@ -272,6 +272,27 @@ class PlanningGateTests(unittest.TestCase):
         result = evaluate_planning(report)
         self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
 
+    def test_malformed_board_snapshot_fingerprint_blocks_planning(self):
+        report = make_report()
+        report["board_snapshot_id"] = "sha256:short"
+        result = evaluate_planning(report, candidate_report=make_candidate_report(report))
+        self.assertFalse(result["capture_provenance_verified"])
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_malformed_capture_session_id_blocks_planning(self):
+        report = make_report()
+        report["capture_session_id"] = "session id with spaces"
+        result = evaluate_planning(report, candidate_report=make_candidate_report(report))
+        self.assertFalse(result["capture_provenance_verified"])
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
+    def test_candidate_malformed_session_id_is_rejected(self):
+        report = make_report()
+        candidates = make_candidate_report(report)
+        candidates["capture_session_id"] = "bad session id"
+        result = evaluate_planning(report, candidate_report=candidates)
+        self.assertFalse(result["candidate_capture_provenance_verified"])
+
     def test_missing_board_capture_provenance_blocks_planning(self):
         report = make_report()
         report["timestamp_identified"] = False
