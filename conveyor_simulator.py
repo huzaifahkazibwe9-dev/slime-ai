@@ -196,7 +196,9 @@ class ConveyorSimulator:
         for _ in range(count):
             self.tick_count += 1
 
-            # Snapshot prevents list mutation while processing returns.
+            # The model processes same-tick arrivals in original shooter input
+            # order. This is an explicit simulation policy, not a claim about
+            # the live game's internal scheduling order.
             for shooter in list(self.active):
                 shooter.position = (
                     shooter.position + 1
@@ -293,6 +295,8 @@ class ConveyorSimulator:
             "timing_calibrated_to_game": False,
             "tick_count": self.tick_count,
             "ticks_per_lap": self.config.ticks_per_lap,
+            "simultaneous_return_order": "shooter_input_order",
+            "simultaneous_return_order_calibrated": False,
             "failed": self.failed,
             "failure_reason": self.failure_reason,
             "conveyor_capacity": self.config.conveyor_capacity,
