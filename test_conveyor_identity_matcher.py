@@ -34,6 +34,25 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             "timestamp_identified": True,
         }), [])
 
+
+    def test_malformed_snapshot_id_is_rejected(self):
+        errors = validate_visual_provenance({
+            "board_snapshot_id": "board-1",
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        })
+        self.assertTrue(any("board_snapshot_id" in item for item in errors))
+
+    def test_malformed_capture_session_id_is_rejected(self):
+        errors = validate_visual_provenance({
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "bad session id",
+            "captured_at": "2026-11-23T10:00:00+03:00",
+            "timestamp_identified": True,
+        })
+        self.assertTrue(any("capture_session_id" in item for item in errors))
+
     def test_missing_snapshot_link_is_rejected(self):
         errors = validate_visual_provenance({
             "capture_session_id": "session-001",
