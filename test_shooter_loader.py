@@ -69,6 +69,53 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot be selectable"):
                 load_panel_slots(path)
 
+    def test_panel_inventory_rejects_invalid_image_dimensions(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "image_dimensions": [1080, True],
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "A", "row": 1, "column": 1, "center": [10, 10],
+                "status": "readable", "selectable_candidate": False,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "image_dimensions"):
+                load_panel_slots(path)
+
+    def test_panel_inventory_rejects_slot_center_outside_image(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "image_dimensions": [100, 80],
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "A", "row": 1, "column": 1, "center": [100, 40],
+                "status": "readable", "selectable_candidate": False,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "outside image dimensions"):
+                load_panel_slots(path)
+
+    def test_panel_inventory_accepts_in_bounds_slot_center(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "image_dimensions": [100, 80],
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "A", "row": 1, "column": 1, "center": [99, 79],
+                "status": "readable", "selectable_candidate": False,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            self.assertEqual(len(load_panel_slots(path)), 1)
+
     def test_panel_inventory_rejects_boolean_dimensions(self):
         from shooter_loader import load_panel_slots
         payload = {
