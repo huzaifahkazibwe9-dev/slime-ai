@@ -1,6 +1,7 @@
 from pathlib import Path
 from collections import Counter
 import argparse
+import json
 import sys
 
 # Make module paths independent of the current working directory.
@@ -95,11 +96,35 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
 
     section("PLANNER DIAGNOSTIC")
     resource_manager.set_mode("ANALYSE")
+    def read_evidence(filename):
+        path = PROJECT_DIR / "data" / filename
+        try:
+            value = json.loads(path.read_text())
+            return value if isinstance(value, dict) else None
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    planning_report = read_evidence("planning_gate_latest.json")
+    identity_report = read_evidence("identity_audit_report.json")
+    candidate_report = read_evidence("conveyor_identity_candidates.json")
+    snapshot_report = read_evidence("snapshot_sync_report.json")
+
+    print("Planning report present:", planning_report is not None)
+    print("Identity report present:", identity_report is not None)
+    print("Candidate report present:", candidate_report is not None)
+    print("Snapshot report present:", snapshot_report is not None)
+
     if errors:
         print("Planner skipped: game state has validation errors.")
         move = None
     elif resource_manager.can_process("ANALYSE"):
-        move = planner.plan_next_move(state)
+        move = planner.plan_next_move(
+            state,
+            planning_report=planning_report,
+            identity_audit=identity_report,
+            candidate_report=candidate_report,
+            snapshot_report=snapshot_report,
+        )
     else:
         move = None
 
