@@ -2,13 +2,19 @@
 
 Slime Loop analysis and planning project for Termux.
 
-## One-command Termux build
+## One-command Termux deployment
 
-From the project directory, run:
+When the project is ready to be installed on the phone, run from the cloned repository:
+
+`bash deploy_termux.sh`
+
+The deployment script synchronises the latest GitHub version, checks required local screenshot inputs, installs the declared Python dependencies, and runs the build pipeline. It refuses non-Termux environments and never taps the game.
+
+To run only the local diagnostics without synchronising or installing dependencies, use:
 
 `bash build_pipeline.sh`
 
-The script:
+The build script:
 - ingests the saved Level 39 screenshot;
 - refreshes shooter detection if the shooter-panel crop exists;
 - integrates the screenshot and shooter data into a candidate game state;
