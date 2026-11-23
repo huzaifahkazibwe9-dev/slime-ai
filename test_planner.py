@@ -29,13 +29,17 @@ def make_evidence():
             {
                 "position_id": "pA", "target_colour": "red",
                 "planning_eligible": True, "geometrically_reachable": True,
-                "ammunition_available": True, "observed_ammo": 20,
+                "ammunition_available": True,
+                "ammunition_evidence_verified": True,
+                "observed_ammo": 20,
                 "exposed_matching_count": 2, "blockers": [],
             },
             {
                 "position_id": "pB", "target_colour": "blue",
                 "planning_eligible": True, "geometrically_reachable": True,
-                "ammunition_available": True, "observed_ammo": 30,
+                "ammunition_available": True,
+                "ammunition_evidence_verified": True,
+                "observed_ammo": 30,
                 "exposed_matching_count": 3, "blockers": [],
             },
         ],
@@ -216,6 +220,11 @@ class PlannerEvidenceTests(unittest.TestCase):
     def test_ammunition_mismatch_rejected(self):
         e = list(make_evidence())
         e[0]["results"][0]["observed_ammo"] = 19
+        self.assertIsNone(run_plan(e))
+
+    def test_unverified_ammunition_evidence_rejected(self):
+        e = list(make_evidence())
+        e[0]["results"][0]["ammunition_evidence_verified"] = False
         self.assertIsNone(run_plan(e))
 
 
