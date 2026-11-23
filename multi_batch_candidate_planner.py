@@ -233,7 +233,14 @@ def plan_multi_batch_candidates(
         completion_blockers.append("BOARD_PIXELS_REMAIN")
     if unplanned_group_ids:
         completion_blockers.append("KNOWN_GROUPS_NOT_PLANNED")
-    full_level_complete = schedule_valid and board_cleared and not unplanned_group_ids
+    simulation_complete = (
+        schedule_valid and board_cleared and not unplanned_group_ids
+        and not truncated
+    )
+    if truncated:
+        completion_blockers.append("SEARCH_TRUNCATED")
+    if schedule_valid:
+        completion_blockers.append("CONVEYOR_TIMING_UNCALIBRATED")
 
     return {
         "engine": "build11af_multi_batch_candidate_planner",
@@ -249,7 +256,10 @@ def plan_multi_batch_candidates(
             for item in candidates
         ),
         "completion": {
-            "full_level_complete": full_level_complete,
+            "simulation_complete": simulation_complete,
+            # Simulation output cannot establish live gameplay completion.
+            "full_level_complete": False,
+            "live_level_completion_verified": False,
             "board_cleared": board_cleared,
             "known_group_count": len(known_group_ids),
             "planned_group_count": len(planned_group_ids),
