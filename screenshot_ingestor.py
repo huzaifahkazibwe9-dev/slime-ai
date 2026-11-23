@@ -3,6 +3,7 @@ import argparse
 import colorsys
 import hashlib
 import json
+import math
 import statistics
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,8 +61,16 @@ def extract_board(image_path, calibration):
         img = original.convert("RGB")
         width, height = img.size
 
-        cols, rows = calibration["grid_size"]
-        left, top, right, bottom = calibration["bounds"]
+        if not isinstance(calibration, dict):
+            raise ValueError("Calibration must be a JSON object")
+        grid_size = calibration.get("grid_size")
+        bounds = calibration.get("bounds")
+        if not isinstance(grid_size, list) or len(grid_size) != 2:
+            raise ValueError("Calibration grid_size must be [columns, rows]")
+        if not isinstance(bounds, list) or len(bounds) != 4:
+            raise ValueError("Calibration bounds must contain four coordinates")
+        cols, rows = grid_size
+        left, top, right, bottom = bounds
 
         if (
             type(cols) is not int or type(rows) is not int
@@ -70,8 +79,8 @@ def extract_board(image_path, calibration):
             raise ValueError("Grid dimensions must be positive integers")
 
         if (
-            any(type(value) not in (int, float) for value in
-                (left, top, right, bottom))
+            any(type(value) not in (int, float) or not math.isfinite(value)
+                for value in (left, top, right, bottom))
             or left < 1 or top < 1
             or right <= left or bottom <= top
             or right > width - 1 or bottom > height - 1
