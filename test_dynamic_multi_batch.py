@@ -92,6 +92,35 @@ class Build11AETests(unittest.TestCase):
         self.assertFalse(report["live_execution_allowed"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_explicit_resolver_unlocks_group_after_board_changes(self):
+        state = make_state()
+        state.shooters["B"].accessible = False
+        def resolver(current):
+            return ["A"] if current.board[0][0] == "red" else ["B"]
+        report = simulate_dynamic_multi_batch(
+            state, [{"groups": ["A"]}, {"groups": ["B"]}],
+            SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+            accessibility_resolver=resolver,
+        )
+        self.assertEqual(report["status"], "SIMULATED")
+        self.assertTrue(report["schedule_valid"])
+        self.assertEqual(report["simulated_remaining_pixels"], 0)
+        self.assertTrue(report["dynamic_accessibility_resolver_used"])
+        self.assertFalse(report["game_taps_enabled"])
+
+    def test_dynamic_accessibility_is_not_invented_without_resolver(self):
+        state = make_state()
+        state.shooters["B"].accessible = False
+        report = simulate_dynamic_multi_batch(
+            state, [{"groups": ["A"]}, {"groups": ["B"]}],
+            SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+        )
+        self.assertEqual(report["status"], "SIMULATION_INCOMPLETE")
+        self.assertEqual(
+            report["failure"]["reason"], "DYNAMIC_GROUP_SIMULATION_FAILED"
+        )
+        self.assertFalse(report["game_taps_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
