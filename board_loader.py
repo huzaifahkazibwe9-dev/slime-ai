@@ -9,8 +9,15 @@ CONFIDENCE_FILE = Path("data/edge_confidence_latest.json")
 def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
     data = json.loads(Path(path).read_text())
 
-    width, height = data["grid_size"]
-    source_board = data["board"]
+    grid_size = data.get("grid_size")
+    if (not isinstance(grid_size, list) or len(grid_size) != 2
+            or any(type(value) is not int or value < 1
+                   for value in grid_size)):
+        raise ValueError("Invalid board grid dimensions")
+    width, height = grid_size
+    source_board = data.get("board")
+    if not isinstance(source_board, list):
+        raise ValueError("Invalid board data")
     occupancy = data.get("occupancy", {})
     mask = occupancy.get("mask")
 
@@ -23,8 +30,12 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
     if not isinstance(mask, list) or len(mask) != height:
         raise ValueError("Invalid occupancy mask height")
 
-    if any(len(row) != width for row in mask):
+    if any(not isinstance(row, list) or len(row) != width for row in mask):
         raise ValueError("Invalid occupancy mask width")
+
+    if any(type(value) is not int or value not in (0, 1)
+           for row in mask for value in row):
+        raise ValueError("Occupancy mask must contain only integer 0/1 values")
 
     occupied_count = sum(sum(row) for row in mask)
 
@@ -56,7 +67,7 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
         Path(confidence_path).read_text()
     )
 
-    if confidence_data.get("grid_size") != [height, width]:
+    if confidence_data.get("grid_size") != [width, height]:
         raise ValueError("Confidence grid dimensions do not match board")
 
     confidence_cells = confidence_data.get("cells")
