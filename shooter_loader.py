@@ -29,6 +29,31 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 or not isinstance(color.get("name"), str)
                 or not color["name"]):
             raise ValueError(f"Shooter entry {index} has an invalid colour")
+    shooter_ids = [item["id"] for item in detected]
+    if len(shooter_ids) != len(set(shooter_ids)):
+        raise ValueError("Shooter IDs must be unique")
+    known_ids = set(shooter_ids)
+    grouped_ids = set()
+    for group_index, group in enumerate(groups):
+        if len(group) > 3:
+            raise ValueError(f"Bonded group {group_index} exceeds the maximum size of 3")
+        if any(not isinstance(member, str) or not member for member in group):
+            raise ValueError(f"Bonded group {group_index} contains an invalid shooter ID")
+        if len(group) != len(set(group)):
+            raise ValueError(f"Bonded group {group_index} contains duplicate shooter IDs")
+        unknown = set(group) - known_ids
+        if unknown:
+            raise ValueError(
+                f"Bonded group {group_index} references unknown shooters: "
+                + ", ".join(sorted(unknown))
+            )
+        overlap = grouped_ids.intersection(group)
+        if overlap:
+            raise ValueError(
+                "A shooter cannot belong to multiple bonded groups: "
+                + ", ".join(sorted(overlap))
+            )
+        grouped_ids.update(group)
 
     # Optional observations must come from separately verified
     # conveyor screenshots, never from the shooter panel image.
