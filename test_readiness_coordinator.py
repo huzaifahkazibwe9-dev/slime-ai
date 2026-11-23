@@ -109,7 +109,26 @@ class ReadinessAssessTests(unittest.TestCase):
             FakeState(mappings_verified=True, accessible=1),
             audit, calibration, identity, firing
         )
-        self.assertTrue(all(result["checks"].values()))
+        evidence_checks = {
+            key: value for key, value in result["checks"].items()
+            if key not in {
+                "live_execution_path_implemented",
+                "live_gameplay_validation_complete",
+                "explicit_live_execution_opt_in",
+            }
+        }
+        self.assertTrue(all(evidence_checks.values()))
+        self.assertFalse(result["checks"]["live_execution_path_implemented"])
+        self.assertFalse(result["checks"]["live_gameplay_validation_complete"])
+        self.assertFalse(result["checks"]["explicit_live_execution_opt_in"])
+        self.assertEqual(
+            result["live_execution_blockers"],
+            [
+                "live_execution_path_implemented",
+                "live_gameplay_validation_complete",
+                "explicit_live_execution_opt_in",
+            ],
+        )
         self.assertFalse(result["game_taps_enabled"])
         self.assertFalse(result["autonomous_play_ready"])
 
