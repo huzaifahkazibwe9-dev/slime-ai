@@ -362,10 +362,9 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
     records = []
 
     for shooter_id, shooter in state.shooters.items():
-        bonded = [str(shooter_id)] + [
-            str(value) for value in shooter.bonded_ids
-        ]
-        group_id = str(shooter.group_id or min(bonded))
+        group_id = state.bonded_group_id(shooter_id)
+        if group_id is None:
+            raise ValueError("Invalid bonded group identity")
 
         progress = float(shooter.rotation_progress or 0.0)
         position = round(progress * config.ticks_per_lap)
