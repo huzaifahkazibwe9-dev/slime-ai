@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from game_state import GameState
 from powerups import PowerUpInventory
-from powerup_planner import evaluate_powerup_candidates
+from powerup_planner import evaluate_powerup_candidates, score_powerup_candidates
 
 
 class PowerUpPlannerTests(unittest.TestCase):
@@ -22,6 +22,37 @@ class PowerUpPlannerTests(unittest.TestCase):
                 "extra_tray", "magic_glove", "angel_slime", "dragon_roar"
             )},
         )
+
+
+    def test_scoring_separates_owned_use_from_new_purchase(self):
+        inventory = PowerUpInventory(
+            gold=20, prices={"dragon_roar": 10}, charges={"dragon_roar": 1}
+        )
+        candidates = evaluate_powerup_candidates(self.state, inventory)
+        scored = score_powerup_candidates(self.state, inventory, candidates)
+        dragon = [x for x in scored["candidates"] if x["name"] == "dragon_roar"]
+        self.assertTrue(dragon)
+        self.assertIsNotNone(dragon[0]["use_score"])
+        self.assertIsNone(dragon[0]["purchase_score"])
+        self.assertEqual(scored["ranking_basis"], "transparent_heuristic_not_win_probability")
+
+    def test_scoring_penalizes_expensive_purchase_and_unknown_stock(self):
+        inventory = PowerUpInventory(
+            gold=100, prices={"dragon_roar": 90}, charges={"dragon_roar": 0}
+        )
+        candidates = evaluate_powerup_candidates(self.state, inventory)
+        scored = score_powerup_candidates(self.state, inventory, candidates)
+        dragon = [x for x in scored["candidates"] if x["name"] == "dragon_roar"]
+        self.assertTrue(dragon)
+        self.assertIsNone(dragon[0]["use_score"])
+        self.assertLess(dragon[0]["purchase_score"], 1.0)
+
+    def test_scoring_rejects_invalid_weights(self):
+        candidates = evaluate_powerup_candidates(self.state, self.inventory)
+        scored = score_powerup_candidates(
+            self.state, self.inventory, candidates, purchase_cost_weight=True
+        )
+        self.assertFalse(scored["eligible"])
 
     def test_colour_powerups_rank_by_observed_board_impact(self):
         result = evaluate_powerup_candidates(self.state, self.inventory)
