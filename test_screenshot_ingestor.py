@@ -125,6 +125,26 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertFalse(second["gameplay_verified"])
             self.assertFalse(second["game_taps_enabled"])
 
+    def test_incomplete_cached_extraction_forces_full_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+            ingest(image_path, baseline_path, output_path)
+            damaged = json.loads(output_path.read_text())
+            damaged.pop("raw_rgb")
+            output_path.write_text(json.dumps(damaged))
+
+            ingest(image_path, baseline_path, output_path)
+            repaired = json.loads(output_path.read_text())
+            self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
+            self.assertEqual(len(repaired["raw_rgb"]), 3)
+
     def test_calibration_change_invalidates_cached_board_analysis(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
