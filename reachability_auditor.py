@@ -275,6 +275,16 @@ def main():
         help="Board JSON; accepts the legacy baseline or screenshot-ingestor observation",
     )
     parser.add_argument(
+        "--calibration",
+        default=str(CALIBRATION_FILE),
+        help="User-confirmed conveyor geometry calibration JSON",
+    )
+    parser.add_argument(
+        "--observations",
+        default=str(OBSERVATIONS_FILE),
+        help="Passive conveyor visual observations JSON",
+    )
+    parser.add_argument(
         "--output",
         default=str(OUTPUT_FILE),
         help="Output JSON report",
@@ -288,8 +298,8 @@ def main():
         from screenshot_observation_loader import _require_grid
         _require_grid(board_data)
 
-    calibration = json.loads(CALIBRATION_FILE.read_text())
-    observations = json.loads(OBSERVATIONS_FILE.read_text())
+    calibration = json.loads(Path(args.calibration).read_text())
+    observations = json.loads(Path(args.observations).read_text())
 
     report = audit(board_data, calibration, observations)
     report["board_source"] = str(board_path)
