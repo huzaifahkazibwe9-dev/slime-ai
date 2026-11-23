@@ -3,6 +3,7 @@
 Read-only with respect to gameplay, MacroDroid and learning data.
 Writes only its diagnostic JSON report.
 """
+import argparse
 import json
 import sqlite3
 from pathlib import Path
@@ -99,12 +100,16 @@ def assess(state, audit, calibration, identity, firing):
         "autonomous_play_ready": False,
     }
 
-def main():
+def main(observation_path=None, shooter_path=None):
     print("=" * 55)
     print("SLIME AI — READINESS COORDINATOR")
     print("=" * 55)
 
-    state, audit = load_level(level=39)
+    state, audit = load_level(
+        level=39,
+        observation_path=observation_path,
+        shooter_path=shooter_path,
+    )
     calibration = read_json("conveyor_calibration.json", {})
     identity = read_json("identity_audit_report.json", {})
     firing = read_json("firing_observations.json", {})
@@ -160,4 +165,20 @@ def main():
     print("No game actions were performed.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Assess Slime AI readiness from current evidence"
+    )
+    parser.add_argument(
+        "--observation",
+        help="Screenshot-ingestor JSON for the current board",
+    )
+    parser.add_argument(
+        "--shooters",
+        default="data/shooter_detection.json",
+        help="Shooter detection JSON used with --observation",
+    )
+    args = parser.parse_args()
+    main(
+        observation_path=args.observation,
+        shooter_path=args.shooters if args.observation else None,
+    )
