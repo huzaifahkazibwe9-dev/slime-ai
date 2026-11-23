@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -111,16 +112,55 @@ def annotate_report(report, confidence_matrix):
     return report
 
 
+
+
+def observation_confidence(board):
+    """Return provisional labels for screenshot cells; no cell is confirmed."""
+    if not isinstance(board, list) or not board:
+        raise ValueError("Board must be a non-empty list")
+    height = len(board)
+    width = len(board[0]) if isinstance(board[0], list) else 0
+    if width < 1 or any(
+        not isinstance(row, list) or len(row) != width for row in board
+    ):
+        raise ValueError("Board must be rectangular")
+    return [
+        [
+            "requires_confirmation"
+            if row in (0, height - 1) or col in (0, width - 1)
+            else "provisional"
+            for col in range(width)
+        ]
+        for row in range(height)
+    ]
+
+
 def main():
-    report = json.loads(INPUT_FILE.read_text())
-    board_data = load_board()
-    confidence_matrix = board_data.get("confidence")
+    parser = argparse.ArgumentParser(
+        description="Annotate reachability lanes with conservative board confidence"
+    )
+    parser.add_argument("--input", default=str(INPUT_FILE))
+    parser.add_argument("--board", help="Optional screenshot-ingestor observation JSON")
+    parser.add_argument("--output", default=str(OUTPUT_FILE))
+    args = parser.parse_args()
+
+    report = json.loads(Path(args.input).read_text())
+    if args.board:
+        source = json.loads(Path(args.board).read_text())
+        from screenshot_observation_loader import _require_grid
+        _require_grid(source)
+        confidence_matrix = observation_confidence(source["board"])
+    else:
+        board_data = load_board()
+        confidence_matrix = board_data.get("confidence")
 
     if confidence_matrix is None:
-        raise ValueError("Board loader did not provide confidence data")
+        raise ValueError("No board confidence data is available")
 
     report = annotate_report(report, confidence_matrix)
-    OUTPUT_FILE.write_text(json.dumps(report, indent=2))
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2))
 
     audit = report["confidence_audit"]
     print("SLIME AI — BUILD 11G CONFIDENCE REACHABILITY")
@@ -133,7 +173,7 @@ def main():
     print("All lane cells confirmed:", audit["all_lane_cells_confirmed"])
     print("Gameplay verified:", audit["gameplay_verified"])
     print("Game taps enabled:", audit["game_taps_enabled"])
-    print("Report:", OUTPUT_FILE)
+    print("Report:", output_path)
 
 
 if __name__ == "__main__":
