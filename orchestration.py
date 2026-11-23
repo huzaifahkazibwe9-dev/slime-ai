@@ -23,6 +23,10 @@ def evidence_status(planning, identity, snapshot, candidates):
             isinstance(planning, dict)
             and planning.get("capture_freshness_verified") is True
         ),
+        "planning_candidate_capture_provenance_verified": (
+            isinstance(planning, dict)
+            and planning.get("candidate_capture_provenance_verified") is True
+        ),
         "planning_has_verified_candidates": (
             isinstance(planning, dict)
             and planning.get("decision") == "ELIGIBLE_CANDIDATES_FOUND"
@@ -238,6 +242,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             "candidate_tracking_latest.json",
             "candidate_tracks_latest.json",
             "candidate_report_latest.json",
+            "conveyor_identity_candidates.json",
         ):
             if (root / name).is_file():
                 candidate_path = root / name
