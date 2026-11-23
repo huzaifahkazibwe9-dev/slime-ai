@@ -57,6 +57,35 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             )
             self.assertEqual(len(digest), 64)
 
+    def test_panel_crop_accepts_resized_jpeg_from_same_source_region(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = Image.new("RGB", (120, 100))
+            for x in range(120):
+                for y in range(100):
+                    source.putpixel((x, y), (x * 2, y * 2, (x + y) % 256))
+            source_path = root / "source.png"
+            panel_path = root / "panel.jpg"
+            source.save(source_path)
+            source.crop((10, 10, 110, 90)).resize((200, 160)).save(
+                panel_path, quality=85
+            )
+            digest = verify_panel_crop(
+                source_path, panel_path, [10, 10, 110, 90]
+            )
+            self.assertEqual(len(digest), 64)
+
+    def test_panel_crop_rejects_wrong_aspect_ratio(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new("RGB", (100, 80), (10, 20, 30)).save(root / "source.png")
+            Image.new("RGB", (50, 30), (10, 20, 30)).save(root / "panel.png")
+            with self.assertRaisesRegex(ValueError, "aspect ratio"):
+                verify_panel_crop(
+                    root / "source.png", root / "panel.png",
+                    [20, 10, 70, 50]
+                )
+
     def test_panel_crop_rejects_unrelated_image(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
