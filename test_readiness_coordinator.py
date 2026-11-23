@@ -13,6 +13,8 @@ import readiness_coordinator as readiness
 class FakeState:
     def __init__(self, *, width=35, height=35, remaining_pixels=1225,
                  valid=True, mappings_verified=False, accessible=0):
+        self.level = 39
+        self.shooters = {}
         self.width = width
         self.height = height
         self.remaining_pixels = remaining_pixels
@@ -146,6 +148,39 @@ class ReadinessAssessTests(unittest.TestCase):
         )
         self.assertFalse(result["game_taps_enabled"])
         self.assertFalse(result["autonomous_play_ready"])
+
+
+class ReadinessPlannerIntegrationTests(unittest.TestCase):
+    def test_planner_receives_the_same_evidence_bundle_as_diagnostics(self):
+        reports = {
+            "conveyor_calibration.json": {"timing_calibrated_to_game": True},
+            "identity_audit_report.json": {"identity_verified": True},
+            "firing_observations.json": {"actual_firing_verified": True},
+            "planning_gate_latest.json": {"report": "planning"},
+            "conveyor_identity_candidates.json": {"report": "candidates"},
+            "snapshot_sync_report.json": {"report": "snapshot"},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            state = FakeState()
+            with (
+                patch.object(readiness, "DATA", Path(directory)),
+                patch.object(readiness, "load_level", return_value=(state, {})),
+                patch.object(readiness, "read_json",
+                             side_effect=lambda name, default=None:
+                             reports.get(name, default)),
+                patch.object(readiness, "learning_summary",
+                             return_value={"available": False,
+                                           "gameplay_records": 0}),
+                patch.object(readiness, "plan_next_move", return_value=None) as planner,
+            ):
+                readiness.main(observation_path="board.json",
+                               shooter_path="shooters.json")
+
+            kwargs = planner.call_args.kwargs
+            self.assertEqual(kwargs["planning_report"], reports["planning_gate_latest.json"])
+            self.assertEqual(kwargs["identity_audit"], reports["identity_audit_report.json"])
+            self.assertEqual(kwargs["candidate_report"], reports["conveyor_identity_candidates.json"])
+            self.assertEqual(kwargs["snapshot_report"], reports["snapshot_sync_report.json"])
 
 
 class LearningSummaryTests(unittest.TestCase):
