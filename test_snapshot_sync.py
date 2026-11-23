@@ -268,5 +268,50 @@ class SnapshotSyncTests(unittest.TestCase):
         self.assertFalse(result["checks"]["candidates_artifact_present"])
 
 
+    def test_bundle_rejects_board_source_digest_mismatch(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        board["source_sha256"] = "b" * 64
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["board_source_digest_matches_snapshot"]
+        )
+
+    def test_bundle_accepts_matching_board_source_digest(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        board["source_sha256"] = "a" * 64
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertTrue(result["synchronised"])
+        self.assertTrue(
+            result["checks"]["board_source_digest_matches_snapshot"]
+        )
+
+    def test_bundle_rejects_artifact_source_digest_mismatch(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        identity["source_sha256"] = "b" * 64
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["identity_source_digest_matches_snapshot"]
+        )
+
+    def test_bundle_rejects_malformed_artifact_source_digest(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        planning["source_sha256"] = "not-a-sha256"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["planning_source_digest_matches_snapshot"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
