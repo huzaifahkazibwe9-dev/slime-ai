@@ -32,16 +32,25 @@ class SlimeController:
         report = self.readiness()
         evidence = report.get("evidence", {})
         planner = report.get("planner", {})
+        evidence_gate_passed = (
+            isinstance(evidence, dict)
+            and evidence.get("evidence_gate_passed") is True
+        )
+        verified_plan = (
+            evidence_gate_passed
+            and report.get("decision")
+            == "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
+            and isinstance(planner, dict)
+            and bool(planner.get("recommended_group"))
+        )
         return {
             "paused": self.paused,
             "mode": "PAUSED" if self.paused else "PLAN_ONLY",
             "tap_enabled": False,
             "gameplay_ready": False,
-            "plan_available": bool(planner.get("recommended_group")),
+            "plan_available": verified_plan,
             "decision": report.get("decision", "NO_REPORT"),
-            "evidence_gate_passed": (
-                evidence.get("evidence_gate_passed") is True
-            ),
+            "evidence_gate_passed": evidence_gate_passed,
             "touch_injection": False,
             "gameplay_actions_performed": False,
         }
@@ -66,18 +75,27 @@ class SlimeController:
                 shooter_path=str(shooters) if shooters.is_file() else None,
             )
             planner = report.get("planner", {})
+            evidence = report.get("evidence", {})
+            evidence_gate_passed = (
+                isinstance(evidence, dict)
+                and evidence.get("evidence_gate_passed") is True
+            )
             group = planner.get("recommended_group")
+            verified_plan = (
+                evidence_gate_passed
+                and report.get("decision")
+                == "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
+                and bool(group)
+            )
             self.last_plan = report
 
             return {
                 "accepted": True,
                 "mode": "PLAN_ONLY",
-                "plan_available": bool(group),
-                "recommended_group": group,
+                "plan_available": verified_plan,
+                "recommended_group": group if verified_plan else None,
                 "decision": report.get("decision"),
-                "evidence_gate_passed": report.get(
-                    "evidence", {}
-                ).get("evidence_gate_passed") is True,
+                "evidence_gate_passed": evidence_gate_passed,
                 "touch_events_sent": False,
                 "live_execution_allowed": False,
                 "gameplay_actions_performed": False,
