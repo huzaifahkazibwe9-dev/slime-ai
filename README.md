@@ -24,6 +24,24 @@ The build script:
 
 It does not tap the game, start background loops, or change MacroDroid settings.
 
+## Shooter-panel crop calibration
+
+Do not guess panel coordinates or copy the illustrative bounds from the example
+configuration. Create a coordinate-grid preview from the exact full screenshot:
+
+`python calibrate_shooter_panel.py screenshots/level39.jpg`
+
+Open `screenshots/shooter_calibration_grid.png` and identify the rectangle
+containing the shooter panel. The grid labels are coordinates in the original
+screenshot pixels, even when the preview is resized. Record the rectangle as
+`[LEFT, TOP, RIGHT, BOTTOM]` in `data/shooter_capture_config.json`. The crop
+must contain the complete calibrated shooter panel and preserve its expected
+aspect ratio; the extraction and source-region comparison will reject invalid
+bounds or a crop that does not match the screenshot. The preview is a manual
+measurement aid only: it does not detect the panel, certify the coordinates,
+or verify shooter identities. Keep gameplay actions disabled until the
+resulting capture and game observations are independently checked.
+
 ## Manual workflow
 
 For a same-capture board/shooter run, create the local, ignored file
