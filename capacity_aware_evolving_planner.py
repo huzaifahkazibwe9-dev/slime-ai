@@ -8,7 +8,7 @@ import copy
 
 from game_state import GameState
 from conveyor_simulator import SimulatorConfig
-from evolving_board_planner import plan_evolving_board
+from evolving_board_planner import plan_evolving_board, source_state_fingerprint
 from dynamic_multi_batch import simulate_dynamic_multi_batch
 from bonded_group_simulator import simulate_bonded_group
 from accessibility_utils import normalize_accessible_ids
@@ -45,6 +45,8 @@ def plan_capacity_aware_evolving_schedule(
         raise ValueError("Precomputed board_plan must preserve its source state")
     elif board_plan.get("initial_pixels") != state.remaining_pixels:
         raise ValueError("Precomputed board_plan does not match the current board")
+    elif board_plan.get("source_state_fingerprint") != source_state_fingerprint(state):
+        raise ValueError("Precomputed board_plan does not match the current state")
     elif any(
         not isinstance(item, dict)
         or not isinstance(item.get("group_id"), str)
@@ -63,6 +65,12 @@ def plan_capacity_aware_evolving_schedule(
             continue
         group_members[group_id] = set(component)
         group_roots[group_id] = min(component)
+
+    sequence_ids = [str(item["group_id"]) for item in sequence]
+    if len(sequence_ids) != len(set(sequence_ids)):
+        raise ValueError("Precomputed board_plan contains duplicate groups")
+    if not set(sequence_ids).issubset(group_members):
+        raise ValueError("Precomputed board_plan contains unknown groups")
 
     # Pack consecutive groups only when all members were accessible at
     # batch start. Re-evaluate access only after evolving the private board
