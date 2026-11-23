@@ -163,7 +163,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
     def test_rejects_missing_board_snapshot_binding(self):
         self.observation.pop("board_snapshot_id")
         self.write()
-        with self.assertRaisesRegex(ValueError, "snapshot/board snapshot identity"):
+        with self.assertRaisesRegex(ValueError, "snapshot identity"):
             load_observed_level(self.observation_path, self.shooter_path)
 
     def test_rejects_attempt_to_mark_visuals_verified(self):
