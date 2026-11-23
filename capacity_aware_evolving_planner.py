@@ -173,6 +173,7 @@ def plan_capacity_aware_evolving_schedule(
             "status": board_plan.get("status"),
             "sequence": sequence,
             "nodes_examined": board_plan.get("nodes_examined", 0),
+            "performance": board_plan.get("performance", {}),
             "search_truncated": board_plan.get("search_truncated", False),
         },
         "batches": batches,
