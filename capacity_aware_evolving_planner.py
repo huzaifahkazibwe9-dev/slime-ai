@@ -41,13 +41,13 @@ def plan_capacity_aware_evolving_schedule(
 
     group_members = {}
     group_roots = {}
-    for shooter_id, shooter in state.shooters.items():
-        members = [str(shooter_id)] + [
-            str(member) for member in shooter.bonded_ids
-        ]
-        group_id = str(shooter.group_id or min(members))
-        group_members.setdefault(group_id, set()).add(str(shooter_id))
-        group_roots.setdefault(group_id, str(shooter_id))
+    for shooter_id in state.shooters:
+        component = state.bonded_group(shooter_id)
+        group_id = state.bonded_group_id(shooter_id)
+        if not component or group_id is None:
+            continue
+        group_members[group_id] = set(component)
+        group_roots[group_id] = min(component)
 
     # Pack consecutive groups only when all members were accessible at
     # batch start. Re-evaluate access only after evolving the private board
@@ -111,12 +111,11 @@ def plan_capacity_aware_evolving_schedule(
             accessibility_resolver=accessibility_resolver,
         )
 
-    known = set()
-    for shooter_id, shooter in state.shooters.items():
-        members = [str(shooter_id)] + [
-            str(member) for member in shooter.bonded_ids
-        ]
-        known.add(str(shooter.group_id or min(members)))
+    known = {
+        group_id
+        for shooter_id in state.shooters
+        if (group_id := state.bonded_group_id(shooter_id)) is not None
+    }
     planned = {
         str(item["group_id"]) for item in sequence
     }
