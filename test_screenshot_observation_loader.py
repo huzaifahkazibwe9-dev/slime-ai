@@ -80,6 +80,8 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertFalse(state.shooters["top_1"].accessible)
         self.assertEqual(state.validate(), [])
         self.assertEqual(audit["snapshot_id"], self.observation["snapshot_id"])
+        self.assertEqual(state.snapshot_id, self.observation["snapshot_id"])
+        self.assertFalse(state.timestamp_identified)
 
     def test_unified_level_loader_accepts_explicit_screenshot_mode(self):
         state, audit = load_level(
