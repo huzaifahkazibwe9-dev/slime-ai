@@ -48,7 +48,7 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
     region_history = []
 
     for member_id in group:
-        report = simulate_dynamic_board(working, member_id)
+        report = simulate_dynamic_board(working, member_id, consume_state=True)
 
         working.board = copy.deepcopy(report["final_board"])
         working.shooters[member_id].ammo = report["remaining_ammo"]
