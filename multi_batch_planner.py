@@ -109,6 +109,19 @@ def simulate_batch_schedule(
         if not valid:
             break
 
+        for group_id in reactivate:
+            required = len(groups[group_id])
+            if required > sim.conveyor_free:
+                reject(
+                    "INSUFFICIENT_CONVEYOR_SPACE_FOR_REACTIVATION",
+                    group_id=group_id,
+                    required_slots=required,
+                    available_slots=sim.conveyor_free,
+                )
+                break
+        if not valid:
+            break
+
         selection_slots = sum(len(groups[g]) for g in requested)
         overlap_slots = sum(len(groups[g]) for g in overlap)
         total_required_slots = (
