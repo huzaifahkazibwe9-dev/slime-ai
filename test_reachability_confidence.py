@@ -141,6 +141,7 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             }
             reachability = {
                 "board_dimensions": [35, 35],
+                "board_snapshot_id": "sha256:" + "9" * 64,
                 "game_taps_enabled": False,
                 "results": [{
                     "position_id": "top_1",
@@ -173,6 +174,44 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             self.assertFalse(scenario["confidence_eligible"])
             self.assertFalse(scenario["planning_eligible"])
             self.assertFalse(result["confidence_audit"]["game_taps_enabled"])
+
+    def test_confidence_cli_rejects_different_board_snapshot(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            board = [["white"] * 35 for _ in range(35)]
+            rgb = [[[245, 245, 245] for _ in range(35)] for _ in range(35)]
+            board_data = {
+                "image_size": [1080, 2220],
+                "grid_size": [35, 35],
+                "bounds": [201, 431, 881, 1113],
+                "board": board,
+                "raw_rgb": rgb,
+                "counts": {"white": 1225},
+                "source_sha256": "a" * 64,
+                "snapshot_id": "sha256:" + "a" * 64,
+                "gameplay_verified": False,
+                "vision_classification_verified": False,
+                "game_taps_enabled": False,
+            }
+            reachability = {
+                "board_dimensions": [35, 35],
+                "board_snapshot_id": "sha256:" + "b" * 64,
+                "results": [],
+            }
+            board_path = root / "board.json"
+            input_path = root / "reachability.json"
+            board_path.write_text(json.dumps(board_data))
+            input_path.write_text(json.dumps(reachability))
+            argv = [
+                "reachability_confidence.py",
+                "--input", str(input_path),
+                "--board", str(board_path),
+                "--output", str(root / "confidence.json"),
+            ]
+            with patch.object(sys, "argv", argv), self.assertRaisesRegex(
+                ValueError, "snapshot does not match"
+            ):
+                runpy.run_module("reachability_confidence", run_name="__main__")
 
     def test_dimension_mismatch_rejected(self):
         with self.assertRaises(ValueError):
