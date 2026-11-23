@@ -163,6 +163,23 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertIsNone(result)
 
+    def test_ammunition_ocr_handles_missing_tesseract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run",
+                       side_effect=FileNotFoundError("tesseract")):
+                result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertIsNone(result)
+
+    def test_ammunition_ocr_handles_tesseract_timeout(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run",
+                       side_effect=subprocess.TimeoutExpired("tesseract", 15)):
+                result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertIsNone(result)
+
     def test_brown_shooter_colour_is_distinguished_from_orange(self):
         self.assertEqual(identify_color((193, 126, 63))["name"], "brown")
         self.assertEqual(identify_color((230, 140, 50))["name"], "orange")
