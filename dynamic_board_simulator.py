@@ -1,4 +1,5 @@
 import copy
+import time
 
 from game_state import GameState, DIRECTIONS
 from solver import simulate_shot
@@ -57,14 +58,23 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
     original = copy.deepcopy(state)
     # A caller may pass a disposable state copy to avoid another full clone.
     simulated = state if consume_state else copy.deepcopy(state)
+    graph_started = time.perf_counter()
     graph = build_region_graph(simulated.board)
+    graph_build_seconds = time.perf_counter() - graph_started
+    graph_build_calls = 1
+    shot_simulation_seconds = 0.0
+    lane_inspection_seconds = 0.0
     steps, history = [], []
 
     limit = shooter.ammo if max_shots is None else min(shooter.ammo, max_shots)
 
     for index in range(limit):
+        lane_started = time.perf_counter()
         before = inspect_lane(simulated, shooter_id, graph)
+        lane_inspection_seconds += time.perf_counter() - lane_started
+        shot_started = time.perf_counter()
         result = simulate_shot(simulated, shooter_id)
+        shot_simulation_seconds += time.perf_counter() - shot_started
         step = {
             "shot_number": index + 1,
             "lane_before": before,
@@ -76,9 +86,13 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
         }
 
         if result.removed:
+            graph_started = time.perf_counter()
             graph = build_region_graph(simulated.board)
-            row, col = result.position[1], result.position[0]
+            graph_build_seconds += time.perf_counter() - graph_started
+            graph_build_calls += 1
+            lane_started = time.perf_counter()
             step["lane_after"] = inspect_lane(simulated, shooter_id, graph)
+            lane_inspection_seconds += time.perf_counter() - lane_started
             history.append({
                 "after_shot": index + 1,
                 "region_count": graph["region_count"],
@@ -92,6 +106,14 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
 
     return {
         "engine": "build11ab_dynamic_board_simulator",
+        "performance": {
+            "region_graph_build_calls": graph_build_calls,
+            "region_graph_build_seconds": round(graph_build_seconds, 6),
+            "shot_simulation_seconds": round(shot_simulation_seconds, 6),
+            "lane_inspection_seconds": round(lane_inspection_seconds, 6),
+            "timing_clock": "time.perf_counter",
+            "note": "Local simulation profiling only; not gameplay latency.",
+        },
         "shooter_id": shooter_id,
         "initial_pixels": original.remaining_pixels,
         "remaining_pixels": simulated.remaining_pixels,
