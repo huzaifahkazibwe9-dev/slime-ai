@@ -90,7 +90,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_all_evidence_checks_required(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
             "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
@@ -142,7 +142,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_missing_shooter_capture_provenance_blocks_otherwise_valid_evidence(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
             "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
@@ -185,7 +185,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_missing_planning_freshness_blocks_otherwise_valid_evidence(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
         }
         identity = {
@@ -216,7 +216,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_missing_bundle_sync_blocks_even_if_legacy_snapshot_passes(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
         }
         identity = {
@@ -243,7 +243,7 @@ class OrchestrationTests(unittest.TestCase):
     def test_bundle_sync_mismatch_blocks_planning(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
         }
         identity = {
@@ -281,7 +281,7 @@ class OrchestrationTests(unittest.TestCase):
         }
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
-            "gameplay_verified": True,
+            "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
             "actions_performed": False,
             "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
@@ -308,7 +308,7 @@ class OrchestrationTests(unittest.TestCase):
         result = evidence_status(
             {
                 "decision": "ELIGIBLE_CANDIDATES_FOUND",
-                "gameplay_verified": True,
+                "planning_evidence_verified": True,\n            "gameplay_verified": False,\n            "game_taps_enabled": False,
                 "actions_performed": False,
                 "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
