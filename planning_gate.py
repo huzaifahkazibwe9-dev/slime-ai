@@ -43,7 +43,23 @@ def evaluate_planning(report):
                 blockers.append("NO_EXPOSED_MATCHING_PIXELS")
             if not ammo_available:
                 blockers.append("NO_REMAINING_AMMUNITION")
-            if position.get("ammunition_evidence_verified") is not True:
+            ammo_evidence = position.get("ammo_evidence")
+            ammo_evidence_valid = (
+                isinstance(ammo_evidence, dict)
+                and ammo_evidence.get("verified") is True
+                and ammo_evidence.get("position_id") == position.get("position_id")
+                and ammo_evidence.get("ammo") == ammo
+                and isinstance(ammo_evidence.get("capture_session_id"), str)
+                and bool(ammo_evidence.get("capture_session_id").strip())
+                and isinstance(ammo_evidence.get("board_snapshot_id"), str)
+                and bool(ammo_evidence.get("board_snapshot_id").strip())
+                and isinstance(ammo_evidence.get("observed_at"), str)
+                and bool(ammo_evidence.get("observed_at").strip())
+                and isinstance(ammo_evidence.get("checks"), dict)
+                and all(value is True for value in ammo_evidence.get("checks", {}).values())
+                and len(ammo_evidence.get("checks", {})) >= 6
+            )
+            if not ammo_evidence_valid:
                 blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
             if not board_synced:
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
@@ -71,9 +87,7 @@ def evaluate_planning(report):
                 "observed_ammo": ammo,
                 "geometrically_reachable": geometrically_reachable,
                 "ammunition_available": ammo_available,
-                "ammunition_evidence_verified": (
-                    position.get("ammunition_evidence_verified") is True
-                ),
+                "ammunition_evidence_verified": ammo_evidence_valid,
                 "confidence_eligible": bool(
                     scenario.get("confidence_eligible", False)
                 ),
