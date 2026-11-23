@@ -70,7 +70,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown shooters"):
             self.load_payload({
                 "visible_shooters": [],
-                "bonded_groups": [["missing"]],
+                "bonded_groups": [["missing", "other"]],
             })
 
     def test_rejects_duplicate_members_in_bonded_group(self):
@@ -96,7 +96,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
     def test_rejects_bonded_groups_with_fewer_than_two_members(self):
         for group in ([], ["A"]):
             with self.subTest(group=group):
-                with self.assertRaisesRegex(ValueError, "between 2 and 3"):
+                with self.assertRaisesRegex(ValueError, "at least 2"):
                     self.load_payload({
                         "visible_shooters": [
                             {"id": "A", "color": {"name": "red"}, "ammo": 1}
