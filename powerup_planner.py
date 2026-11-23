@@ -127,8 +127,13 @@ def evaluate_powerup_candidates(state, inventory, *, hidden_board_circles=None,
             "purchase_eligibility": affordability["eligible"],
             "charge_count": charges,
             "use_eligibility": use_eligibility,
-            "purchase_recommendation_eligibility": affordability["eligible"] if use_eligibility is not True else False,
-            "decision_status": "READY_TO_USE" if use_eligibility is True else ("PURCHASE_POSSIBLE" if affordability["eligible"] is True else "RESOURCE_STATE_UNCERTAIN"),
+            "purchase_recommendation_eligibility": affordability["eligible"] if use_eligibility is False else False,
+            "decision_status": (
+                "READY_TO_USE" if use_eligibility is True
+                else "RESOURCE_STATE_UNCERTAIN" if use_eligibility is None
+                else "PURCHASE_POSSIBLE" if affordability["eligible"] is True
+                else "RESOURCE_STATE_UNCERTAIN"
+            ),
             "estimated_value_basis": "observed_board_pixel_count_only",
             "details": detail or {},
             "game_action_performed": False,
