@@ -13,6 +13,74 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
             return load_shooters(path)
 
+
+    def test_loads_complete_multirow_panel_inventory(self):
+        from shooter_loader import load_panel_slots
+        slots = []
+        for row in range(1, 4):
+            for column in range(1, 5):
+                slots.append({
+                    "id": f"slot_{row}_{column}",
+                    "row": row,
+                    "column": column,
+                    "center": [column * 100, row * 100],
+                    "status": "readable" if row == 1 else (
+                        "unrevealed" if row == 2 else "partially_occluded"
+                    ),
+                    "selectable_candidate": False,
+                })
+        payload = {
+            "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
+            "panel_slots": slots,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            self.assertEqual(len(load_panel_slots(path)), 12)
+
+    def test_panel_inventory_rejects_duplicate_positions(self):
+        from shooter_loader import load_panel_slots
+        slot = {
+            "id": "A", "row": 1, "column": 1, "center": [10, 10],
+            "status": "readable", "selectable_candidate": False,
+        }
+        payload = {
+            "panel_layout": {"rows": 1, "columns": 2, "slot_count": 2},
+            "panel_slots": [slot, dict(slot, id="B")],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "Duplicate panel slot position"):
+                load_panel_slots(path)
+
+    def test_panel_inventory_rejects_selectable_unrevealed_slot(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "hidden", "row": 1, "column": 1, "center": [10, 10],
+                "status": "unrevealed", "selectable_candidate": True,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "cannot be selectable"):
+                load_panel_slots(path)
+
+    def test_panel_inventory_rejects_boolean_dimensions(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "panel_layout": {"rows": True, "columns": 1, "slot_count": 1},
+            "panel_slots": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "positive integers"):
+                load_panel_slots(path)
+
     def test_rejects_non_object_root(self):
         for payload in ([], None, "invalid"):
             with self.subTest(payload=payload):
