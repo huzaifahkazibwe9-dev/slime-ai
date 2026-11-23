@@ -94,6 +94,10 @@ class OrchestrationTests(unittest.TestCase):
             "actions_performed": False,
             "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:30+00:00",
+            "timestamp_identified": True,
         }
         identity = {
             "identity_verified": True,
@@ -110,15 +114,26 @@ class OrchestrationTests(unittest.TestCase):
         snapshot = {
             "synchronised": True,
             "planning_allowed_by_sync": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
             "bundle_synchronisation": {
                 "synchronised": True,
                 "planning_allowed_by_sync": True,
             },
         }
-        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
+        candidates = {
+            "identity_verified": True, "candidate_provenance_verified": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:01:00+00:00",
+            "timestamp_identified": True,
+        }
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertTrue(result["evidence_gate_passed"])
         self.assertTrue(result["checks"]["planning_capture_freshness_verified"])
+        self.assertTrue(result["checks"]["all_evidence_sources_share_capture"])
 
     def test_missing_planning_freshness_blocks_otherwise_valid_evidence(self):
         planning = {
@@ -312,6 +327,51 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(
             result["checks"]["identity_capture_session_provenance_complete"]
         )
+
+
+    def test_cross_source_fingerprint_mismatch_blocks(self):
+        fp = "sha256:" + "a" * 64
+        common = {"capture_session_id": "session-1", "timestamp_identified": True}
+        planning = dict(common, board_snapshot_id="sha256:" + "b" * 64,
+                        captured_at="2026-11-23T10:00:00+00:00",
+                        decision="ELIGIBLE_CANDIDATES_FOUND", gameplay_verified=True,
+                        actions_performed=False, capture_freshness_verified=True,
+                        candidate_capture_provenance_verified=True)
+        identity = dict(common, board_snapshot_id=fp,
+                        captured_at="2026-11-23T10:00:00+00:00",
+                        identity_verified=True, timestamps_known=True,
+                        snapshot_linked=True, capture_session_linked=True,
+                        errors=[], blockers=[])
+        snapshot = dict(common, board_snapshot_id=fp,
+                        captured_at="2026-11-23T10:00:00+00:00",
+                        synchronised=True, planning_allowed_by_sync=True,
+                        bundle_synchronisation={"synchronised": True, "planning_allowed_by_sync": True})
+        candidates = dict(common, board_snapshot_id=fp,
+                          captured_at="2026-11-23T10:00:00+00:00",
+                          identity_verified=True, candidate_provenance_verified=True)
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["checks"]["all_evidence_sources_share_capture"])
+        self.assertFalse(result["evidence_gate_passed"])
+
+    def test_cross_source_timestamp_skew_blocks(self):
+        fp = "sha256:" + "a" * 64
+        common = {"board_snapshot_id": fp, "capture_session_id": "session-1",
+                  "timestamp_identified": True}
+        planning = dict(common, captured_at="2026-11-23T10:00:00+00:00",
+                        decision="ELIGIBLE_CANDIDATES_FOUND", gameplay_verified=True,
+                        actions_performed=False, capture_freshness_verified=True,
+                        candidate_capture_provenance_verified=True)
+        identity = dict(common, captured_at="2026-11-23T10:00:00+00:00",
+                        identity_verified=True, timestamps_known=True,
+                        snapshot_linked=True, capture_session_linked=True,
+                        errors=[], blockers=[])
+        snapshot = dict(common, captured_at="2026-11-23T10:03:00+00:00",
+                        synchronised=True, planning_allowed_by_sync=True,
+                        bundle_synchronisation={"synchronised": True, "planning_allowed_by_sync": True})
+        candidates = dict(common, captured_at="2026-11-23T10:00:00+00:00",
+                          identity_verified=True, candidate_provenance_verified=True)
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["checks"]["all_evidence_sources_share_capture"])
 
     def test_live_actions_always_disabled(self):
         result = evidence_status({}, {}, {}, {})
