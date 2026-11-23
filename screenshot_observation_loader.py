@@ -114,6 +114,9 @@ def load_observed_level(
     # Preserve the legacy diagnostic interface without inventing mappings.
     state.colour_mappings = {}
     state.colour_mappings_verified = False
+    state.snapshot_id = data["snapshot_id"]
+    state.capture_session_id = data.get("capture_session_id")
+    state.timestamp_identified = data.get("timestamp_identified") is True
     errors = state.validate()
     if errors:
         raise ValueError("Invalid integrated game state: " + "; ".join(errors))
