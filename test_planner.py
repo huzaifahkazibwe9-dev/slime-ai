@@ -236,3 +236,23 @@ class PlannerEvidenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShooterRotationProgressValidationTests(unittest.TestCase):
+    def test_rotation_progress_rejects_boolean_and_non_numeric_values(self):
+        for value in (True, False, "0.5", None):
+            with self.subTest(value=value):
+                shooter = Shooter("S", "red", 1, rotation_progress=value)
+                self.assertFalse(shooter.valid())
+
+    def test_rotation_progress_rejects_non_finite_values(self):
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value):
+                shooter = Shooter("S", "red", 1, rotation_progress=value)
+                self.assertFalse(shooter.valid())
+
+    def test_rotation_progress_accepts_finite_numeric_range(self):
+        for value in (0, 0.0, 0.5, 0.999):
+            with self.subTest(value=value):
+                shooter = Shooter("S", "red", 1, rotation_progress=value)
+                self.assertTrue(shooter.valid())
