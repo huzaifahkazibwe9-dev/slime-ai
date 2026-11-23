@@ -92,9 +92,20 @@ class SnapshotSyncTests(unittest.TestCase):
         self.assertFalse(synchronise_audit(board, observations)["game_taps_enabled"])
 
     def bundle(self):
-        board = {"snapshot_id": "capture-001", "capture_session_id": "session-001"}
+        captured_at = "2026-11-23T10:00:00+00:00"
+        board = {
+            "snapshot_id": "capture-001",
+            "capture_session_id": "session-001",
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+        }
         artifacts = [
-            {"board_snapshot_id": "capture-001", "capture_session_id": "session-001"}
+            {
+                "board_snapshot_id": "capture-001",
+                "capture_session_id": "session-001",
+                "captured_at": captured_at,
+                "timestamp_identified": True,
+            }
             for _ in range(4)
         ]
         return board, *artifacts
@@ -136,6 +147,28 @@ class SnapshotSyncTests(unittest.TestCase):
         )
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["checks"]["planning_session_matches_board"])
+
+    def test_bundle_rejects_artifact_from_different_capture_time(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        candidates["captured_at"] = "2026-11-23T10:00:01+00:00"
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["candidates_timestamp_matches_board"]
+        )
+
+    def test_bundle_rejects_unidentified_artifact_timestamp(self):
+        board, conveyor, identity, candidates, planning = self.bundle()
+        identity["timestamp_identified"] = False
+        result = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertFalse(result["synchronised"])
+        self.assertFalse(
+            result["checks"]["identity_timestamp_identified"]
+        )
 
     def test_bundle_rejects_missing_artifact(self):
         board, conveyor, identity, _, planning = self.bundle()
