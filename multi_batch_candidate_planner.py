@@ -48,6 +48,16 @@ def _collect_groups(state):
     return result
 
 
+def _all_known_group_ids(state):
+    """Return every bonded-group identity represented in the loaded state."""
+    result = set()
+    for shooter_id, shooter in state.shooters.items():
+        members = [str(shooter_id)] + [
+            str(member) for member in getattr(shooter, "bonded_ids", [])
+        ]
+        result.add(str(getattr(shooter, "group_id", None) or min(members)))
+    return result
+
 def _pack_batches(ordered_groups, initial_free, config):
     """Pack whole bonded groups without exceeding conveyor capacity."""
     capacity = config.conveyor_capacity
@@ -141,6 +151,14 @@ def plan_multi_batch_candidates(
             "candidate_count": 0,
             "best": None,
             "top_candidates": [],
+            "completion": {
+                "full_level_complete": False,
+                "board_cleared": state.remaining_pixels == 0,
+                "known_group_count": len(_all_known_group_ids(state)),
+                "planned_group_count": 0,
+                "unplanned_group_ids": sorted(_all_known_group_ids(state)),
+                "blockers": ["NO_ACCESSIBLE_GROUPS"],
+            },
             "source_state_unchanged": state == original,
             "evidence_verified": False,
             "live_execution_allowed": False,
@@ -207,6 +225,20 @@ def plan_multi_batch_candidates(
     unchanged = state == original
     truncated = total_orders > max_candidates
 
+    known_group_ids = _all_known_group_ids(state)
+    planned_group_ids = set(best.get("candidate_order", [])) if best else set()
+    unplanned_group_ids = sorted(known_group_ids - planned_group_ids)
+    board_cleared = bool(best and best.get("simulated_remaining_pixels") == 0)
+    schedule_valid = bool(best and best.get("schedule_valid"))
+    completion_blockers = []
+    if not schedule_valid:
+        completion_blockers.append("NO_VALID_SCHEDULE")
+    if not board_cleared:
+        completion_blockers.append("BOARD_PIXELS_REMAIN")
+    if unplanned_group_ids:
+        completion_blockers.append("KNOWN_GROUPS_NOT_PLANNED")
+    full_level_complete = schedule_valid and board_cleared and not unplanned_group_ids
+
     return {
         "engine": "build11af_multi_batch_candidate_planner",
         "status": (
@@ -220,6 +252,14 @@ def plan_multi_batch_candidates(
             bool(item.get("schedule_valid"))
             for item in candidates
         ),
+        "completion": {
+            "full_level_complete": full_level_complete,
+            "board_cleared": board_cleared,
+            "known_group_count": len(known_group_ids),
+            "planned_group_count": len(planned_group_ids),
+            "unplanned_group_ids": unplanned_group_ids,
+            "blockers": completion_blockers,
+        },
         "candidate_limit": max_candidates,
         "search_truncated": truncated,
         "best": best,
@@ -236,6 +276,7 @@ def plan_multi_batch_candidates(
             "Conveyor timing remains abstract and uncalibrated.",
             "Storage reactivation is disabled.",
             "Board simulation is not validated against live gameplay.",
+            "A valid schedule is not a complete level solution unless the board is cleared and every known group is planned.",
             "A valid simulation does not authorize game taps.",
         ],
     }
