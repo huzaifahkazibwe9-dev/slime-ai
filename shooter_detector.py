@@ -40,6 +40,51 @@ def scale_box(b, sx, sy):
     return tuple(round(v*(sx if i%2==0 else sy))
                  for i,v in enumerate(b))
 
+def assess_color_sample(image, x, y, patch_radius=4, context_radius=8,
+                        minimum_contrast=24.0, maximum_mad=32.0):
+    """Measure whether a fixed sample is distinct from its local context.
+
+    This is a quality flag, not a shooter identity or colour verification.
+    """
+    if any(type(v) is not int for v in (x, y, patch_radius, context_radius)):
+        raise ValueError("Sample coordinates and radii must be integers")
+    if patch_radius < 1 or context_radius <= patch_radius:
+        raise ValueError("Sample radii are invalid")
+    if not (context_radius <= x < image.width - context_radius
+            and context_radius <= y < image.height - context_radius):
+        raise ValueError("Sample context is outside the panel image")
+
+    pixels = np.asarray(
+        image.crop((x-patch_radius, y-patch_radius,
+                    x+patch_radius+1, y+patch_radius+1)),
+        dtype=np.float32,
+    )
+    context = np.asarray(
+        image.crop((x-context_radius, y-context_radius,
+                    x+context_radius+1, y+context_radius+1)),
+        dtype=np.float32,
+    )
+    mask = np.ones(context.shape[:2], dtype=bool)
+    start = context_radius - patch_radius
+    stop = context_radius + patch_radius + 1
+    mask[start:stop, start:stop] = False
+    centre_rgb = np.median(pixels, axis=(0, 1))
+    context_rgb = np.median(context[mask], axis=0)
+    mad = float(np.median(np.abs(pixels - centre_rgb)))
+    contrast = float(np.linalg.norm(centre_rgb - context_rgb))
+    distinct = contrast >= minimum_contrast and mad <= maximum_mad
+    return {
+        "status": "DISTINCT_SAMPLE" if distinct else "LOW_CONFIDENCE_SAMPLE",
+        "local_contrast": round(contrast, 2),
+        "median_absolute_deviation": round(mad, 2),
+        "method": "centre_patch_vs_local_context",
+        "thresholds": {
+            "minimum_contrast": minimum_contrast,
+            "maximum_median_absolute_deviation": maximum_mad,
+        },
+    }
+
+
 def identify_color(rgb):
     r,g,b = [v/255 for v in rgb]
     h,s,v = colorsys.rgb_to_hsv(r,g,b)
@@ -305,6 +350,7 @@ def main():
             pixels = np.asarray(image.crop((x-4, y-4, x+5, y+5)), dtype=np.uint8)
             rgb = tuple(int(round(v)) for v in np.median(pixels, axis=(0, 1)))
             color = identify_color(rgb)
+            sample_quality = assess_color_sample(image, x, y)
             # Lower rows are observed for colour/layout, but are not yet
             # readable/selectable. Avoid launching OCR for unverified slots.
             ammo = None
@@ -317,14 +363,16 @@ def main():
                       round((box[1] + box[3]) / 2))
             slot_observations.append({
                 "id": shooter_id, "row": row_index, "column": column,
-                "color_observation": color, "ammunition_observation": ammo,
+                "color_observation": color, "sample_quality": sample_quality,
+                "ammunition_observation": ammo,
                 "screen_center": list(center), "screen_box": list(box),
                 "screen_sample": [x, y], "status": row_status,
                 "verified": False, "selectable_candidate": False,
             })
             if row_index == 1:
                 detected.append({
-                    "id": shooter_id, "color": color, "ammo": ammo,
+                    "id": shooter_id, "color": color,
+                    "sample_quality": sample_quality, "ammo": ammo,
                     "screen_center": list(center), "screen_box": list(box),
                     "screen_sample": [x, y], "status": "visible", "verified": False
                 })
