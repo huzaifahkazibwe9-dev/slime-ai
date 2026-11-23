@@ -35,8 +35,8 @@ if [[ ! -f "data/shooter_capture_config.json" \
     echo "ERROR: Need data/shooter_capture_config.json, shooter_panel.jpg, or data/shooter_detection.json." >&2
     exit 2
 fi
-if [[ -f "screenshots/shooter_panel.jpg" ]] && ! command -v tesseract >/dev/null 2>&1; then
-    echo "ERROR: Tesseract is required when shooter_panel.jpg is present." >&2
+if [[ -f "screenshots/shooter_panel.jpg" || -f "data/shooter_capture_config.json" ]] && ! command -v tesseract >/dev/null 2>&1; then
+    echo "ERROR: Tesseract is required for shooter-panel detection." >&2
     echo "Install it in Termux with: pkg install tesseract" >&2
     exit 2
 fi
