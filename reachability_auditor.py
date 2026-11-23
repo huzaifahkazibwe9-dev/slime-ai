@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 from collections import Counter
@@ -265,12 +266,38 @@ def audit(board_data, calibration, observations):
 
 
 def main():
-    board_data = json.loads(BOARD_FILE.read_text())
+    parser = argparse.ArgumentParser(
+        description="Read-only shooter-lane reachability analysis"
+    )
+    parser.add_argument(
+        "--board",
+        default=str(BOARD_FILE),
+        help="Board JSON; accepts the legacy baseline or screenshot-ingestor observation",
+    )
+    parser.add_argument(
+        "--output",
+        default=str(OUTPUT_FILE),
+        help="Output JSON report",
+    )
+    args = parser.parse_args()
+
+    board_path = Path(args.board)
+    board_data = json.loads(board_path.read_text())
+    if "raw_rgb" in board_data:
+        # Validate screenshot schema and RGB/label consistency before tracing.
+        from screenshot_observation_loader import _require_grid
+        _require_grid(board_data)
+
     calibration = json.loads(CALIBRATION_FILE.read_text())
     observations = json.loads(OBSERVATIONS_FILE.read_text())
 
     report = audit(board_data, calibration, observations)
-    OUTPUT_FILE.write_text(json.dumps(report, indent=2))
+    report["board_source"] = str(board_path)
+    report["board_snapshot_id"] = board_data.get("snapshot_id")
+    report["board_colour_truth_verified"] = False
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2))
 
     print("SLIME AI — BOARD REACHABILITY AUDITOR")
     print("=" * 48)
@@ -309,7 +336,7 @@ def main():
     print("Gameplay verified:", report["gameplay_verified"])
     print("Game taps enabled:", report["game_taps_enabled"])
     print("No game actions performed.")
-    print("Report:", OUTPUT_FILE)
+    print("Board source:", report["board_source"])\n    print("Board snapshot:", report["board_snapshot_id"])\n    print("Board colour truth verified:", report["board_colour_truth_verified"])\n    print("Report:", output_path)
 
 
 if __name__ == "__main__":
