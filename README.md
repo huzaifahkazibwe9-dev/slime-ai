@@ -25,6 +25,10 @@ The build script:
 
 It does not tap the game, start background loops, or change MacroDroid settings.
 
+## Dynamic-board simulation profiling
+
+The dynamic-board simulator reports local `time.perf_counter` measurements for region-graph rebuild count and elapsed time, shot simulation time, and shooter-lane inspection time. Region graphs are still rebuilt after every successful pixel removal to preserve correctness as connected components change. These measurements are diagnostic simulation timings only; they are not Android gameplay latency or a device-speed guarantee. Any incremental graph-update optimisation must first demonstrate equivalence against full rebuilds across representative board transitions.
+
 ## Performance profiling and OCR workload
 Board screenshot ingestion also uses NumPy to compute each cell's 3×3
 per-channel median from an in-memory pixel array, instead of issuing nine PIL
