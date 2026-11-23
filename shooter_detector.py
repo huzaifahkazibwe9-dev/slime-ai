@@ -89,18 +89,21 @@ def read_ammunition(image, box, temp):
     crop = crop.resize((600,405))
     crop.save(temp)
 
-    result = subprocess.run(
-        [
-            "tesseract", str(temp), "stdout",
-            "--psm", "6",
-            "-c", "tessedit_char_whitelist=0123456789"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=15
-    )
+    try:
+        result = subprocess.run(
+            [
+                "tesseract", str(temp), "stdout",
+                "--psm", "6",
+                "-c", "tessedit_char_whitelist=0123456789"
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
 
-    if result.returncode != 0:
+    if result.returncode != 0 or not isinstance(result.stdout, str):
         return None
 
     digits = re.findall(r"\d+", result.stdout)
