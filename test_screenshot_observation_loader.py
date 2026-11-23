@@ -215,6 +215,17 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "actions must remain disabled"):
             load_observed_level(self.observation_path, self.shooter_path)
 
+    def test_rejects_non_object_shooter_detection_root(self):
+        for malformed in ([], None, "invalid"):
+            with self.subTest(malformed=malformed):
+                self.shooter_path.write_text(json.dumps(malformed))
+                with self.assertRaisesRegex(
+                    ValueError, "Shooter detection must be a JSON object"
+                ):
+                    load_observed_level(
+                        self.observation_path, self.shooter_path
+                    )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
