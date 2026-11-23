@@ -65,6 +65,58 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(r["schedule_valid"])
         self.assertTrue(r["failed"])
 
+    def test_multiple_reactivations_preflight_total_conveyor_capacity(self):
+        records = [
+            {"id": "A1", "group_id": "PAIR_A", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR_A", "ammo": 0},
+            {"id": "B1", "group_id": "PAIR_B", "ammo": 0},
+            {"id": "B2", "group_id": "PAIR_B", "ammo": 0},
+            {"id": "C", "group_id": "C", "ammo": 1},
+        ]
+        r = simulate_batch_schedule(
+            records,
+            [
+                {"groups": ["PAIR_A"], "shots": {"A1": 0, "A2": 0}},
+                {"groups": ["PAIR_B"], "shots": {"B1": 0, "B2": 0}},
+                {
+                    "groups": ["C"],
+                    "reactivate_groups": ["PAIR_A", "PAIR_B"],
+                    "shots": {"C": 0},
+                },
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=4, storage_capacity=5, ticks_per_lap=1
+            ),
+            allow_storage_reactivation=True,
+        )
+        self.assertFalse(r["schedule_valid"])
+        self.assertEqual(
+            r["batch_reports"][-1]["reason"],
+            "INSUFFICIENT_CONVEYOR_SPACE_FOR_BATCH_TRANSITION",
+        )
+        self.assertEqual(r["returned_shooters"], ["A1", "A2", "B1", "B2"])
+
+    def test_reactivation_and_new_selection_overlap_is_rejected_before_mutation(self):
+        r = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 0}],
+            [
+                {"groups": ["A"], "shots": {"A": 0}},
+                {
+                    "groups": ["A"],
+                    "reactivate_groups": ["A"],
+                    "shots": {"A": 0},
+                },
+            ],
+            config=SimulatorConfig(ticks_per_lap=1),
+            allow_storage_reactivation=True,
+        )
+        self.assertFalse(r["schedule_valid"])
+        self.assertEqual(
+            r["batch_reports"][-1]["reason"],
+            "GROUP_CANNOT_BE_REACTIVATED_AND_SELECTED_IN_SAME_BATCH",
+        )
+        self.assertEqual(r["returned_shooters"], ["A"])
+
     def test_live_actions_disabled(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 2}],
