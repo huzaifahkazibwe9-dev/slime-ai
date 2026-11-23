@@ -125,7 +125,7 @@ def plan_capacity_aware_evolving_schedule(
     )
     schedule_valid = bool(schedule and schedule.get("schedule_valid"))
     search_complete = not board_plan.get("search_truncated", False)
-    full_level_complete = (
+    simulation_complete = (
         schedule_valid and board_cleared and not unplanned and search_complete
     )
 
@@ -159,8 +159,8 @@ def plan_capacity_aware_evolving_schedule(
     return {
         "engine": "capacity_aware_evolving_schedule_v1",
         "status": (
-            "SIMULATED_SCHEDULE_COMPLETE"
-            if full_level_complete
+            "SIMULATED_PLAN_COMPLETE"
+            if simulation_complete
             else "SIMULATED_PARTIAL_OR_BLOCKED"
         ),
         "board_plan": {
@@ -190,7 +190,10 @@ def plan_capacity_aware_evolving_schedule(
         "known_group_count": len(known),
         "planned_group_count": len(planned),
         "unplanned_group_ids": unplanned,
-        "full_level_complete": full_level_complete,
+        "simulation_complete": simulation_complete,
+        # A simulated schedule is never evidence that the live level is complete.
+        "full_level_complete": False,
+        "live_level_completion_verified": False,
         "blockers": list(dict.fromkeys(blockers)),
         "source_state_unchanged": state == original,
         "source_state_integrity_checked": True,
