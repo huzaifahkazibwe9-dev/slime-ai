@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
+import math
 import time
 
 CONVEYOR_LIMIT = 5
@@ -43,7 +44,12 @@ class Shooter:
         if self.direction not in DIRECTIONS:
             return False
 
-        if not 0.0 <= self.rotation_progress < 1.0:
+        if (
+            isinstance(self.rotation_progress, bool)
+            or not isinstance(self.rotation_progress, (int, float))
+            or not math.isfinite(self.rotation_progress)
+            or not 0.0 <= self.rotation_progress < 1.0
+        ):
             return False
 
         if self.revealed:
