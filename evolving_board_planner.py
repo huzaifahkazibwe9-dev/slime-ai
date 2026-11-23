@@ -4,6 +4,7 @@ This planner explores how clearing pixels can change later board shots.
 It does not model conveyor timing or authorize game actions.
 """
 import copy
+import time
 
 from game_state import GameState
 from planner import available_groups
@@ -75,8 +76,31 @@ def plan_evolving_board(
     if accessibility_resolver is not None and not callable(accessibility_resolver):
         raise TypeError("accessibility_resolver must be callable")
 
-    original = copy.deepcopy(state)
-    root = copy.deepcopy(state)
+    performance = {
+        "deepcopy_calls": 0,
+        "deepcopy_seconds": 0.0,
+        "state_key_calls": 0,
+        "state_key_seconds": 0.0,
+        "simulation_calls": 0,
+        "simulation_seconds": 0.0,
+    }
+
+    def clone_state(source):
+        started = time.perf_counter()
+        result = copy.deepcopy(source)
+        performance["deepcopy_calls"] += 1
+        performance["deepcopy_seconds"] += time.perf_counter() - started
+        return result
+
+    def make_state_key(current, used):
+        started = time.perf_counter()
+        result = _state_key(current, used)
+        performance["state_key_calls"] += 1
+        performance["state_key_seconds"] += time.perf_counter() - started
+        return result
+
+    original = clone_state(state)
+    root = clone_state(state)
     _normalise_accessibility(root, accessibility_resolver)
     frontier = [{
         "state": root,
@@ -84,7 +108,7 @@ def plan_evolving_board(
         "order": [],
         "removed": 0,
     }]
-    visited = {_state_key(root, ())}
+    visited = {make_state_key(root, ())}
     examined = 0
     truncated = False
     solutions = []
@@ -113,14 +137,17 @@ def plan_evolving_board(
                 if group_id in node["used"]:
                     continue
 
-                isolated = copy.deepcopy(current)
+                isolated = clone_state(current)
                 isolated.conveyor = []
                 isolated.storage = []
                 for member in group:
                     isolated.shooters[member].accessible = True
 
                 try:
+                    simulation_started = time.perf_counter()
                     report = simulate_bonded_group(isolated, group[0])
+                    performance["simulation_calls"] += 1
+                    performance["simulation_seconds"] += time.perf_counter() - simulation_started
                 except Exception:
                     examined += 1
                     continue
@@ -128,8 +155,8 @@ def plan_evolving_board(
                 if report.get("status") != "SIMULATED":
                     continue
 
-                child = copy.deepcopy(current)
-                child.board = copy.deepcopy(report["final_board"])
+                child = clone_state(current)
+                child.board = [list(row) for row in report["final_board"]]
                 for shooter_id, ammo in report["remaining_ammo"].items():
                     child.shooters[shooter_id].ammo = ammo
                 child.conveyor = []
@@ -139,7 +166,7 @@ def plan_evolving_board(
                 _normalise_accessibility(child, accessibility_resolver)
 
                 used = frozenset(set(node["used"]) | {group_id})
-                key = _state_key(child, used)
+                key = make_state_key(child, used)
                 if key in visited:
                     continue
                 visited.add(key)
@@ -196,6 +223,12 @@ def plan_evolving_board(
         "engine": "evolving_board_beam_search_v1",
         "status": "BOARD_SEQUENCE_FOUND" if solutions else "PARTIAL_SEQUENCE",
         "nodes_examined": examined,
+        "performance": {
+            **{key: round(value, 6) if key.endswith("_seconds") else value
+               for key, value in performance.items()},
+            "timing_clock": "time.perf_counter",
+            "note": "Planner-local diagnostic timings; not end-to-end gameplay latency.",
+        },
         "node_limit": max_nodes,
         "beam_width": beam_width,
         "search_truncated": truncated,
