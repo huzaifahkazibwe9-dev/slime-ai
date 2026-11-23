@@ -46,10 +46,60 @@ class OrchestrationTests(unittest.TestCase):
         snapshot = {
             "synchronised": True,
             "planning_allowed_by_sync": True,
+            "bundle_synchronisation": {
+                "synchronised": True,
+                "planning_allowed_by_sync": True,
+            },
         }
         candidates = {"identity_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertTrue(result["evidence_gate_passed"])
+
+
+    def test_missing_bundle_sync_blocks_even_if_legacy_snapshot_passes(self):
+        planning = {
+            "decision": "ELIGIBLE_CANDIDATES_FOUND",
+            "gameplay_verified": True,
+            "actions_performed": False,
+        }
+        identity = {
+            "identity_verified": True,
+            "timestamps_known": True,
+            "errors": [],
+            "blockers": [],
+        }
+        snapshot = {
+            "synchronised": True,
+            "planning_allowed_by_sync": True,
+        }
+        candidates = {"identity_verified": True}
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["evidence_gate_passed"])
+        self.assertFalse(result["checks"]["evidence_bundle_synchronised"])
+
+    def test_bundle_sync_mismatch_blocks_planning(self):
+        planning = {
+            "decision": "ELIGIBLE_CANDIDATES_FOUND",
+            "gameplay_verified": True,
+            "actions_performed": False,
+        }
+        identity = {
+            "identity_verified": True,
+            "timestamps_known": True,
+            "errors": [],
+            "blockers": [],
+        }
+        snapshot = {
+            "synchronised": True,
+            "planning_allowed_by_sync": True,
+            "bundle_synchronisation": {
+                "synchronised": False,
+                "planning_allowed_by_sync": False,
+            },
+        }
+        candidates = {"identity_verified": True}
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["evidence_gate_passed"))
 
     def test_live_actions_always_disabled(self):
         result = evidence_status({}, {}, {}, {})
