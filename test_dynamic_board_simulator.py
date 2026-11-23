@@ -77,6 +77,15 @@ class DynamicBoardTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             simulate_dynamic_board(self.make_state([["red"]]), "S1", consume_state=1)
 
+    def test_reports_region_graph_and_shot_profiling(self):
+        report = simulate_dynamic_board(self.make_state([["red", "red", "red"]]), "S1")
+        metrics = report["performance"]
+        self.assertGreater(metrics["region_graph_build_calls"], 0)
+        self.assertGreaterEqual(metrics["region_graph_build_seconds"], 0)
+        self.assertGreaterEqual(metrics["shot_simulation_seconds"], 0)
+        self.assertGreaterEqual(metrics["lane_inspection_seconds"], 0)
+        self.assertEqual(metrics["timing_clock"], "time.perf_counter")
+
     def test_invalid_shot_limit(self):
         with self.assertRaises(ValueError):
             simulate_dynamic_board(self.make_state([["red"]]), "S1", max_shots=0)
