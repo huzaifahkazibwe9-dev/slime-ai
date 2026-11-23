@@ -115,6 +115,20 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                 "bonded_groups": [["A", "B", "C", "D"]],
             })
 
+    def test_derives_bonded_ids_from_validated_group_membership(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 1,
+                 "bonded_ids": ["C"]},
+                {"id": "B", "color": {"name": "blue"}, "ammo": 1,
+                 "bonded_ids": []},
+            ],
+            "bonded_groups": [["A", "B"]],
+        }
+        shooters = self.load_payload(payload)
+        self.assertEqual(shooters["A"].bonded_ids, ["B"])
+        self.assertEqual(shooters["B"].bonded_ids, ["A"])
+
     def test_rejects_invalid_colour_record(self):
         for value in (None, {}, {"name": ""}, {"name": 4}):
             with self.subTest(value=value):
