@@ -20,18 +20,20 @@ if [[ ! -f "$SCREENSHOT" ]]; then
     exit 2
 fi
 
-echo "[1/9] Ingesting the board screenshot"
-python screenshot_ingestor.py "$SCREENSHOT"
-
-if [[ -f "$SHOOTER_PANEL" ]]; then
-    echo
-    echo "[2/9] Refreshing shooter-panel detection"
-    python shooter_detector.py
+if [[ -f "data/shooter_capture_config.json" ]]; then
+    echo "[1/9] Ingesting board and shooter panel from one calibrated capture"
+    python capture_pipeline.py "$SCREENSHOT"
 elif [[ -f "$SHOOTER_DATA" ]]; then
-    echo
-    echo "[2/9] Using existing shooter detection JSON"
+    echo "[1/9] Ingesting board screenshot without overwriting existing shooter evidence"
+    python screenshot_ingestor.py "$SCREENSHOT"
+    echo "[2/9] Preserving existing shooter detection; capture provenance will be rechecked"
+elif [[ -f "$SHOOTER_PANEL" ]]; then
+    echo "[1/9] Ingesting board screenshot"
+    python screenshot_ingestor.py "$SCREENSHOT"
+    echo "[2/9] Running legacy shooter detection (provenance remains unverified)"
+    python shooter_detector.py
 else
-    echo "ERROR: Neither $SHOOTER_PANEL nor $SHOOTER_DATA exists." >&2
+    echo "ERROR: Need data/shooter_capture_config.json, $SHOOTER_PANEL, or $SHOOTER_DATA." >&2
     exit 2
 fi
 
