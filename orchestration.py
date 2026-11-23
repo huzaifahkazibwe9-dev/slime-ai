@@ -36,6 +36,21 @@ def evidence_status(planning, identity, snapshot, candidates):
             and identity.get("errors") == []
             and identity.get("blockers") == []
         ),
+        "identity_snapshot_provenance_complete": (
+            isinstance(identity, dict)
+            and identity.get("snapshot_linked") is True
+            and isinstance(identity.get("board_snapshot_id"), str)
+            and identity.get("board_snapshot_id").startswith("sha256:")
+        ),
+        "identity_capture_session_provenance_complete": (
+            isinstance(identity, dict)
+            and identity.get("capture_session_linked") is True
+            and isinstance(identity.get("capture_session_id"), str)
+            and bool(identity.get("capture_session_id").strip())
+            and identity.get("timestamp_identified") is True
+            and isinstance(identity.get("captured_at"), str)
+            and bool(identity.get("captured_at").strip())
+        ),
         "snapshot_synchronised": (
             isinstance(snapshot, dict)
             and snapshot.get("synchronised") is True
