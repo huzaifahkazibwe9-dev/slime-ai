@@ -109,6 +109,19 @@ def load_observed_level(
     data = json.loads(observation_path.read_text())
     width, height, board, counts = _require_grid(data)
 
+    shooter_data = json.loads(shooter_path.read_text())
+    shooter_provenance = shooter_data.get("capture_provenance", {})
+    board_capture_matches = bool(
+        isinstance(shooter_provenance, dict)
+        and shooter_provenance.get("verified") is True
+        and shooter_provenance.get("source_sha256") == data.get("source_sha256")
+        and isinstance(data.get("capture_session_id"), str)
+        and data.get("capture_session_id")
+        and shooter_provenance.get("capture_session_id") == data.get("capture_session_id")
+        and isinstance(data.get("captured_at"), str)
+        and data.get("captured_at")
+        and shooter_provenance.get("captured_at") == data.get("captured_at")
+    )
     shooters = load_shooters(shooter_path)
     state = GameState(
         board=[row[:] for row in board],
@@ -136,6 +149,11 @@ def load_observed_level(
         "colour_truth_verified": False,
         "shooter_count": len(shooters),
         "shooter_panel_positions_only": True,
+        "shooter_capture_provenance_verified": board_capture_matches,
+        "shooter_capture_source_matches_board": (
+            shooter_provenance.get("source_sha256") == data.get("source_sha256")
+            if isinstance(shooter_provenance, dict) else False
+        ),
         "shooter_positions_gameplay_verified": False,
         "initial_occupancy_confirmed": False,
         "vision_occupancy_verified": False,
