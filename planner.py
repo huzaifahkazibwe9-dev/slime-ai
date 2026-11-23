@@ -156,7 +156,9 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
 def _verified_group(state, group, report, mapping):
     if (
         not isinstance(report, dict)
-        or report.get("gameplay_verified") is not True
+        or report.get("planning_evidence_verified") is not True
+        or report.get("gameplay_verified") is not False
+        or report.get("game_taps_enabled") is not False
         or report.get("actions_performed") is not False
         or (state.level is not None and report.get("level") != state.level)
     ):
