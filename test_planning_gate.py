@@ -8,6 +8,8 @@ def make_report():
         "level": 39,
         "board_dimensions": [2, 2],
         "same_board_state_confirmed": False,
+        "board_snapshot_id": "board-1",
+        "capture_session_id": "capture-1",
         "conveyor_identity_verified": False,
         "gameplay_verified": False,
         "confidence_audit": {"game_taps_enabled": False},
