@@ -206,5 +206,52 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                     })
 
 
+    def test_low_confidence_sample_is_not_loaded_as_shooter(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "clear", "color": {"name": "red"}, "ammo": 5,
+                 "sample_quality": {"status": "DISTINCT_SAMPLE"}},
+                {"id": "weak", "color": {"name": "blue"}, "ammo": 8,
+                 "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"}},
+            ],
+            "bonded_groups": [],
+        }
+        shooters = self.load_payload(payload)
+        self.assertEqual(set(shooters), {"clear"})
+
+    def test_bond_group_is_not_partially_loaded_when_member_sample_is_weak(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5,
+                 "sample_quality": {"status": "DISTINCT_SAMPLE"}},
+                {"id": "B", "color": {"name": "blue"}, "ammo": 8,
+                 "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"}},
+            ],
+            "bonded_groups": [["A", "B"]],
+        }
+        shooters = self.load_payload(payload)
+        self.assertEqual(set(shooters), {"A"})
+        self.assertEqual(shooters["A"].bonded_ids, [])
+
+    def test_rejects_unknown_sample_quality_status(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "MAYBE"},
+            }],
+            "bonded_groups": [],
+        }
+        with self.assertRaisesRegex(ValueError, "sample quality status"):
+            self.load_payload(payload)
+
+    def test_legacy_shooter_records_without_sample_quality_still_load(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        self.assertEqual(set(self.load_payload(payload)), {"A"})
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
