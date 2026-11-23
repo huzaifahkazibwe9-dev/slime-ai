@@ -25,27 +25,27 @@ python screenshot_ingestor.py "$SCREENSHOT"
 
 if [[ -f "$SHOOTER_PANEL" ]]; then
     echo
-    echo "[2/8] Refreshing shooter-panel detection"
+    echo "[2/9] Refreshing shooter-panel detection"
     python shooter_detector.py
 elif [[ -f "$SHOOTER_DATA" ]]; then
     echo
-    echo "[2/8] Using existing shooter detection JSON"
+    echo "[2/9] Using existing shooter detection JSON"
 else
     echo "ERROR: Neither $SHOOTER_PANEL nor $SHOOTER_DATA exists." >&2
     exit 2
 fi
 
 echo
-echo "[3/8] Integrating screenshot and shooter data"
+echo "[3/9] Integrating screenshot and shooter data"
 python level_loader.py --observation "$OBSERVATION"
 
 echo
-echo "[4/8] Building provisional colour-region analysis"
+echo "[4/9] Building provisional colour-region analysis"
 python observation_region_audit.py --input "$OBSERVATION"
 
 if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observations.json" ]]; then
     echo
-    echo "[5/8] Auditing reachability against the latest screenshot"
+    echo "[5/9] Auditing reachability against the latest screenshot"
     python reachability_auditor.py --board "$OBSERVATION"
 
     echo
