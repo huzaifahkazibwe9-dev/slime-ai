@@ -174,6 +174,11 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             self.assertFalse(scenario["confidence_eligible"])
             self.assertFalse(scenario["planning_eligible"])
             self.assertFalse(result["confidence_audit"]["game_taps_enabled"])
+            self.assertTrue(result["confidence_audit"]["snapshot_match_verified"])
+            self.assertEqual(
+                result["confidence_audit"]["source_snapshot_id"],
+                result["board_snapshot_id"],
+            )
 
     def test_confidence_cli_rejects_different_board_snapshot(self):
         with tempfile.TemporaryDirectory() as temp:
