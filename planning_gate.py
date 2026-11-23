@@ -118,19 +118,19 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
 
 def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
     confidence_audit = report.get("confidence_audit", {})
-    board_synced = bool(report.get("same_board_state_confirmed", False))
+    board_synced = report.get("same_board_state_confirmed") is True
     freshness = report.get("capture_freshness", {})
     capture_freshness_verified = (
         isinstance(freshness, dict) and freshness.get("fresh") is True
     )
-    identity_verified = bool(report.get("conveyor_identity_verified", False))
+    identity_verified = report.get("conveyor_identity_verified") is True
     provenance = _capture_provenance(report)
     provenance["board_snapshot_id"] = report.get("board_snapshot_id")
     provenance["capture_session_id"] = report.get("capture_session_id")
     candidate_provenance_verified = _candidate_capture_provenance(
         candidate_report, provenance
     )
-    mappings_verified = bool(report.get("gameplay_verified", False))
+    mappings_verified = report.get("gameplay_verified") is True
     conveyor_timing_calibrated = (
         isinstance(conveyor_calibration, dict)
         and conveyor_calibration.get("timing_calibrated_to_game") is True
@@ -218,9 +218,7 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
             if not capture_freshness_verified:
                 blockers.append("CAPTURE_TIMESTAMPS_NOT_FRESH_AND_ALIGNED")
-            if not identity_verified or not position.get(
-                "identity_verified", False
-            ):
+            if not identity_verified or position.get("identity_verified") is not True:
                 blockers.append("SHOOTER_IDENTITY_UNVERIFIED")
             if not mappings_verified:
                 blockers.append("GAMEPLAY_COLOUR_MAPPING_UNVERIFIED")
@@ -228,9 +226,9 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
                 blockers.append("CONVEYOR_TIMING_NOT_USER_CALIBRATED")
             if not confidence_snapshot_verified:
                 blockers.append("CONFIDENCE_BOARD_SNAPSHOT_UNVERIFIED")
-            if not scenario.get("confidence_eligible", False):
+            if scenario.get("confidence_eligible") is not True:
                 blockers.append("LANE_CONFIDENCE_UNCONFIRMED")
-            if not position.get("planning_eligible", False):
+            if position.get("planning_eligible") is not True:
                 blockers.append("REACHABILITY_AUDIT_NOT_ELIGIBLE")
 
             eligible = not blockers
@@ -281,9 +279,7 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
                         candidate_provenance_verified
                     ),
                 },
-                "confidence_eligible": bool(
-                    scenario.get("confidence_eligible", False)
-                ),
+                "confidence_eligible": scenario.get("confidence_eligible") is True,
                 "planning_eligible": eligible,
                 "blockers": blockers,
             })
