@@ -162,7 +162,7 @@ def simulate_dynamic_multi_batch(
                     shooter.accessible = str(shooter_id) in batch_accessible
 
             simulation_started = time.perf_counter()
-            group_report = simulate_bonded_group(isolated, root)
+            group_report = simulate_bonded_group(isolated, root, consume_state=True)
             performance["group_simulation_calls"] += 1
             performance["group_simulation_seconds"] += time.perf_counter() - simulation_started
             if group_report.get("status") != "SIMULATED":
