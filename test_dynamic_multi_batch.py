@@ -51,6 +51,20 @@ class Build11AETests(unittest.TestCase):
         self.assertEqual(report["prepared_batches"][0]["shots"]["A"], 1)
         self.assertEqual(report["prepared_batches"][1]["shots"]["B"], 1)
 
+    def test_reports_copy_and_stage_performance_metrics(self):
+        report = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A"]}, {"groups": ["B"]}],
+            SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+        )
+        metrics = report["performance"]
+        self.assertGreater(metrics["deepcopy_calls"], 0)
+        self.assertGreater(metrics["group_simulation_calls"], 0)
+        self.assertGreaterEqual(metrics["deepcopy_seconds"], 0)
+        self.assertGreaterEqual(metrics["group_simulation_seconds"], 0)
+        self.assertGreaterEqual(metrics["scheduler_seconds"], 0)
+        self.assertEqual(metrics["timing_clock"], "time.perf_counter")
+
     def test_original_state_remains_unchanged(self):
         state = make_state()
         before = copy.deepcopy(state)
