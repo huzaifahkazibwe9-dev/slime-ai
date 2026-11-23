@@ -1,7 +1,7 @@
 
 import unittest
 from region_graph import build_region_graph
-from region_lane_mapper import map_lane_regions
+from region_lane_mapper import map_lane_regions, audit_observation
 
 
 class RegionLaneMapperTests(unittest.TestCase):
@@ -84,6 +84,59 @@ class RegionLaneMapperTests(unittest.TestCase):
         self.assertEqual(
             cell["board_confidence"], "requires_confirmation"
         )
+
+    def test_screenshot_observation_maps_lane_and_provisional_confidence(self):
+        board = [["white"] * 35 for _ in range(35)]
+        board[2][15] = "red"
+        rgb = [
+            [[245, 245, 245] for _ in range(35)]
+            for _ in range(35)
+        ]
+        rgb[2][15] = [230, 30, 30]
+        data = {
+            "image_size": [1080, 2220],
+            "grid_size": [35, 35],
+            "bounds": [201, 431, 881, 1113],
+            "board": board,
+            "raw_rgb": rgb,
+            "counts": {"white": 1224, "red": 1},
+            "source_sha256": "f" * 64,
+            "snapshot_id": "sha256:" + "f" * 64,
+            "gameplay_verified": False,
+            "vision_classification_verified": False,
+            "game_taps_enabled": False,
+        }
+        calibration = {
+            "verified_by_user": True,
+            "image_size": [1080, 2220],
+            "shooters": [{
+                "id": "top_1",
+                "segment": "top",
+                "center": [500, 179],
+            }],
+            "directions": {"top": "down"},
+        }
+        observations = {
+            "observations": [{
+                "position_id": "top_1",
+                "colour": "white",
+                "ammo": 40,
+            }]
+        }
+        report = audit_observation(data, calibration, observations)
+        self.assertEqual(report["grid_size"], [35, 35])
+        self.assertEqual(report["confidence_summary"]["requires_confirmation"], 136)
+        self.assertEqual(report["confidence_summary"]["provisional"], 1089)
+        self.assertEqual(report["confidence_summary"]["confirmed"], 0)
+        scenario = report["positions"][0]["scenarios"][0]
+        self.assertEqual(scenario["exposed_matching_count"], 2)
+        self.assertEqual(
+            scenario["exposed_cells"][0]["board_confidence"],
+            "requires_confirmation",
+        )
+        self.assertFalse(report["board_colour_truth_verified"])
+        self.assertFalse(report["planning_authorized"])
+        self.assertFalse(report["game_taps_enabled"])
 
     def test_out_of_bounds_cell_rejected(self):
         with self.assertRaises(ValueError):
