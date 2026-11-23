@@ -25,6 +25,22 @@ The build script:
 
 It does not tap the game, start background loops, or change MacroDroid settings.
 
+## Performance profiling and OCR workload
+
+The shooter detector records local processing measurements in
+`data/shooter_detection.json` under `performance`: total shooter-detection
+time, accumulated ammunition OCR time, OCR call count, and observed panel-slot
+count. These timings use a monotonic high-resolution clock and are diagnostic
+measurements, not end-to-end gameplay latency or a device speed guarantee.
+
+All 12 panel slots are still sampled for colour/layout observations. OCR is
+currently restricted to the four first-row slots because lower rows are not yet
+verified as readable; launching OCR for those slots added work without producing
+trusted ammunition values. This is a workload reduction, not permission to
+select lower-row shooters. They remain non-selectable until independently
+verified. Further speed tuning must be benchmarked on the actual phone and must
+not weaken screenshot freshness, provenance, or action-safety gates.
+
 ## Shooter-panel crop calibration
 
 Do not guess panel coordinates or copy the illustrative bounds from the example
