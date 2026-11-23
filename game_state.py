@@ -47,8 +47,8 @@ class Shooter:
         if (
             isinstance(self.rotation_progress, bool)
             or not isinstance(self.rotation_progress, (int, float))
-            or not math.isfinite(self.rotation_progress)
             or not 0.0 <= self.rotation_progress < 1.0
+            or not math.isfinite(self.rotation_progress)
         ):
             return False
 
