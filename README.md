@@ -118,6 +118,10 @@ synchronized evidence reports, preventing stale plans from being applied to a ne
 `data/board_observation_latest.json` file. Use the screenshot-mode commands above
 for the new observation.
 
+## Planning evidence versus gameplay verification
+
+The planning gate reports `planning_evidence_verified` only when at least one candidate passes every provenance, freshness, identity, ammunition, conveyor-timing, and confidence check. This permits an evidence-backed **dry-run recommendation** without claiming that the game has been played or that a move was executed. `gameplay_verified` remains false, `game_taps_enabled` remains false, and `actions_performed` remains false. Orchestration and the planner require this separation and reject reports that claim gameplay verification or enable taps.
+
 ## Safety and evidence limits
 
 Successful extraction, structural validation, or simulation is not proof that
