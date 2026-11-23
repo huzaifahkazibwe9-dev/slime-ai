@@ -1,6 +1,6 @@
 import unittest
 
-from reachability_confidence import annotate_report
+from reachability_confidence import annotate_report, observation_confidence
 
 
 def sample_report():
@@ -66,6 +66,52 @@ class ReachabilityConfidenceTests(unittest.TestCase):
         self.assertEqual(
             scenario["confidence_cell_counts"]["unknown"], 1
         )
+
+    def test_screenshot_observation_cells_remain_provisional(self):
+        board = [["white"] * 35 for _ in range(35)]
+        confidence = observation_confidence(board)
+        self.assertEqual(len(confidence), 35)
+        self.assertEqual(len(confidence[0]), 35)
+        self.assertEqual(
+            sum(cell == "requires_confirmation" for row in confidence for cell in row),
+            136,
+        )
+        self.assertEqual(
+            sum(cell == "provisional" for row in confidence for cell in row),
+            1089,
+        )
+        self.assertFalse(any(
+            cell == "confirmed" for row in confidence for cell in row
+        ))
+
+    def test_screenshot_confidence_blocks_every_unverified_lane(self):
+        confidence = observation_confidence([["white"] * 35 for _ in range(35)])
+        report = {
+            "board_dimensions": [35, 35],
+            "game_taps_enabled": False,
+            "results": [{
+                "position_id": "top_1",
+                "scenarios": [{
+                    "target_colour": "white",
+                    "planning_eligible": True,
+                    "lane_cells": [
+                        {"row": 0, "column": 15},
+                        {"row": 1, "column": 15},
+                        {"row": 2, "column": 15},
+                    ],
+                }],
+            }],
+        }
+        annotated = annotate_report(report, confidence)
+        scenario = annotated["results"][0]["scenarios"][0]
+        self.assertFalse(scenario["confidence_eligible"])
+        self.assertFalse(scenario["planning_eligible"])
+        self.assertEqual(
+            scenario["confidence_cell_counts"],
+            {"provisional": 2, "requires_confirmation": 1},
+        )
+        self.assertFalse(annotated["confidence_audit"]["gameplay_verified"])
+        self.assertFalse(annotated["confidence_audit"]["game_taps_enabled"])
 
     def test_dimension_mismatch_rejected(self):
         with self.assertRaises(ValueError):
