@@ -191,3 +191,8 @@ tracked only when observed. Unknown values remain unknown; the model does not
 guess shop prices or purchase automatically. Power-up effects are currently
 candidate planning descriptions only: no game button is pressed and no board
 state is changed. The planner produces separate use-readiness and purchase-eligibility decisions. It also adds transparent heuristic scores for observed board impact, conveyor urgency, purchase cost relative to observed gold, and preserving a last known charge. These scores are explicitly not calibrated win probabilities and do not establish a globally optimal move. Ordinary-move and power-up scores remain separate until gameplay outcomes establish a validated common value model. Automatic purchase and use remain disabled: no game button is pressed and no gold is spent.
+
+
+### Reusing evolving-board search
+
+The orchestration pipeline shares one evolving-board search result with the capacity-aware scheduler instead of repeating the same bounded search. The scheduler validates that a supplied result preserves its source state, matches the current remaining-pixel count, and contains a structurally valid group sequence before reuse. This removes redundant search work while retaining separate scheduling and simulation diagnostics. It does not improve the search heuristic itself or establish real-device gameplay speed; live gameplay remains unverified and taps remain disabled.
