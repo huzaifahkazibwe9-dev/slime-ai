@@ -96,6 +96,42 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertFalse(result["gameplay_verified"])
             self.assertFalse(result["game_taps_enabled"])
 
+    def test_ingest_requires_explicit_session_to_bind_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            ingest(
+                image_path, baseline_path, output_path,
+                capture_session_id="session-2026-11-23-A",
+            )
+            result = json.loads(output_path.read_text())
+            self.assertEqual(
+                result["capture_session_id"], "session-2026-11-23-A"
+            )
+
+    def test_ingest_rejects_malformed_capture_session_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            with self.assertRaisesRegex(ValueError, "Invalid capture session ID"):
+                ingest(
+                    image_path, baseline_path, root / "observation.json",
+                    capture_session_id="bad session id",
+                )
+
     def test_rejects_bounds_without_sampling_margin(self):
         path = Path("data/test_ingestor_edge_bounds.png")
         path.parent.mkdir(exist_ok=True)
