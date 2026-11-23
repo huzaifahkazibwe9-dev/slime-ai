@@ -1,12 +1,68 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from game_state import GameState
-from orchestration import evidence_status, run_multi_batch_diagnostic
+from orchestration import (
+    evidence_status,
+    resolve_candidate_report_path,
+    run_multi_batch_diagnostic,
+)
 import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
+    def test_canonical_candidate_artifact_precedes_legacy_reports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = root / "candidate_tracking_latest.json"
+            canonical = root / "conveyor_identity_candidates.json"
+            legacy.write_text("{}")
+            canonical.write_text("{}")
+
+            selected, source = resolve_candidate_report_path(root)
+
+            self.assertEqual(selected, canonical)
+            self.assertEqual(source, "canonical")
+
+    def test_explicit_candidate_report_path_is_never_overridden(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            canonical = root / "conveyor_identity_candidates.json"
+            explicit = root / "custom_candidates.json"
+            canonical.write_text("{}")
+            explicit.write_text("{}")
+
+            selected, source = resolve_candidate_report_path(
+                root, explicit_path=explicit
+            )
+
+            self.assertEqual(selected, explicit)
+            self.assertEqual(source, "explicit")
+
+    def test_legacy_candidate_artifact_is_fallback_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = root / "candidate_tracks_latest.json"
+            legacy.write_text("{}")
+
+            selected, source = resolve_candidate_report_path(root)
+
+            self.assertEqual(selected, legacy)
+            self.assertEqual(source, "legacy_fallback")
+
+    def test_missing_candidate_artifact_fails_closed_to_canonical_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            selected, source = resolve_candidate_report_path(root)
+
+            self.assertEqual(
+                selected, root / "conveyor_identity_candidates.json"
+            )
+            self.assertEqual(source, "missing")
+
     def test_missing_evidence_blocks(self):
         result = evidence_status(None, None, None, None)
         self.assertFalse(result["evidence_gate_passed"])
