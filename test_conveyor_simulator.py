@@ -113,7 +113,7 @@ class ConveyorSimulatorTests(unittest.TestCase):
 
     def test_shooter_rejects_invalid_position_and_boolean_ammo(self):
         for kwargs in (
-            {"position": -1}, {"position": 5}, {"ammo": True},
+            {"position": -1}, {"ammo": True},
             {"completed_laps": -1}, {"selected": 1},
         ):
             with self.subTest(kwargs=kwargs):
@@ -121,6 +121,11 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 values.update(kwargs)
                 with self.assertRaises(ValueError):
                     Shooter(**values)
+
+    def test_simulator_rejects_position_outside_configured_lap(self):
+        shooter = Shooter("s", "g", 3, position=5)
+        with self.assertRaises(ValueError):
+            ConveyorSimulator([shooter], config=SimulatorConfig())
 
     def test_factory_does_not_coerce_malformed_state_records(self):
         malformed = [
