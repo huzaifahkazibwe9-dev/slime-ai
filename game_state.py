@@ -34,6 +34,9 @@ class Shooter:
     panel_box: Optional[tuple] = None
 
     def valid(self):
+        # bool is a subclass of int in Python; reject it as malformed ammo.
+        if self.ammo is not None and type(self.ammo) is not int:
+            return False
         if self.ammo is not None and self.ammo < 0:
             return False
 
