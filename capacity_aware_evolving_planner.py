@@ -11,6 +11,7 @@ from conveyor_simulator import SimulatorConfig
 from evolving_board_planner import plan_evolving_board
 from dynamic_multi_batch import simulate_dynamic_multi_batch
 from bonded_group_simulator import simulate_bonded_group
+from accessibility_utils import normalize_accessible_ids
 
 
 def plan_capacity_aware_evolving_schedule(
@@ -63,7 +64,7 @@ def plan_capacity_aware_evolving_schedule(
             }
         else:
             observed = accessibility_resolver(copy.deepcopy(probe))
-            available = {str(value) for value in (observed or [])}
+            available = normalize_accessible_ids(observed)
 
         batch_groups = []
         batch_shooter_count = 0
