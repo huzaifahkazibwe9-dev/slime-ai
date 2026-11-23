@@ -1,21 +1,22 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from snapshot_sync import synchronise_audit, synchronise_bundle
 
 
 class SnapshotSyncTests(unittest.TestCase):
     def valid_data(self):
+        now = datetime.now(timezone.utc)
         board = {
             "snapshot_id": "capture-001",
             "capture_session_id": "session-001",
             "timestamp_identified": True,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "captured_at": now.isoformat(),
         }
         observations = {
             "board_snapshot_id": "capture-001",
             "capture_session_id": "session-001",
             "timestamp_identified": True,
-            "captured_at": "2026-11-21T10:00:00+03:00",
+            "captured_at": (now - timedelta(seconds=30)).isoformat(),
             "same_board_state_confirmed": True,
         }
         return board, observations
