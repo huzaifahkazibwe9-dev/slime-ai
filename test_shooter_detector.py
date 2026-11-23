@@ -1,9 +1,12 @@
 import unittest
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 from PIL import Image
 
 from shooter_detector import (
+    read_ammunition,
     REF_W,
     REF_H,
     identify_color,
@@ -135,6 +138,30 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                     root / "source.png", root / "panel.png",
                     [60, 10, 110, 50]
                 )
+
+    def test_ammunition_ocr_accepts_one_unambiguous_number(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40\\n", returncode=0)
+                result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertEqual(result, 40)
+
+    def test_ammunition_ocr_rejects_multiple_numbers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40 20\\n", returncode=0)
+                result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertIsNone(result)
+
+    def test_ammunition_ocr_rejects_failed_tesseract_even_with_digits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40\\n", returncode=1)
+                result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertIsNone(result)
 
     def test_brown_shooter_colour_is_distinguished_from_orange(self):
         self.assertEqual(identify_color((193, 126, 63))["name"], "brown")
