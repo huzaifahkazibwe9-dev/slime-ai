@@ -92,8 +92,10 @@ class Build11AETests(unittest.TestCase):
             SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
         )
         self.assertFalse(report["simulation_complete"])
+        self.assertFalse(report["all_known_groups_scheduled"])
         self.assertFalse(report["full_level_complete"])
         self.assertFalse(report["live_level_completion_verified"])
+        self.assertFalse(report["conveyor_timing_calibrated"])
 
     def test_live_gameplay_stays_disabled(self):
         report = simulate_dynamic_multi_batch(
