@@ -96,7 +96,7 @@ class MultiBatchTests(unittest.TestCase):
         )
         self.assertEqual(r["returned_shooters"], ["A1", "A2", "B1", "B2"])
 
-    def test_reactivation_and_new_selection_overlap_is_rejected_before_mutation(self):
+    def test_reactivated_group_can_be_selected_in_same_batch(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 0}],
             [
@@ -110,11 +110,8 @@ class MultiBatchTests(unittest.TestCase):
             config=SimulatorConfig(ticks_per_lap=1),
             allow_storage_reactivation=True,
         )
-        self.assertFalse(r["schedule_valid"])
-        self.assertEqual(
-            r["batch_reports"][-1]["reason"],
-            "GROUP_CANNOT_BE_REACTIVATED_AND_SELECTED_IN_SAME_BATCH",
-        )
+        self.assertTrue(r["schedule_valid"])
+        self.assertEqual(r["batches_completed"], 2)
         self.assertEqual(r["returned_shooters"], ["A"])
 
     def test_live_actions_disabled(self):
