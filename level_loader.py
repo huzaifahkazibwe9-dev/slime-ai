@@ -6,7 +6,19 @@ from shooter_loader import load_shooters
 from board_loader import load_board
 
 
-def load_level(level=39):
+def load_level(level=39, observation_path=None, shooter_path=None):
+    # Explicit screenshot mode consumes the latest ingested observation.
+    # The legacy baseline loader remains the default for compatibility.
+    if observation_path is not None:
+        from screenshot_observation_loader import load_observed_level
+        from pathlib import Path
+
+        return load_observed_level(
+            observation_path=observation_path,
+            shooter_path=shooter_path or Path("data/shooter_detection.json"),
+            level=level,
+        )
+
     vision_path = Path("data/vision_level39.json")
     mapping_path = Path("data/color_matches.json")
 
@@ -54,7 +66,26 @@ def load_level(level=39):
 
 
 if __name__ == "__main__":
-    state, audit = load_level()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Load Slime Loop level data")
+    parser.add_argument("--level", type=int, default=39)
+    parser.add_argument(
+        "--observation",
+        help="Use data produced by screenshot_ingestor.py instead of the legacy vision baseline",
+    )
+    parser.add_argument(
+        "--shooters",
+        default="data/shooter_detection.json",
+        help="Shooter detection JSON (used with --observation)",
+    )
+    args = parser.parse_args()
+
+    state, audit = load_level(
+        level=args.level,
+        observation_path=args.observation,
+        shooter_path=args.shooters,
+    )
 
     print("UNIFIED LEVEL LOADER AUDIT")
     print("==========================")
