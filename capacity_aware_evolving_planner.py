@@ -85,8 +85,14 @@ def plan_capacity_aware_evolving_schedule(
     if accessibility_resolver is None:
         blockers.append("DYNAMIC_ACCESSIBILITY_UNVERIFIED")
     blockers.extend(
-        board_plan.get("blockers", [])
+        item for item in board_plan.get("blockers", [])
+        if not (
+            item == "CONVEYOR_SCHEDULE_NOT_VALIDATED"
+            and schedule_valid
+        )
     )
+    if schedule_valid:
+        blockers.append("CONVEYOR_TIMING_UNCALIBRATED")
     if schedule and not schedule.get("schedule_valid"):
         blockers.append(
             schedule.get("scheduler_report", {}).get(
