@@ -354,6 +354,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
 
     recommended_group = None
     planner_error = None
+    stage_started = time.perf_counter()
 
     if gate["evidence_gate_passed"]:
         try:
@@ -366,6 +367,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             )
         except Exception as exc:
             planner_error = f"{type(exc).__name__}: {exc}"
+    timings["move_planner_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     dry_summary = None
     dry_error = None
@@ -398,13 +400,22 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         state,
         max_candidates=200,
     )
+    timings["multi_batch_search_seconds"] = round(time.perf_counter() - stage_started, 6)
+    stage_started = time.perf_counter()
     evolving_board_summary = run_evolving_board_diagnostic(
         state, max_nodes=500, beam_width=40,
     )
+    timings["evolving_board_search_seconds"] = round(time.perf_counter() - stage_started, 6)
+    stage_started = time.perf_counter()
     capacity_evolving_summary = run_capacity_aware_evolving_diagnostic(
         state, max_nodes=500, beam_width=40,
     )
-    timings["bounded_searches_seconds"] = round(time.perf_counter() - stage_started, 6)
+    timings["capacity_aware_search_seconds"] = round(time.perf_counter() - stage_started, 6)
+    timings["bounded_searches_seconds"] = round(
+        timings["multi_batch_search_seconds"]
+        + timings["evolving_board_search_seconds"]
+        + timings["capacity_aware_search_seconds"], 6
+    )
     timings["orchestration_total_seconds"] = round(time.perf_counter() - pipeline_started, 6)
 
     report = {
