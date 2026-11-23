@@ -93,6 +93,17 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                 "bonded_groups": [["A", "B"], ["A", "C"]],
             })
 
+    def test_rejects_bonded_groups_with_fewer_than_two_members(self):
+        for group in ([], ["A"]):
+            with self.subTest(group=group):
+                with self.assertRaisesRegex(ValueError, "between 2 and 3"):
+                    self.load_payload({
+                        "visible_shooters": [
+                            {"id": "A", "color": {"name": "red"}, "ammo": 1}
+                        ],
+                        "bonded_groups": [group],
+                    })
+
     def test_rejects_bonded_group_larger_than_three(self):
         shooters = [
             {"id": name, "color": {"name": "red"}, "ammo": 1}
