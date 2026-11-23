@@ -143,6 +143,13 @@ class Build11AETests(unittest.TestCase):
         self.assertEqual(calls, [2])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_resolver_mapping_result_is_rejected(self):
+        with self.assertRaises(TypeError):
+            simulate_dynamic_multi_batch(
+                make_state(), [{"groups": ["A"]}],
+                accessibility_resolver=lambda current: {"A": True},
+            )
+
     def test_dynamic_accessibility_is_not_invented_without_resolver(self):
         state = make_state()
         state.shooters["B"].accessible = False
