@@ -33,6 +33,7 @@ class UnifiedDecisionPlannerTests(unittest.TestCase):
             item["name"] == "dragon_roar"
             for item in result["powerup_advice"]["candidates"]
         ))
+        self.assertTrue(result["powerup_advice"]["strategic_ranking"]["eligible"])
         self.assertFalse(result["game_taps_enabled"])
         self.assertFalse(result["actions_performed"])
 
