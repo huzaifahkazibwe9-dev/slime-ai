@@ -4,11 +4,17 @@ This planner explores how clearing pixels can change later board shots.
 It does not model conveyor timing or authorize game actions.
 """
 import copy
+import hashlib
 import time
 
 from game_state import GameState
 from planner import available_groups
 from bonded_group_simulator import simulate_bonded_group
+
+
+def source_state_fingerprint(state):
+    """Return a deterministic fingerprint of the complete planning input."""
+    return hashlib.sha256(repr(state).encode("utf-8")).hexdigest()
 
 
 def _group_key(state, members):
@@ -236,6 +242,7 @@ def plan_evolving_board(
         "sequence": chosen["order"],
         "sequence_length": len(chosen["order"]),
         "initial_pixels": original.remaining_pixels,
+        "source_state_fingerprint": source_state_fingerprint(original),
         "simulated_remaining_pixels": remaining,
         "simulated_pixels_removed": original.remaining_pixels - remaining,
         "board_cleared": remaining == 0,
