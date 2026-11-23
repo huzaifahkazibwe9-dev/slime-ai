@@ -225,6 +225,40 @@ def evaluate_planning(report, candidate_report=None):
                 "geometrically_reachable": geometrically_reachable,
                 "ammunition_available": ammo_available,
                 "ammunition_evidence_verified": ammo_evidence_valid,
+                "evidence_trace": {
+                    "board_capture": {
+                        "board_snapshot_id": report.get("board_snapshot_id"),
+                        "capture_session_id": report.get("capture_session_id"),
+                        "captured_at": report.get("captured_at"),
+                        "timestamp_identified": report.get("timestamp_identified") is True,
+                    },
+                    "shooter_observation": {
+                        "position_id": (
+                            ammo_evidence.get("position_id")
+                            if isinstance(ammo_evidence, dict) else None
+                        ),
+                        "ammo": (
+                            ammo_evidence.get("ammo")
+                            if isinstance(ammo_evidence, dict) else None
+                        ),
+                        "board_snapshot_id": (
+                            ammo_evidence.get("board_snapshot_id")
+                            if isinstance(ammo_evidence, dict) else None
+                        ),
+                        "capture_session_id": (
+                            ammo_evidence.get("capture_session_id")
+                            if isinstance(ammo_evidence, dict) else None
+                        ),
+                        "observed_at": (
+                            ammo_evidence.get("observed_at")
+                            if isinstance(ammo_evidence, dict) else None
+                        ),
+                        "verified": ammo_evidence_valid,
+                    },
+                    "candidate_capture_provenance_verified": (
+                        candidate_provenance_verified
+                    ),
+                },
                 "confidence_eligible": bool(
                     scenario.get("confidence_eligible", False)
                 ),
