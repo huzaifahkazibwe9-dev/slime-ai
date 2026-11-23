@@ -67,6 +67,12 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
         self.assertEqual(report["simulated_remaining_pixels"], 0)
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_resolver_string_result_is_rejected(self):
+        with self.assertRaises(TypeError):
+            plan_capacity_aware_evolving_schedule(
+                make_state(), accessibility_resolver=lambda current: "AB"
+            )
+
     def test_no_resolver_does_not_invent_newly_exposed_access(self):
         report = plan_capacity_aware_evolving_schedule(
             make_state(),
