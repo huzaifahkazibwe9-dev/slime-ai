@@ -83,6 +83,11 @@ def assess(state, audit, calibration, identity, firing):
         "actual_firing_verified": bool(
             firing and firing.get("actual_firing_verified") is True
         ),
+        # These are implementation/authorization prerequisites, not evidence
+        # flags that a JSON report may assert on behalf of the user.
+        "live_execution_path_implemented": False,
+        "live_gameplay_validation_complete": False,
+        "explicit_live_execution_opt_in": False,
     }
 
     return {
@@ -98,6 +103,14 @@ def assess(state, audit, calibration, identity, firing):
         # This project deliberately has no live tap pathway.
         "game_taps_enabled": False,
         "autonomous_play_ready": False,
+        "live_execution_blockers": [
+            name for name in (
+                "live_execution_path_implemented",
+                "live_gameplay_validation_complete",
+                "explicit_live_execution_opt_in",
+            )
+            if not checks[name]
+        ],
     }
 
 def main(observation_path=None, shooter_path=None):
