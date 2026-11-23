@@ -11,7 +11,6 @@ def load_level(level=39, observation_path=None, shooter_path=None):
     # The legacy baseline loader remains the default for compatibility.
     if observation_path is not None:
         from screenshot_observation_loader import load_observed_level
-        from pathlib import Path
 
         return load_observed_level(
             observation_path=observation_path,
@@ -91,7 +90,7 @@ if __name__ == "__main__":
     print("==========================")
     print("Level:", state.level)
     print("Board:", state.width, "x", state.height)
-    print("Remaining pixels:", state.remaining_pixels)
+    print("Observed cells:", state.remaining_pixels)
     print("Shooters:", len(state.shooters))
 
     print("\nVERIFICATION STATUS")
@@ -99,26 +98,38 @@ if __name__ == "__main__":
         print(f"{name}: {value}")
 
     print("\nSHOOTER COLOUR MAPPINGS")
-    for shooter_id, mapping in state.colour_mappings.items():
-        print(
-            shooter_id,
-            "->",
-            mapping["board_colour"],
-            "|",
-            mapping["status"]
-        )
+    mappings = getattr(state, "colour_mappings", {})
+    if mappings:
+        for shooter_id, mapping in mappings.items():
+            print(
+                shooter_id,
+                "->",
+                mapping["board_colour"],
+                "|",
+                mapping["status"]
+            )
+    else:
+        print("No verified shooter-to-board colour mappings loaded.")
 
-    print("\nGAME STATE VALIDATION:", state.validate())
+    errors = state.validate()
+    print("\nGAME STATE VALIDATION:", errors)
 
-    assert state.width == 35
-    assert state.height == 35
-    assert state.remaining_pixels == 1225
-    assert audit["occupied_pixels"] == 1225
-    assert audit["initial_occupancy_user_confirmed"] is True
-    assert len(state.shooters) == 4
-    assert len(state.colour_mappings) == 4
-    assert state.validate() == []
+    if errors:
+        raise SystemExit("Level integration failed.")
 
-    print("\nLEVEL INTEGRATION PASSED")
-    print("All 1,225 starting tiles preserved.")
-    print("Unverified colour mappings remain explicitly unverified.")
+    if audit.get("source") == "screenshot_observation":
+        print("\nSCREENSHOT OBSERVATION INTEGRATION PASSED")
+        print("Candidate state only; visual truth remains unverified.")
+        print("Gameplay verification: False")
+        print("Game taps enabled: False")
+    else:
+        assert state.width == 35
+        assert state.height == 35
+        assert state.remaining_pixels == 1225
+        assert audit["occupied_pixels"] == 1225
+        assert audit["initial_occupancy_user_confirmed"] is True
+        assert len(state.shooters) == 4
+        assert len(state.colour_mappings) == 4
+        print("\nLEVEL INTEGRATION PASSED")
+        print("All 1,225 starting tiles preserved.")
+        print("Unverified colour mappings remain explicitly unverified.")
