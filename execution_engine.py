@@ -51,9 +51,48 @@ def _simulate_conveyor_batch(original, state, groups):
     config = SimulatorConfig()
     records = []
 
+    # Existing conveyor occupants must represent complete bonded groups.
+    # A partial group cannot be safely reconstructed from the screenshot/state.
+    conveyor_ids = {str(item) for item in original.conveyor}
+    checked_groups = set()
+    for shooter_id in original.conveyor:
+        members = original.bonded_group(shooter_id)
+        if not members:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "INVALID_EXISTING_CONVEYOR_GROUP",
+            }
+        canonical_id = original.bonded_group_id(shooter_id)
+        if canonical_id is None:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "INVALID_BONDED_GROUP_IDENTITY",
+            }
+        if canonical_id in checked_groups:
+            continue
+        checked_groups.add(canonical_id)
+        if not set(members).issubset(conveyor_ids):
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "PARTIAL_BONDED_GROUP_ON_CONVEYOR",
+                "group_id": canonical_id,
+                "required_shooter_ids": members,
+                "conveyor_shooter_ids": sorted(conveyor_ids),
+            }
+
     # Restore shooters already on the conveyor.
     for shooter_id in original.conveyor:
         shooter = original.shooters[shooter_id]
+        if shooter.ammo is None:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "UNKNOWN_AMMO_ON_EXISTING_CONVEYOR",
+                "shooter_id": str(shooter_id),
+            }
         group_id = original.bonded_group_id(shooter_id)
         if group_id is None:
             return {
