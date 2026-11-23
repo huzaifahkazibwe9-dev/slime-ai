@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 from snapshot_sync import synchronise_audit, synchronise_bundle
 
 
@@ -8,7 +9,7 @@ class SnapshotSyncTests(unittest.TestCase):
             "snapshot_id": "capture-001",
             "capture_session_id": "session-001",
             "timestamp_identified": True,
-            "captured_at": "2026-11-21T10:00:00+03:00",
+            "captured_at": datetime.now(timezone.utc).isoformat(),
         }
         observations = {
             "board_snapshot_id": "capture-001",
@@ -42,6 +43,48 @@ class SnapshotSyncTests(unittest.TestCase):
         board, observations = self.valid_data()
         observations["same_board_state_confirmed"] = False
         self.assertFalse(synchronise_audit(board, observations)["synchronised"])
+
+    def test_capture_freshness_accepts_recent_aligned_timestamps(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        result = validate_capture_freshness(
+            "2026-11-23T09:59:00+00:00",
+            "2026-11-23T09:59:30+00:00",
+            now=now,
+        )
+        self.assertTrue(result["fresh"])
+
+    def test_capture_freshness_rejects_stale_screenshot(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        result = validate_capture_freshness(
+            "2026-11-23T09:00:00+00:00",
+            "2026-11-23T09:00:30+00:00",
+            now=now,
+        )
+        self.assertFalse(result["fresh"])
+        self.assertFalse(result["checks"]["board_capture_fresh"])
+
+    def test_capture_freshness_rejects_naive_timestamp(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        result = validate_capture_freshness(
+            "2026-11-23T09:59:00",
+            "2026-11-23T09:59:30+00:00",
+            now=now,
+        )
+        self.assertFalse(result["fresh"])
+
+    def test_capture_freshness_rejects_excessive_timestamp_skew(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        result = validate_capture_freshness(
+            "2026-11-23T09:59:00+00:00",
+            "2026-11-23T09:55:00+00:00",
+            now=now,
+        )
+        self.assertFalse(result["fresh"])
+        self.assertFalse(result["checks"]["capture_timestamps_within_skew_limit"])
 
     def test_game_taps_always_disabled(self):
         board, observations = self.valid_data()
