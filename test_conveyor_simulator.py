@@ -138,7 +138,7 @@ class ConveyorSimulatorTests(unittest.TestCase):
             {"id": "stored", "ammo": 0, "returned": True}
         ], storage_occupied=1)
         self.assertEqual(sim.active, [])
-        self.assertEqual(sim.returned_ids, [])
+        self.assertEqual(sim.returned_ids, ["stored"])
         self.assertEqual(sim.storage_occupied, 1)
 
     def test_simulator_rejects_position_outside_lap(self):
@@ -147,6 +147,27 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 shooters=[Shooter("s", "g", 1, position=5)],
                 config=SimulatorConfig(ticks_per_lap=5),
             )
+
+    def test_restore_rejects_partial_bonded_conveyor_group(self):
+        with self.assertRaises(ValueError):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 4, "selected": True},
+                {"id": "A2", "group_id": "PAIR", "ammo": 4},
+            ])
+
+    def test_restore_rejects_partial_bonded_storage_group(self):
+        with self.assertRaises(ValueError):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 0, "returned": True},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            ], storage_occupied=1)
+
+    def test_restore_rejects_conveyor_over_capacity(self):
+        with self.assertRaises(ValueError):
+            create_simulator([
+                {"id": "a", "ammo": 2, "selected": True},
+                {"id": "b", "ammo": 2, "selected": True},
+            ], config=SimulatorConfig(conveyor_capacity=1))
 
     def test_report_never_enables_live_actions(self):
         sim = create_simulator([
