@@ -245,7 +245,7 @@ def audit(board_data, calibration, observations):
             observation_lookup.get(position.get("position_id")),
         )
         position["ammo_evidence"] = ammo_evidence
-        ammo_available = isinstance(ammo, int) and ammo > 0
+        ammo_available = type(ammo) is int and ammo > 0
 
         blockers = []
         if not same_state:
