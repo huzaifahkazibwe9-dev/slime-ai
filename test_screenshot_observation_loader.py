@@ -1,4 +1,9 @@
 import json
+import runpy
+import sys
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 import tempfile
 import unittest
 from pathlib import Path
@@ -87,6 +92,18 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertEqual(state.height, 2)
         self.assertEqual(audit["source"], "screenshot_observation")
         self.assertFalse(audit["game_taps_enabled"])
+
+    def test_level_loader_cli_completes_screenshot_mode(self):
+        output = StringIO()
+        argv = [
+            "level_loader.py",
+            "--observation", str(self.observation_path),
+            "--shooters", str(self.shooter_path),
+        ]
+        with patch.object(sys, "argv", argv), redirect_stdout(output):
+            runpy.run_module("level_loader", run_name="__main__")
+        self.assertIn("SCREENSHOT OBSERVATION INTEGRATION PASSED", output.getvalue())
+        self.assertIn("Game taps enabled: False", output.getvalue())
 
     def test_rejects_board_dimensions_that_do_not_match_grid(self):
         self.observation["board"] = [["cyan"]]
