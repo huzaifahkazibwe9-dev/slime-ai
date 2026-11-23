@@ -102,6 +102,7 @@ class RegionLaneMapperTests(unittest.TestCase):
             "counts": {"white": 1224, "red": 1},
             "source_sha256": "f" * 64,
             "snapshot_id": "sha256:" + "f" * 64,
+            "board_snapshot_id": "sha256:" + "f" * 64,
             "gameplay_verified": False,
             "vision_classification_verified": False,
             "game_taps_enabled": False,
