@@ -131,10 +131,56 @@ class OrchestrationTests(unittest.TestCase):
             "captured_at": "2026-11-23T10:01:00+00:00",
             "timestamp_identified": True,
         }
-        result = evidence_status(planning, identity, snapshot, candidates)
+        result = evidence_status(
+            planning, identity, snapshot, candidates,
+            shooter_capture_verified=True,
+        )
         self.assertTrue(result["evidence_gate_passed"])
         self.assertTrue(result["checks"]["planning_capture_freshness_verified"])
         self.assertTrue(result["checks"]["all_evidence_sources_share_capture"])
+
+    def test_missing_shooter_capture_provenance_blocks_otherwise_valid_evidence(self):
+        planning = {
+            "decision": "ELIGIBLE_CANDIDATES_FOUND",
+            "gameplay_verified": True,
+            "actions_performed": False,
+            "capture_freshness_verified": True,
+            "candidate_capture_provenance_verified": True,
+            "conveyor_timing_calibrated": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:30+00:00",
+            "timestamp_identified": True,
+        }
+        identity = {
+            "identity_verified": True, "timestamps_known": True,
+            "snapshot_linked": True, "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_linked": True, "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True, "errors": [], "blockers": [],
+        }
+        snapshot = {
+            "synchronised": True, "planning_allowed_by_sync": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:00:00+00:00",
+            "timestamp_identified": True,
+            "bundle_synchronisation": {
+                "synchronised": True, "planning_allowed_by_sync": True,
+            },
+        }
+        candidates = {
+            "identity_verified": True, "candidate_provenance_verified": True,
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-23T10:01:00+00:00",
+            "timestamp_identified": True,
+        }
+        result = evidence_status(planning, identity, snapshot, candidates)
+        self.assertFalse(result["evidence_gate_passed"])
+        self.assertFalse(
+            result["checks"]["shooter_capture_provenance_verified"]
+        )
 
     def test_missing_planning_freshness_blocks_otherwise_valid_evidence(self):
         planning = {
