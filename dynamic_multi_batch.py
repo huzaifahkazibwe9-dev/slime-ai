@@ -5,6 +5,7 @@ from game_state import GameState
 from bonded_group_simulator import simulate_bonded_group
 from execution_engine import run_multi_batch_schedule
 from conveyor_simulator import SimulatorConfig
+from accessibility_utils import normalize_accessible_ids
 
 
 def _group_index(state):
@@ -89,7 +90,7 @@ def simulate_dynamic_multi_batch(
         batch_accessible = None
         if accessibility_resolver is not None:
             observed = accessibility_resolver(copy.deepcopy(working))
-            batch_accessible = {str(value) for value in (observed or [])}
+            batch_accessible = normalize_accessible_ids(observed)
 
         calculated_shots = {}
         for group_id in requested:
