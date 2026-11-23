@@ -32,7 +32,8 @@ class ReadinessAssessTests(unittest.TestCase):
         return (
             {"initial_occupancy_user_confirmed": True,
              "colour_classification_verified": True},
-            {"shooters": [{"id": "s1"}]},
+            {"shooters": [{"id": "s1"}],
+             "timing_calibrated_to_game": True, "verified_by_user": True},
             {"identity_verified": True},
             {"actual_firing_verified": True},
         )
@@ -76,6 +77,7 @@ class ReadinessAssessTests(unittest.TestCase):
         self.assertTrue(result["checks"]["colour_mappings_gameplay_verified"])
         self.assertTrue(result["checks"]["at_least_one_accessible_shooter"])
         self.assertTrue(result["checks"]["conveyor_calibration_present"])
+        self.assertTrue(result["checks"]["conveyor_timing_calibrated"])
         self.assertTrue(result["checks"]["physical_shooter_identity_verified"])
         self.assertTrue(result["checks"]["actual_firing_verified"])
 
@@ -87,6 +89,8 @@ class ReadinessAssessTests(unittest.TestCase):
         self.assertFalse(
             result["checks"]["physical_shooter_identity_verified"]
         )
+        self.assertFalse(result["checks"]["conveyor_timing_calibrated"])
+
         self.assertFalse(result["checks"]["actual_firing_verified"])
 
     def test_unverified_identity_and_firing_do_not_pass(self):
@@ -102,6 +106,17 @@ class ReadinessAssessTests(unittest.TestCase):
             result["checks"]["physical_shooter_identity_verified"]
         )
         self.assertFalse(result["checks"]["actual_firing_verified"])
+
+    def test_shooter_calibration_without_timing_confirmation_is_insufficient(self):
+        result = readiness.assess(
+            FakeState(),
+            {},
+            {"shooters": [{"id": "s1"}], "verified_by_user": True},
+            {},
+            {},
+        )
+        self.assertTrue(result["checks"]["conveyor_calibration_present"])
+        self.assertFalse(result["checks"]["conveyor_timing_calibrated"])
 
     def test_gameplay_never_becomes_ready_from_evidence_flags(self):
         audit, calibration, identity, firing = self.complete_evidence()
