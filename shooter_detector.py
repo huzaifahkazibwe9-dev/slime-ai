@@ -142,16 +142,43 @@ def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percen
                 )
     return hashlib.sha256(Path(source_path).read_bytes()).hexdigest()
 
+def extract_panel_crop(source_path, bounds, output_path=IMAGE):
+    """Create the calibrated shooter panel image from a full screenshot."""
+    if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
+            or any(type(v) is not int for v in bounds)):
+        raise ValueError("Panel bounds must be four integer coordinates")
+    left, top, right, bottom = bounds
+    with Image.open(source_path) as source:
+        source = source.convert("RGB")
+        if not (0 <= left < right <= source.width
+                and 0 <= top < bottom <= source.height):
+            raise ValueError("Panel bounds are outside the source screenshot")
+        crop = source.crop((left, top, right, bottom))
+        expected_ratio = REF_W / REF_H
+        actual_ratio = crop.width / crop.height
+        if abs(actual_ratio - expected_ratio) / expected_ratio > 0.02:
+            raise ValueError("Selected source region does not match shooter panel aspect ratio")
+        crop = crop.resize((REF_W, REF_H), Image.Resampling.LANCZOS)
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        crop.save(output_path, quality=95)
+    return output_path
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-screenshot")
     parser.add_argument("--panel-bounds", nargs=4, type=int)
     parser.add_argument("--capture-session-id")
     parser.add_argument("--captured-at")
+    parser.add_argument("--extract-panel", action="store_true")
     args = parser.parse_args()
 
     if bool(args.source_screenshot) != bool(args.panel_bounds):
         raise ValueError("--source-screenshot and --panel-bounds must be supplied together")
+    if args.extract_panel and not args.source_screenshot:
+        raise ValueError("--extract-panel requires --source-screenshot and --panel-bounds")
+    if args.extract_panel:
+        extract_panel_crop(args.source_screenshot, args.panel_bounds, IMAGE)
 
     if not IMAGE.exists():
         raise FileNotFoundError(IMAGE)
