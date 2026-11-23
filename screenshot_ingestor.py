@@ -142,17 +142,38 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
 
     grid_size = calibration.get("grid_size")
     bounds = calibration.get("bounds")
+    if (not isinstance(grid_size, list) or len(grid_size) != 2
+            or any(type(value) is not int or value < 1 for value in grid_size)
+            or not isinstance(bounds, list) or len(bounds) != 4
+            or any(type(value) not in (int, float) or not math.isfinite(value)
+                   for value in bounds)):
+        return False
     if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
         return False
     board = cached.get("board")
+    raw_rgb = cached.get("raw_rgb")
     counts = cached.get("counts")
-    if (not isinstance(grid_size, list) or len(grid_size) != 2
-            or not isinstance(counts, dict)
-            or not isinstance(board, list) or len(board) != grid_size[1]):
+    if (not isinstance(counts, dict)
+            or not isinstance(board, list) or len(board) != grid_size[1]
+            or not isinstance(raw_rgb, list) or len(raw_rgb) != grid_size[1]
+            or cached.get("sampling_method") != "numpy_vectorized_3x3_median"):
         return False
-    if any(not isinstance(row, list) or len(row) != grid_size[0]
-           or any(not isinstance(label, str) for label in row)
-           for row in board):
+    if any(
+        not isinstance(row, list) or len(row) != grid_size[0]
+        or any(not isinstance(label, str) for label in row)
+        for row in board
+    ):
+        return False
+    if any(
+        not isinstance(row, list) or len(row) != grid_size[0]
+        or any(
+            not isinstance(rgb, list) or len(rgb) != 3
+            or any(type(channel) is not int or not 0 <= channel <= 255
+                   for channel in rgb)
+            for rgb in row
+        )
+        for row in raw_rgb
+    ):
         return False
 
     actual_counts = {}
