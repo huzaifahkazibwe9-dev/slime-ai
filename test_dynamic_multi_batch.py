@@ -62,6 +62,39 @@ class Build11AETests(unittest.TestCase):
         self.assertTrue(report["source_state_unchanged"])
         self.assertEqual(state, before)
 
+    def test_simulation_completion_requires_zero_pixels_and_all_groups(self):
+        complete = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A"]}, {"groups": ["B"]}],
+            SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+        )
+        self.assertTrue(complete["simulation_complete"])
+        self.assertTrue(complete["all_known_groups_scheduled"])
+        self.assertEqual(complete["unscheduled_group_ids"], [])
+        self.assertFalse(complete["full_level_complete"])
+        self.assertFalse(complete["live_level_completion_verified"])
+        self.assertFalse(complete["conveyor_timing_calibrated"])
+
+        partial = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A"]}],
+            SimulatorConfig(conveyor_capacity=1, ticks_per_lap=4),
+        )
+        self.assertFalse(partial["simulation_complete"])
+        self.assertFalse(partial["all_known_groups_scheduled"])
+        self.assertEqual(partial["unscheduled_group_ids"], ["B"])
+        self.assertFalse(partial["full_level_complete"])
+
+    def test_rejected_dynamic_schedule_cannot_claim_simulation_complete(self):
+        report = simulate_dynamic_multi_batch(
+            make_state(),
+            [{"groups": ["A"]}, {"groups": ["A"]}],
+            SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+        )
+        self.assertFalse(report["simulation_complete"])
+        self.assertFalse(report["full_level_complete"])
+        self.assertFalse(report["live_level_completion_verified"])
+
     def test_live_gameplay_stays_disabled(self):
         report = simulate_dynamic_multi_batch(
             make_state(),
