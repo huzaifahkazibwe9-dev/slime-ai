@@ -34,6 +34,41 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_panel_image_size(0, 540)
 
+    def test_full_panel_inventory_includes_all_three_rows(self):
+        from shooter_detector import build_panel_slot_inventory
+        slots = build_panel_slot_inventory(REF_W, REF_H)
+        self.assertEqual(len(slots), 12)
+        self.assertEqual(
+            [(slot["row"], slot["column"]) for slot in slots],
+            [(row, column) for row in range(1, 4) for column in range(1, 5)],
+        )
+        self.assertEqual(
+            [slot["status"] for slot in slots[:4]],
+            ["readable"] * 4,
+        )
+        self.assertEqual(
+            [slot["status"] for slot in slots[4:8]],
+            ["unrevealed"] * 4,
+        )
+        self.assertEqual(
+            [slot["status"] for slot in slots[8:]],
+            ["partially_occluded"] * 4,
+        )
+        self.assertTrue(all(not slot["selectable_candidate"] for slot in slots))
+
+    def test_panel_inventory_scales_slot_centres(self):
+        from shooter_detector import build_panel_slot_inventory
+        slots = build_panel_slot_inventory(REF_W // 2, REF_H // 2)
+        self.assertEqual(slots[0]["center"], [165, 138])
+        self.assertEqual(slots[4]["center"], [165, 288])
+
+    def test_panel_inventory_rejects_invalid_dimensions(self):
+        from shooter_detector import build_panel_slot_inventory
+        for dimensions in [(0, 999), (1536, 0), (True, 999), (1536.0, 999)]:
+            with self.subTest(dimensions=dimensions):
+                with self.assertRaises(ValueError):
+                    build_panel_slot_inventory(*dimensions)
+
     def test_scaled_panel_sample_coordinates(self):
         sx = 830 / REF_W
         sy = 540 / REF_H
