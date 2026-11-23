@@ -45,6 +45,22 @@ class VisionValidatorTests(unittest.TestCase):
         self.data["counts"]["white"] = 9
         self.assertFalse(audit_data(self.data)["passed"])
 
+    def test_rejects_invalid_grid_dimensions(self):
+        for grid_size in ([True, 2], [2.0, 2], [0, 2], [-1, 2]):
+            with self.subTest(grid_size=grid_size):
+                self.data["grid_size"] = grid_size
+                result = audit_data(self.data)
+                self.assertFalse(result["passed"])
+                self.assertIn("Invalid grid_size", result["errors"])
+        self.data["grid_size"] = [2, 2]
+
+    def test_malformed_counts_and_occupancy_are_handled(self):
+        self.data["counts"] = []
+        self.data["occupancy"] = []
+        result = audit_data(self.data)
+        self.assertFalse(result["passed"])
+        self.assertFalse(result["initial_occupancy_user_confirmed"])
+
     def test_safety_flags_remain_disabled(self):
         result = audit_data(self.data)
         self.assertFalse(result["vision_classification_verified"])
