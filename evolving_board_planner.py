@@ -11,11 +11,10 @@ from bonded_group_simulator import simulate_bonded_group
 
 
 def _group_key(state, members):
-    shooter = state.shooters[str(members[0])]
-    ids = [str(members[0])] + [
-        str(value) for value in shooter.bonded_ids
-    ]
-    return str(shooter.group_id or min(ids))
+    group_id = state.bonded_group_id(str(members[0]))
+    if group_id is None:
+        raise ValueError("Bonded component has inconsistent identity")
+    return group_id
 
 
 def _state_key(state, used):
@@ -40,13 +39,11 @@ def _normalise_accessibility(state, resolver):
 
 
 def _known_group_ids(state):
-    groups = set()
-    for shooter_id, shooter in state.shooters.items():
-        members = [str(shooter_id)] + [
-            str(value) for value in shooter.bonded_ids
-        ]
-        groups.add(str(shooter.group_id or min(members)))
-    return groups
+    return {
+        group_id
+        for shooter_id in state.shooters
+        if (group_id := state.bonded_group_id(shooter_id)) is not None
+    }
 
 
 def plan_evolving_board(
