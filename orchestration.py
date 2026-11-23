@@ -50,6 +50,53 @@ def evidence_status(planning, identity, snapshot, candidates):
     }
 
 
+
+def run_multi_batch_diagnostic(state, max_candidates=200):
+    """Run bounded multi-batch search and retain a compact, simulation-only summary."""
+    try:
+        from multi_batch_candidate_planner import plan_multi_batch_candidates
+
+        result = plan_multi_batch_candidates(
+            state,
+            max_candidates=max_candidates,
+        )
+        best = result.get("best")
+        best_summary = None
+        if isinstance(best, dict):
+            best_summary = {
+                "schedule_valid": best.get("schedule_valid") is True,
+                "candidate_order": list(best.get("candidate_order", [])),
+                "candidate_batches": best.get("candidate_batches", []),
+                "pixels_removed": best.get("simulated_pixels_removed", 0),
+                "remaining_pixels": best.get("simulated_remaining_pixels"),
+            }
+
+        return {
+            "engine": result.get("engine"),
+            "status": result.get("status"),
+            "accessible_group_count": result.get("accessible_group_count", 0),
+            "candidate_count": result.get("candidate_count", 0),
+            "valid_candidate_count": result.get("valid_candidate_count", 0),
+            "search_truncated": result.get("search_truncated", False),
+            "best": best_summary,
+            "source_state_unchanged": result.get("source_state_unchanged") is True,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+            "limitations": result.get("limitations", []),
+        }
+    except Exception as exc:
+        return {
+            "status": "MULTI_BATCH_DIAGNOSTIC_ERROR",
+            "error": f"{type(exc).__name__}: {exc}",
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+        }
+
+
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
     from level_loader import load_level
@@ -118,6 +165,13 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     except Exception as exc:
         dry_error = f"{type(exc).__name__}: {exc}"
 
+    # Search whole-batch sequences as a separate bounded planning pass.
+    # It remains simulation-only and cannot authorize Android input.
+    multi_batch_summary = run_multi_batch_diagnostic(
+        state,
+        max_candidates=200,
+    )
+
     report = {
         "build": "11M",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -132,6 +186,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         },
         "dry_simulation": dry_summary,
         "dry_simulation_error": dry_error,
+        "multi_batch_planning": multi_batch_summary,
         "decision": (
             "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
             if recommended_group else "BLOCKED_NO_VERIFIED_PLAN"
