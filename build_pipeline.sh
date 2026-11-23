@@ -66,8 +66,15 @@ echo "[8/9] Running evidence-gated dry-run orchestration"
 python orchestration.py --observation "$OBSERVATION"
 
 echo
-echo "[9/9] Running central diagnostics and tests"
+echo "[9/11] Running central diagnostics"
 python main.py --observation "$OBSERVATION"
+
+echo
+echo "[10/11] Assessing readiness from the same screenshot evidence"
+python readiness_coordinator.py --observation "$OBSERVATION" --shooters "$SHOOTER_DATA"
+
+echo
+echo "[11/11] Running the complete unit-test suite"
 python -m unittest discover -q
 
 echo
