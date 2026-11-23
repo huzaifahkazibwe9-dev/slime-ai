@@ -8,6 +8,13 @@ class RegionGraphTests(unittest.TestCase):
         self.assertEqual(report["region_count"], 1)
         self.assertEqual(report["regions"][0]["neighbor_count"], 0)
 
+    def test_region_bounds_cover_all_cells(self):
+        report = build_region_graph([["a", "a", "b"], ["a", None, "b"], ["c", "c", "b"]])
+        by_colour = {region["colour"]: region for region in report["regions"]}
+        self.assertEqual(by_colour["a"]["bounds"], [0, 0, 1, 1])
+        self.assertEqual(by_colour["b"]["bounds"], [0, 2, 2, 2])
+        self.assertEqual(by_colour["c"]["bounds"], [2, 0, 2, 1])
+
     def test_two_regions_share_border(self):
         report = build_region_graph([["a", "b"], ["a", "b"]])
         self.assertEqual(report["region_count"], 2)
