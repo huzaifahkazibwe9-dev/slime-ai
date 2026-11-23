@@ -17,7 +17,7 @@ def make_report():
         "gameplay_verified": False,
         "confidence_audit": {
             "game_taps_enabled": False,
-            "source_snapshot_id": "board-1",
+            "source_snapshot_id": "sha256:" + "a" * 64,
             "snapshot_match_verified": True,
         },
         "results": [{
