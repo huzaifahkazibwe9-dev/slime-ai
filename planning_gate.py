@@ -307,6 +307,8 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
             if counts["eligible_scenarios"] > 0
             else "NO_VERIFIED_PLANNING_CANDIDATES"
         ),
+        # A verified recommendation is not proof of live gameplay or execution.
+        "planning_evidence_verified": counts["eligible_scenarios"] > 0,
         "gameplay_verified": False,
         "game_taps_enabled": False,
         "actions_performed": False,
