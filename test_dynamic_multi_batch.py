@@ -124,6 +124,9 @@ class Build11AETests(unittest.TestCase):
         )
         self.assertFalse(report["live_execution_allowed"])
         self.assertFalse(report["game_taps_enabled"])
+        self.assertFalse(report["simulation_complete"])
+        self.assertFalse(report["full_level_complete"])
+        self.assertFalse(report["live_level_completion_verified"])
 
     def test_explicit_resolver_unlocks_group_after_board_changes(self):
         state = make_state()
