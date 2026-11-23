@@ -138,6 +138,7 @@ def main():
             "validation_errors": validation_errors,
             "tracks": {},
             "checks": {"observations_valid": False},
+            "candidate_provenance_verified": False,
             "identity_verified": False,
             "gameplay_taps_enabled": False,
             "note": "Invalid observations rejected; candidate matching skipped.",
