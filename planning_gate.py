@@ -34,7 +34,64 @@ def _capture_provenance(report):
     )
     return {"valid": valid, "captured_at": captured_at}
 
-def evaluate_planning(report):
+def _candidate_capture_provenance(candidate_report, board_provenance):
+    """Independently validate every candidate track against the planning capture."""
+    if not isinstance(candidate_report, dict) or not board_provenance.get("valid"):
+        return False
+    tracks = candidate_report.get("tracks")
+    if not isinstance(tracks, dict) or not tracks:
+        return False
+
+    board_snapshot_id = candidate_report.get("board_snapshot_id")
+    session_id = candidate_report.get("capture_session_id")
+    captured_at = _parse_aware_timestamp(candidate_report.get("captured_at"))
+    board_time = board_provenance.get("captured_at")
+    if (
+        board_snapshot_id is None
+        or session_id is None
+        or captured_at is None
+        or board_snapshot_id != board_provenance.get("board_snapshot_id")
+        or session_id != board_provenance.get("capture_session_id")
+        or candidate_report.get("timestamp_identified") is not True
+        or board_time is None
+        or abs((captured_at - board_time).total_seconds()) > 120
+    ):
+        return False
+
+    for track in tracks.values():
+        if not isinstance(track, dict):
+            return False
+        if (
+            track.get("board_snapshot_id") != board_snapshot_id
+            or track.get("capture_session_id") != session_id
+            or track.get("timestamp_identified") is not True
+        ):
+            return False
+        track_time = _parse_aware_timestamp(track.get("captured_at"))
+        if (
+            track_time is None
+            or abs((track_time - board_time).total_seconds()) > 120
+        ):
+            return False
+        observations = track.get("observations")
+        if not isinstance(observations, list) or not observations:
+            return False
+        for observation in observations:
+            if not isinstance(observation, dict):
+                return False
+            observed_time = _parse_aware_timestamp(observation.get("captured_at"))
+            if (
+                observation.get("board_snapshot_id") != board_snapshot_id
+                or observation.get("capture_session_id") != session_id
+                or observation.get("timestamp_identified") is not True
+                or observed_time is None
+                or abs((observed_time - board_time).total_seconds()) > 120
+            ):
+                return False
+    return True
+
+
+def evaluate_planning(report, candidate_report=None):
     confidence_audit = report.get("confidence_audit", {})
     board_synced = bool(report.get("same_board_state_confirmed", False))
     freshness = report.get("capture_freshness", {})
@@ -43,6 +100,11 @@ def evaluate_planning(report):
     )
     identity_verified = bool(report.get("conveyor_identity_verified", False))
     provenance = _capture_provenance(report)
+    provenance["board_snapshot_id"] = report.get("board_snapshot_id")
+    provenance["capture_session_id"] = report.get("capture_session_id")
+    candidate_provenance_verified = _candidate_capture_provenance(
+        candidate_report, provenance
+    )
     mappings_verified = bool(report.get("gameplay_verified", False))
     confidence_audit = report.get("confidence_audit", {})
     confidence_snapshot_verified = (
@@ -116,6 +178,8 @@ def evaluate_planning(report):
                 blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
             if not provenance["valid"]:
                 blockers.append("BOARD_CAPTURE_PROVENANCE_INCOMPLETE")
+            if not candidate_provenance_verified:
+                blockers.append("CANDIDATE_CAPTURE_PROVENANCE_UNVERIFIED")
             if not board_synced:
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
             if not capture_freshness_verified:
@@ -162,6 +226,7 @@ def evaluate_planning(report):
         "captured_at": report.get("captured_at"),
         "timestamp_identified": report.get("timestamp_identified") is True,
         "capture_provenance_verified": provenance["valid"],
+        "candidate_capture_provenance_verified": candidate_provenance_verified,
         "capture_freshness_verified": capture_freshness_verified,
         "confidence_snapshot_verified": confidence_snapshot_verified,
         "counts": counts,
@@ -179,7 +244,12 @@ def evaluate_planning(report):
 
 def main():
     report = json.loads(INPUT_FILE.read_text())
-    result = evaluate_planning(report)
+    candidate_path = Path("data/conveyor_identity_candidates.json")
+    candidate_report = (
+        json.loads(candidate_path.read_text()) if candidate_path.is_file()
+        else None
+    )
+    result = evaluate_planning(report, candidate_report=candidate_report)
     OUTPUT_FILE.write_text(json.dumps(result, indent=2))
 
     print("SLIME AI — BUILD 11H PLANNING GATE")
