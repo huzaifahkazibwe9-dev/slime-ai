@@ -53,6 +53,10 @@ def simulate_dynamic_multi_batch(
             },
             "source_state_unchanged": True,
             "source_state_integrity_checked": True,
+            "simulation_complete": False,
+            "full_level_complete": False,
+            "live_level_completion_verified": False,
+            "conveyor_timing_calibrated": False,
             "evidence_verified": False,
             "live_execution_allowed": False,
             "gameplay_actions_performed": False,
@@ -231,6 +235,16 @@ def simulate_dynamic_multi_batch(
         "simulated_pixels_removed": (
             original.remaining_pixels - working.remaining_pixels
         ),
+        "all_known_groups_scheduled": scheduled_group_ids == set(group_roots),
+        "unscheduled_group_ids": sorted(set(group_roots) - scheduled_group_ids),
+        "simulation_complete": bool(
+            schedule.get("schedule_valid")
+            and working.remaining_pixels == 0
+            and scheduled_group_ids == set(group_roots)
+        ),
+        "full_level_complete": False,
+        "live_level_completion_verified": False,
+        "conveyor_timing_calibrated": False,
         "source_state_unchanged": unchanged,
         "source_state_integrity_checked": True,
         "evidence_verified": False,
