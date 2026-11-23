@@ -1,8 +1,10 @@
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from PIL import Image
 
-from screenshot_ingestor import classify_rgb, extract_board
+from screenshot_ingestor import classify_rgb, extract_board, ingest
 
 
 class ScreenshotIngestorTests(unittest.TestCase):
@@ -69,6 +71,30 @@ class ScreenshotIngestorTests(unittest.TestCase):
                 })
         finally:
             path.unlink(missing_ok=True)
+
+    def test_ingest_binds_board_snapshot_to_source_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            ingest(image_path, baseline_path, output_path)
+            result = json.loads(output_path.read_text())
+            self.assertEqual(
+                result["board_snapshot_id"],
+                result["snapshot_id"],
+            )
+            self.assertEqual(
+                result["snapshot_id"],
+                "sha256:" + result["source_sha256"],
+            )
+            self.assertFalse(result["gameplay_verified"])
+            self.assertFalse(result["game_taps_enabled"])
 
     def test_rejects_bounds_without_sampling_margin(self):
         path = Path("data/test_ingestor_edge_bounds.png")
