@@ -212,6 +212,44 @@ def load_user_confirmed_bonded_groups(path, shooter_ids):
     return groups, "user_confirmed"
 
 
+def build_panel_slot_inventory(image_width, image_height):
+    """Describe every slot in the calibrated multi-row shooter panel.
+
+    Only the first row is currently readable by the legacy colour/ammo
+    detector. Later rows remain explicitly unrevealed or occluded; they are
+    never promoted to selectable shooters until a dedicated detector verifies
+    their contents.
+    """
+    if (type(image_width) is not int or type(image_height) is not int
+            or image_width < 1 or image_height < 1):
+        raise ValueError("Panel dimensions must be positive integers")
+
+    sx = image_width / REF_W
+    sy = image_height / REF_H
+    x_centres = [item["sample"][0] for item in SHOOTERS]
+    row_specs = [
+        ("visible", 275, "readable"),
+        ("question", 575, "unrevealed"),
+        ("lower", 875, "partially_occluded"),
+    ]
+    slots = []
+    for row_index, (prefix, y, status) in enumerate(row_specs, start=1):
+        for column_index, x in enumerate(x_centres, start=1):
+            if row_index == 1:
+                slot_id = SHOOTERS[column_index - 1]["id"]
+            else:
+                slot_id = f"{prefix}_{column_index}"
+            slots.append({
+                "id": slot_id,
+                "row": row_index,
+                "column": column_index,
+                "center": list(scale_point((x, y), sx, sy)),
+                "status": status,
+                "selectable_candidate": False,
+            })
+    return slots
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-screenshot")
@@ -327,8 +365,17 @@ def main():
             "captured_at": captured_at,
         }
 
+    panel_slots = build_panel_slot_inventory(image.width, image.height)
+
     result = {
         "capture_provenance": provenance,
+        "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
+        "panel_slots": panel_slots,
+        "bond_relationships": {
+            "status": "requires_user_confirmation",
+            "verified_groups": bonded_groups,
+            "automatically_inferred": False,
+        },
         "image_dimensions": list(image.size),
         "visible_shooters": detected,
         "bonded_groups": bonded_groups,
