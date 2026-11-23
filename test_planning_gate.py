@@ -8,6 +8,7 @@ def make_report():
         "level": 39,
         "board_dimensions": [2, 2],
         "same_board_state_confirmed": False,
+        "capture_freshness": {"fresh": False},
         "board_snapshot_id": "board-1",
         "capture_session_id": "capture-1",
         "conveyor_identity_verified": False,
@@ -42,6 +43,17 @@ class PlanningGateTests(unittest.TestCase):
         item = result["results"][0]
         self.assertTrue(item["geometrically_reachable"])
         self.assertFalse(item["planning_eligible"])
+
+    def test_stale_capture_timestamps_rejected(self):
+        report = make_report()
+        report["same_board_state_confirmed"] = True
+        report["capture_freshness"] = {"fresh": False}
+        result = evaluate_planning(report)
+        self.assertIn(
+            "CAPTURE_TIMESTAMPS_NOT_FRESH_AND_ALIGNED",
+            result["results"][0]["blockers"],
+        )
+        self.assertFalse(result["results"][0]["planning_eligible"])
 
     def test_unverified_identity_rejected(self):
         result = evaluate_planning(make_report())
@@ -84,6 +96,7 @@ class PlanningGateTests(unittest.TestCase):
     def test_all_gates_must_pass(self):
         report = make_report()
         report["same_board_state_confirmed"] = True
+        report["capture_freshness"] = {"fresh": True}
         report["conveyor_identity_verified"] = True
         report["gameplay_verified"] = True
         position = report["results"][0]
