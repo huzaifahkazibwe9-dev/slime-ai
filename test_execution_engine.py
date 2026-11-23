@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from execution_engine import run_dry_simulation
+from execution_engine import run_dry_simulation, _simulate_conveyor_batch
 from game_state import GameState, Shooter
 
 
@@ -53,6 +53,25 @@ class ExecutionEngineTests(unittest.TestCase):
         report = run_dry_simulation(state)
         self.assertEqual(report["best"]["groups"], [["A", "B"]])
         self.assertEqual(report["best"]["conveyor_used"], 2)
+
+    def test_conveyor_dry_run_uses_canonical_explicit_group_id(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id="pair-42", bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            accessible=False, group_id="pair-42", bonded_ids=["A"]
+        )
+        original = self.make_state([["red", None, "blue"]], [a, b])
+        simulated = copy.deepcopy(original)
+        self.assertTrue(simulated.select_group("A"))
+        report = _simulate_conveyor_batch(original, simulated, [("A", "B")])
+        self.assertTrue(report["batch_selection_valid"])
+        self.assertFalse(report["failed"])
+        active = report["active_shooters"]
+        self.assertEqual(len(active), 2)
+        self.assertEqual({item["group_id"] for item in active}, {"pair-42"})
 
     def test_three_bond_group_rejected_with_one_slot(self):
         shooters = [
