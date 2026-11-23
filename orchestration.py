@@ -143,6 +143,47 @@ def run_evolving_board_diagnostic(state, max_nodes=500, beam_width=40,
             "game_taps_enabled": False,
         }
 
+def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40):
+    """Run evolving-board planning with conservative capacity batches."""
+    try:
+        from capacity_aware_evolving_planner import plan_capacity_aware_evolving_schedule
+        result = plan_capacity_aware_evolving_schedule(
+            state, accessibility_resolver=None,
+            max_nodes=max_nodes, beam_width=beam_width,
+        )
+        return {
+            "engine": result.get("engine"),
+            "status": result.get("status"),
+            "sequence": result.get("board_plan", {}).get("sequence", []),
+            "batches": result.get("batches", []),
+            "schedule_valid": result.get("schedule_valid") is True,
+            "initial_pixels": result.get("initial_pixels"),
+            "simulated_pixels_removed": result.get("simulated_pixels_removed", 0),
+            "simulated_remaining_pixels": result.get("simulated_remaining_pixels"),
+            "board_cleared": result.get("board_cleared") is True,
+            "known_group_count": result.get("known_group_count", 0),
+            "planned_group_count": result.get("planned_group_count", 0),
+            "unplanned_group_ids": result.get("unplanned_group_ids", []),
+            "full_level_complete": False,
+            "blockers": list(result.get("blockers", [])),
+            "source_state_unchanged": result.get("source_state_unchanged") is True,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+            "limitations": result.get("limitations", []),
+        }
+    except Exception as exc:
+        return {
+            "status": "CAPACITY_AWARE_DIAGNOSTIC_ERROR",
+            "error": f"{type(exc).__name__}: {exc}",
+            "full_level_complete": False,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+        }
+
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
     from level_loader import load_level
@@ -220,6 +261,9 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     evolving_board_summary = run_evolving_board_diagnostic(
         state, max_nodes=500, beam_width=40,
     )
+    capacity_evolving_summary = run_capacity_aware_evolving_diagnostic(
+        state, max_nodes=500, beam_width=40,
+    )
 
     report = {
         "build": "11M",
@@ -237,6 +281,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "dry_simulation_error": dry_error,
         "multi_batch_planning": multi_batch_summary,
         "evolving_board_planning": evolving_board_summary,
+        "capacity_aware_evolving_planning": capacity_evolving_summary,
         "decision": (
             "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
             if recommended_group else "BLOCKED_NO_VERIFIED_PLAN"
@@ -262,6 +307,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     print("Dry simulation:",
           "completed" if dry_summary is not None else "unavailable")
     print("Evolving-board search:", evolving_board_summary.get("status", "unavailable"))
+    print("Capacity-aware evolving schedule:", capacity_evolving_summary.get("status", "unavailable"))
     if dry_error:
         print("Dry simulation error:", dry_error)
     print("Decision:", report["decision"])
