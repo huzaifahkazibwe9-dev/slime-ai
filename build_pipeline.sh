@@ -49,19 +49,24 @@ if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observatio
     python reachability_auditor.py --board "$OBSERVATION"
 
     echo
-    echo "[6/8] Mapping lanes onto colour regions"
+    echo "[6/9] Applying screenshot-derived confidence and planning gates"
+    python reachability_confidence.py --board "$OBSERVATION"
+    python planning_gate.py
+
+    echo
+    echo "[7/9] Mapping lanes onto colour regions"
     python region_lane_mapper.py --board "$OBSERVATION"
 else
     echo
-    echo "[5-6/8] Skipping conveyor analysis: local calibration/observation files are missing"
+    echo "[5-7/9] Skipping conveyor analysis: local calibration/observation files are missing"
 fi
 
 echo
-echo "[7/8] Running evidence-gated dry-run orchestration"
+echo "[8/9] Running evidence-gated dry-run orchestration"
 python orchestration.py --observation "$OBSERVATION"
 
 echo
-echo "[8/8] Running central diagnostics and tests"
+echo "[9/9] Running central diagnostics and tests"
 python main.py --observation "$OBSERVATION"
 python -m unittest discover -q
 
