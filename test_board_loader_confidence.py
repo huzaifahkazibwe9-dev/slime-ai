@@ -102,6 +102,37 @@ class BoardLoaderConfidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_board(self.vision_path, self.confidence_path)
 
+
+    def test_non_square_grid_dimensions_use_width_then_height(self):
+        board = [["a", "b", "c"], ["d", "e", "f"]]
+        self.vision["grid_size"] = [3, 2]
+        self.vision["board"] = board
+        self.vision["occupancy"]["mask"] = [[1] * 3 for _ in range(2)]
+        self.confidence["grid_size"] = [3, 2]
+        self.confidence["cells"] = []
+        for y, row in enumerate(board):
+            confidence_row = []
+            for x, colour in enumerate(row):
+                boundary = y in (0, 1) or x in (0, 2)
+                confidence_row.append({
+                    "row": y, "column": x, "colour": colour,
+                    "is_boundary": boundary,
+                    "confidence": "requires_confirmation" if boundary else "provisional",
+                })
+            self.confidence["cells"].append(confidence_row)
+        self.write_files()
+        result = load_board(self.vision_path, self.confidence_path)
+        self.assertEqual((result["width"], result["height"]), (3, 2))
+
+    def test_occupancy_mask_rejects_non_binary_and_boolean_values(self):
+        for value in (2, -1, True, 0.5):
+            with self.subTest(value=value):
+                self.vision["occupancy"]["mask"][0][0] = value
+                self.write_files()
+                with self.assertRaises(ValueError):
+                    load_board(self.vision_path, self.confidence_path)
+                self.vision["occupancy"]["mask"][0][0] = 1
+
     def test_safety_flags_remain_disabled(self):
         result = load_board(self.vision_path, self.confidence_path)
         self.assertFalse(result["tile_removals_verified"])
