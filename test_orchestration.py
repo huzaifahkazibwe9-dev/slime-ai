@@ -107,6 +107,51 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         self.assertFalse(result["game_taps_enabled"])
 
+    def test_evolving_board_diagnostic_is_fail_closed_and_compact(self):
+        from orchestration import run_evolving_board_diagnostic
+        import evolving_board_planner
+        state = GameState([["red"]])
+        simulated = {
+            "engine": "test_evolving",
+            "status": "PARTIAL_SEQUENCE",
+            "nodes_examined": 3,
+            "search_truncated": False,
+            "sequence": [{"group_id": "A", "shooter_ids": ["A"]}],
+            "sequence_length": 1,
+            "initial_pixels": 1,
+            "simulated_pixels_removed": 1,
+            "simulated_remaining_pixels": 0,
+            "board_cleared": True,
+            "known_group_count": 1,
+            "unplanned_group_ids": [],
+            "blockers": ["CONVEYOR_SCHEDULE_NOT_VALIDATED"],
+            "source_state_unchanged": True,
+            "limitations": ["abstract schedule"],
+            "board_history": [["internal payload"]],
+        }
+        with patch.object(evolving_board_planner, "plan_evolving_board",
+                          return_value=simulated) as planner:
+            result = run_evolving_board_diagnostic(state)
+        planner.assert_called_once()
+        self.assertIsNone(planner.call_args.kwargs["accessibility_resolver"])
+        self.assertEqual(result["status"], "PARTIAL_SEQUENCE")
+        self.assertTrue(result["board_cleared"])
+        self.assertFalse(result["full_level_complete"])
+        self.assertFalse(result["evidence_verified"])
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["game_taps_enabled"])
+        self.assertNotIn("board_history", result)
+
+    def test_evolving_board_diagnostic_fails_closed(self):
+        from orchestration import run_evolving_board_diagnostic
+        import evolving_board_planner
+        with patch.object(evolving_board_planner, "plan_evolving_board",
+                          side_effect=RuntimeError("synthetic failure")):
+            result = run_evolving_board_diagnostic(GameState([["red"]]))
+        self.assertEqual(result["status"], "EVOLVING_BOARD_DIAGNOSTIC_ERROR")
+        self.assertFalse(result["full_level_complete"])
+        self.assertFalse(result["game_taps_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()
