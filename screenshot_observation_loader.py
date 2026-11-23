@@ -80,10 +80,14 @@ def _require_grid(data):
 
     digest = data.get("source_sha256")
     snapshot_id = data.get("snapshot_id")
+    board_snapshot_id = data.get("board_snapshot_id")
     if (not isinstance(digest, str) or len(digest) != 64
             or any(c not in "0123456789abcdef" for c in digest.lower())
-            or snapshot_id != "sha256:" + digest):
-        raise ValueError("Invalid or inconsistent screenshot snapshot identity")
+            or snapshot_id != "sha256:" + digest
+            or board_snapshot_id != snapshot_id):
+        raise ValueError(
+            "Invalid or inconsistent screenshot/board snapshot identity"
+        )
 
     if data.get("gameplay_verified") is not False:
         raise ValueError("Screenshot observation must remain gameplay-unverified")
