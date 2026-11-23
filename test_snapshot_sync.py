@@ -7,13 +7,13 @@ class SnapshotSyncTests(unittest.TestCase):
     def valid_data(self):
         now = datetime.now(timezone.utc)
         board = {
-            "snapshot_id": "capture-001",
+            "snapshot_id": "sha256:" + "a" * 64,
             "capture_session_id": "session-001",
             "timestamp_identified": True,
             "captured_at": now.isoformat(),
         }
         observations = {
-            "board_snapshot_id": "capture-001",
+            "board_snapshot_id": "sha256:" + "a" * 64,
             "capture_session_id": "session-001",
             "timestamp_identified": True,
             "captured_at": (now - timedelta(seconds=30)).isoformat(),
@@ -94,14 +94,14 @@ class SnapshotSyncTests(unittest.TestCase):
     def bundle(self):
         captured_at = "2026-11-23T10:00:00+00:00"
         board = {
-            "snapshot_id": "capture-001",
+            "snapshot_id": "sha256:" + "a" * 64,
             "capture_session_id": "session-001",
             "captured_at": captured_at,
             "timestamp_identified": True,
         }
         artifacts = [
             {
-                "board_snapshot_id": "capture-001",
+                "board_snapshot_id": "sha256:" + "a" * 64,
                 "capture_session_id": "session-001",
                 "captured_at": captured_at,
                 "timestamp_identified": True,
@@ -118,14 +118,14 @@ class SnapshotSyncTests(unittest.TestCase):
         }
         artifacts[2]["tracks"] = {
             name: {
-                "board_snapshot_id": "capture-001",
+                "board_snapshot_id": "sha256:" + "a" * 64,
                 "capture_session_id": "session-001",
                 "captured_at": captured_at,
                 "timestamp_identified": True,
                 "observations": [
                     {
                         "position_id": position,
-                        "board_snapshot_id": "capture-001",
+                        "board_snapshot_id": "sha256:" + "a" * 64,
                         "capture_session_id": "session-001",
                         "captured_at": captured_at,
                         "timestamp_identified": True,
@@ -146,7 +146,7 @@ class SnapshotSyncTests(unittest.TestCase):
 
     def test_bundle_rejects_mixed_screenshot_snapshot(self):
         board, conveyor, identity, candidates, planning = self.bundle()
-        identity["board_snapshot_id"] = "different-screenshot"
+        identity["board_snapshot_id"] = "sha256:" + "b" * 64
         result = synchronise_bundle(board, conveyor, identity, candidates, planning)
         self.assertFalse(result["synchronised"])
         self.assertFalse(result["planning_allowed_by_sync"])
