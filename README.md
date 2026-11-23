@@ -167,5 +167,4 @@ Gold, prices, stock/charges, and the number of Extra Tray slots added are
 tracked only when observed. Unknown values remain unknown; the model does not
 guess shop prices or purchase automatically. Power-up effects are currently
 candidate planning descriptions only: no game button is pressed and no board
-state is changed. The planner can compare a normal move with a possible
-power-up use once current inventory and target evidence are available.
+state is changed. The planner produces separate use-readiness and purchase-eligibility decisions. It also adds transparent heuristic scores for observed board impact, conveyor urgency, purchase cost relative to observed gold, and preserving a last known charge. These scores are explicitly not calibrated win probabilities and do not establish a globally optimal move. Ordinary-move and power-up scores remain separate until gameplay outcomes establish a validated common value model. Automatic purchase and use remain disabled: no game button is pressed and no gold is spent.
