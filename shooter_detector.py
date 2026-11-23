@@ -170,6 +170,48 @@ def extract_panel_crop(source_path, bounds, output_path=IMAGE):
         crop.save(output_path, quality=95)
     return output_path
 
+def load_user_confirmed_bonded_groups(path, shooter_ids):
+    """Load bonds only from an explicit, user-confirmed local config."""
+    path = Path(path)
+    if not path.is_file():
+        return [], "not_configured"
+
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("Bonded-group config must be a JSON object")
+    if data.get("verified_by_user") is not True:
+        return [], "not_user_confirmed"
+
+    groups = data.get("bonded_groups")
+    if not isinstance(groups, list):
+        raise ValueError("bonded_groups must be a list")
+    known_ids = set(shooter_ids)
+    grouped_ids = set()
+    for index, group in enumerate(groups):
+        if not isinstance(group, list):
+            raise ValueError(f"Bonded group {index} must be a list")
+        if len(group) < 2 or len(group) > 3:
+            raise ValueError(f"Bonded group {index} must contain 2 or 3 shooters")
+        if any(not isinstance(member, str) or not member for member in group):
+            raise ValueError(f"Bonded group {index} contains an invalid shooter ID")
+        if len(group) != len(set(group)):
+            raise ValueError(f"Bonded group {index} contains duplicate shooter IDs")
+        unknown = set(group) - known_ids
+        if unknown:
+            raise ValueError(
+                f"Bonded group {index} references unknown shooters: "
+                + ", ".join(sorted(unknown))
+            )
+        overlap = grouped_ids.intersection(group)
+        if overlap:
+            raise ValueError(
+                "A shooter cannot belong to multiple bonded groups: "
+                + ", ".join(sorted(overlap))
+            )
+        grouped_ids.update(group)
+    return groups, "user_confirmed"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-screenshot")
@@ -239,11 +281,12 @@ def main():
             "verified": False
         })
 
-    # User-confirmed bonded shooter relationships
-    bonded_groups = [
-        ["top_1", "top_2"],
-        ["top_3", "top_4"]
-    ]
+    # Bond relationships are never inferred from fixed screen positions.
+    # They are loaded only from a separate, explicit user-confirmed file.
+    bonded_groups, bonding_source = load_user_confirmed_bonded_groups(
+        "data/bonded_groups_confirmed.json",
+        [shooter["id"] for shooter in detected],
+    )
 
     for shooter in detected:
         shooter["bonded_ids"] = []
@@ -289,7 +332,7 @@ def main():
         "image_dimensions": list(image.size),
         "visible_shooters": detected,
         "bonded_groups": bonded_groups,
-        "bonding_source": "user_confirmed",
+        "bonding_source": bonding_source,
         "unrevealed_shooters": [
             {
                 "id": f"question_{i}",
