@@ -15,6 +15,13 @@ class RegionGraphTests(unittest.TestCase):
         self.assertEqual(by_colour["b"]["bounds"], [0, 2, 2, 2])
         self.assertEqual(by_colour["c"]["bounds"], [2, 0, 2, 1])
 
+    def test_perimeter_and_boundary_counts_match_irregular_regions(self):
+        report = build_region_graph([["a", "a", "b"], ["a", None, "b"], ["c", "c", "b"]])
+        by_colour = {region["colour"]: region for region in report["regions"]}
+        self.assertEqual((by_colour["a"]["perimeter"], by_colour["a"]["boundary_cells"]), (8, 3))
+        self.assertEqual((by_colour["b"]["perimeter"], by_colour["b"]["boundary_cells"]), (8, 3))
+        self.assertEqual((by_colour["c"]["perimeter"], by_colour["c"]["boundary_cells"]), (6, 2))
+
     def test_two_regions_share_border(self):
         report = build_region_graph([["a", "b"], ["a", "b"]])
         self.assertEqual(report["region_count"], 2)
