@@ -1,8 +1,33 @@
 """Build 11M: evidence-gated, dry-run-only orchestration."""
 import argparse
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
+
+
+def _valid_snapshot_fingerprint(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}", value) is not None
+    )
+
+
+def _valid_capture_session_id(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", value) is not None
+    )
+
+
+def _valid_aware_capture_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset() is not None
 
 
 def read_report(path):
@@ -62,17 +87,14 @@ def evidence_status(planning, identity, snapshot, candidates):
         "identity_snapshot_provenance_complete": (
             isinstance(identity, dict)
             and identity.get("snapshot_linked") is True
-            and isinstance(identity.get("board_snapshot_id"), str)
-            and identity.get("board_snapshot_id").startswith("sha256:")
+            and _valid_snapshot_fingerprint(identity.get("board_snapshot_id"))
         ),
         "identity_capture_session_provenance_complete": (
             isinstance(identity, dict)
             and identity.get("capture_session_linked") is True
-            and isinstance(identity.get("capture_session_id"), str)
-            and bool(identity.get("capture_session_id").strip())
+            and _valid_capture_session_id(identity.get("capture_session_id"))
             and identity.get("timestamp_identified") is True
-            and isinstance(identity.get("captured_at"), str)
-            and bool(identity.get("captured_at").strip())
+            and _valid_aware_capture_timestamp(identity.get("captured_at"))
         ),
         "snapshot_synchronised": (
             isinstance(snapshot, dict)
