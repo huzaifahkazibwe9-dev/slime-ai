@@ -23,6 +23,7 @@ def simulate_dynamic_multi_batch(
     batches,
     config=None,
     allow_storage_reactivation=False,
+    accessibility_resolver=None,
 ):
     """Calculate each group's shots on the evolving board, then validate
     the resulting batches with the conveyor scheduler.
@@ -34,6 +35,8 @@ def simulate_dynamic_multi_batch(
         raise ValueError("Invalid GameState: " + "; ".join(errors))
     if not isinstance(batches, list):
         raise TypeError("batches must be a list")
+    if accessibility_resolver is not None and not callable(accessibility_resolver):
+        raise TypeError("accessibility_resolver must be callable")
 
     # This build cannot yet model a returned shooter becoming selectable
     # again while also preserving its evolving board and ammunition state.
@@ -98,6 +101,11 @@ def simulate_dynamic_multi_batch(
             isolated = copy.deepcopy(working)
             isolated.conveyor = []
             isolated.storage = []
+            if accessibility_resolver is not None:
+                observed = accessibility_resolver(copy.deepcopy(working))
+                allowed = {str(value) for value in (observed or [])}
+                for shooter_id, shooter in isolated.shooters.items():
+                    shooter.accessible = str(shooter_id) in allowed
 
             group_report = simulate_bonded_group(isolated, root)
             if group_report.get("status") != "SIMULATED":
@@ -197,8 +205,10 @@ def simulate_dynamic_multi_batch(
         "live_execution_allowed": False,
         "gameplay_actions_performed": False,
         "game_taps_enabled": False,
+        "dynamic_accessibility_resolver_used": accessibility_resolver is not None,
         "limitations": [
             "Board shots are calculated from the current simulated board.",
+            "Resolver output is an explicit simulation assumption, not verified gameplay evidence.",
             "Conveyor timing remains abstract and uncalibrated.",
             "Storage reactivation remains unverified and disabled by default.",
             "No screenshot observations or live game actions are performed.",
