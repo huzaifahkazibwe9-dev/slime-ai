@@ -67,13 +67,20 @@ def simulate_dynamic_multi_batch(
         }
 
     config = config or SimulatorConfig()
-    performance = {"deepcopy_calls": 0, "deepcopy_seconds": 0.0, "group_simulation_calls": 0, "group_simulation_seconds": 0.0, "scheduler_seconds": 0.0}
+    performance = {"deepcopy_calls": 0, "deepcopy_seconds": 0.0, "group_simulation_calls": 0, "group_simulation_seconds": 0.0, "board_copy_calls": 0, "board_copy_seconds": 0.0, "scheduler_seconds": 0.0}
 
     def clone(value):
         started = time.perf_counter()
         result = copy.deepcopy(value)
         performance["deepcopy_calls"] += 1
         performance["deepcopy_seconds"] += time.perf_counter() - started
+        return result
+
+    def clone_board(board):
+        started = time.perf_counter()
+        result = [list(row) for row in board]
+        performance["board_copy_calls"] += 1
+        performance["board_copy_seconds"] += time.perf_counter() - started
         return result
 
     original = clone(state)
@@ -173,7 +180,7 @@ def simulate_dynamic_multi_batch(
                 member_shots[shooter_id] = member["shots_attempted"]
 
             calculated_shots.update(member_shots)
-            working.board = copy.deepcopy(group_report["final_board"])
+            working.board = clone_board(group_report["final_board"])
 
             for shooter_id, ammo in group_report["remaining_ammo"].items():
                 working.shooters[shooter_id].ammo = ammo
@@ -194,7 +201,7 @@ def simulate_dynamic_multi_batch(
                 "after_batch": batch_index,
                 "after_group": group_id,
                 "remaining_pixels": working.remaining_pixels,
-                "board": clone(working.board),
+                "board": clone_board(working.board),
             })
 
         if failure:
