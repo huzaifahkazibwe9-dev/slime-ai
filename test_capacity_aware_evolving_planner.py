@@ -44,7 +44,10 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
             [batch["groups"] for batch in report["batches"]],
             [["A"], ["B"]],
         )
-        self.assertTrue(report["full_level_complete"])
+        self.assertTrue(report["simulation_complete"])
+        self.assertFalse(report["full_level_complete"])
+        self.assertFalse(report["live_level_completion_verified"])
+        self.assertIn("CONVEYOR_TIMING_UNCALIBRATED", report["blockers"])
         self.assertEqual(state, before)
         self.assertFalse(report["evidence_verified"])
         self.assertFalse(report["live_execution_allowed"])
