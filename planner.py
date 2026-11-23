@@ -215,6 +215,8 @@ def plan_next_move(
     """Return a group only when independent, synchronized evidence agrees."""
     if state.validate():
         return None
+    if getattr(state, "shooter_capture_provenance_verified", False) is not True:
+        return None
 
     mapping = _verified_identity_mapping(
         state, identity_audit, candidate_report, snapshot_report
