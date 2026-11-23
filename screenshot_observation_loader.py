@@ -134,6 +134,7 @@ def load_observed_level(
     state.snapshot_id = data["snapshot_id"]
     state.capture_session_id = data.get("capture_session_id")
     state.timestamp_identified = data.get("timestamp_identified") is True
+    state.shooter_capture_provenance_verified = board_capture_matches
     errors = state.validate()
     if errors:
         raise ValueError("Invalid integrated game state: " + "; ".join(errors))
