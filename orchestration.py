@@ -101,6 +101,48 @@ def run_multi_batch_diagnostic(state, max_candidates=200):
         }
 
 
+def run_evolving_board_diagnostic(state, max_nodes=500, beam_width=40,
+                                  max_depth=None):
+    """Run evolving-board search without inferring dynamic accessibility."""
+    try:
+        from evolving_board_planner import plan_evolving_board
+        result = plan_evolving_board(
+            state, accessibility_resolver=None, max_nodes=max_nodes,
+            beam_width=beam_width, max_depth=max_depth,
+        )
+        return {
+            "engine": result.get("engine"),
+            "status": result.get("status"),
+            "nodes_examined": result.get("nodes_examined", 0),
+            "search_truncated": result.get("search_truncated", False),
+            "sequence": result.get("sequence", []),
+            "sequence_length": result.get("sequence_length", 0),
+            "initial_pixels": result.get("initial_pixels"),
+            "simulated_pixels_removed": result.get("simulated_pixels_removed", 0),
+            "simulated_remaining_pixels": result.get("simulated_remaining_pixels"),
+            "board_cleared": result.get("board_cleared") is True,
+            "known_group_count": result.get("known_group_count", 0),
+            "unplanned_group_ids": result.get("unplanned_group_ids", []),
+            "full_level_complete": False,
+            "blockers": list(result.get("blockers", [])),
+            "source_state_unchanged": result.get("source_state_unchanged") is True,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+            "limitations": result.get("limitations", []),
+        }
+    except Exception as exc:
+        return {
+            "status": "EVOLVING_BOARD_DIAGNOSTIC_ERROR",
+            "error": f"{type(exc).__name__}: {exc}",
+            "full_level_complete": False,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "game_taps_enabled": False,
+        }
+
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
     from level_loader import load_level
@@ -175,6 +217,9 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         state,
         max_candidates=200,
     )
+    evolving_board_summary = run_evolving_board_diagnostic(
+        state, max_nodes=500, beam_width=40,
+    )
 
     report = {
         "build": "11M",
@@ -191,6 +236,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "dry_simulation": dry_summary,
         "dry_simulation_error": dry_error,
         "multi_batch_planning": multi_batch_summary,
+        "evolving_board_planning": evolving_board_summary,
         "decision": (
             "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
             if recommended_group else "BLOCKED_NO_VERIFIED_PLAN"
@@ -215,6 +261,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     print("Recommended group:", report["planner"]["recommended_group"])
     print("Dry simulation:",
           "completed" if dry_summary is not None else "unavailable")
+    print("Evolving-board search:", evolving_board_summary.get("status", "unavailable"))
     if dry_error:
         print("Dry simulation error:", dry_error)
     print("Decision:", report["decision"])
