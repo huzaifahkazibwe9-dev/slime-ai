@@ -395,7 +395,8 @@ class OrchestrationTests(unittest.TestCase):
         common = {"capture_session_id": "session-1", "timestamp_identified": True}
         planning = dict(common, board_snapshot_id="sha256:" + "b" * 64,
                         captured_at="2026-11-23T10:00:00+00:00",
-                        decision="ELIGIBLE_CANDIDATES_FOUND", gameplay_verified=True,
+                        decision="ELIGIBLE_CANDIDATES_FOUND", planning_evidence_verified=True,
+                        gameplay_verified=False, game_taps_enabled=False,
                         actions_performed=False, capture_freshness_verified=True,
                         candidate_capture_provenance_verified=True)
         identity = dict(common, board_snapshot_id=fp,
@@ -419,7 +420,8 @@ class OrchestrationTests(unittest.TestCase):
         common = {"board_snapshot_id": fp, "capture_session_id": "session-1",
                   "timestamp_identified": True}
         planning = dict(common, captured_at="2026-11-23T10:00:00+00:00",
-                        decision="ELIGIBLE_CANDIDATES_FOUND", gameplay_verified=True,
+                        decision="ELIGIBLE_CANDIDATES_FOUND", planning_evidence_verified=True,
+                        gameplay_verified=False, game_taps_enabled=False,
                         actions_performed=False, capture_freshness_verified=True,
                         candidate_capture_provenance_verified=True)
         identity = dict(common, captured_at="2026-11-23T10:00:00+00:00",
