@@ -13,10 +13,11 @@ SNAPSHOT_CHECKS = (
 )
 
 
-def evaluate_group(state, group):
-    board_colours = {
-        p for row in state.board for p in row if p is not None
-    }
+def evaluate_group(state, group, board_colours=None):
+    if board_colours is None:
+        board_colours = {
+            p for row in state.board for p in row if p is not None
+        }
     score = 0
     for shooter_id in group:
         shooter = state.shooters[shooter_id]
@@ -227,10 +228,15 @@ def plan_next_move(
     if mapping is None:
         return None
 
+    # Board colours are invariant across candidate groups. Build the set once
+    # instead of rescanning the complete board for every candidate.
+    board_colours = {
+        pixel for row in state.board for pixel in row if pixel is not None
+    }
     eligible = []
     for group in available_groups(state):
         if _verified_group(state, group, planning_report, mapping):
-            eligible.append((evaluate_group(state, group), group))
+            eligible.append((evaluate_group(state, group, board_colours), group))
 
     if not eligible:
         return None
