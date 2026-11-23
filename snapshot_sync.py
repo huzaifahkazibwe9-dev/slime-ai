@@ -125,6 +125,68 @@ def synchronise_audit(board, observations):
 
 
 
+def _nested_capture_metadata_consistent(artifact, require_metadata=False):
+    """Check nested visual records cannot contradict their parent capture."""
+    if not isinstance(artifact, dict):
+        return False
+    parent_snapshot = artifact.get("board_snapshot_id")
+    parent_session = artifact.get("capture_session_id")
+    parent_time = _parse_aware_timestamp(artifact.get("captured_at"))
+    if parent_time is None:
+        return False
+
+    def check_record(record, required):
+        if not isinstance(record, dict):
+            return False
+        fields = (
+            ("board_snapshot_id", parent_snapshot),
+            ("capture_session_id", parent_session),
+        )
+        for field, expected in fields:
+            value = record.get(field)
+            if required and value != expected:
+                return False
+            if value is not None and value != expected:
+                return False
+        identified = record.get("timestamp_identified")
+        if required and identified is not True:
+            return False
+        if identified is not None and identified is not True:
+            return False
+        value = record.get("captured_at")
+        if required and value is None:
+            return False
+        if value is not None:
+            record_time = _parse_aware_timestamp(value)
+            if (
+                record_time is None
+                or abs((record_time - parent_time).total_seconds()) > 120
+            ):
+                return False
+        return True
+
+    if "observations" in artifact:
+        observations = artifact.get("observations")
+        if not isinstance(observations, list) or not observations:
+            return False
+        if not all(check_record(item, require_metadata) for item in observations):
+            return False
+
+    if "tracks" in artifact:
+        tracks = artifact.get("tracks")
+        if not isinstance(tracks, dict) or not tracks:
+            return False
+        for track in tracks.values():
+            if not check_record(track, True):
+                return False
+            observations = track.get("observations")
+            if not isinstance(observations, list) or not observations:
+                return False
+            if not all(check_record(item, True) for item in observations):
+                return False
+    return True
+
+
 def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     """Require every evidence artifact to name the same board capture.
 
@@ -193,6 +255,13 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
             and artifact_time is not None
             and abs((artifact_time - board_captured_at).total_seconds()) <= 120
         )
+        if name in {"conveyor", "candidates"}:
+            checks[f"{name}_nested_capture_metadata_consistent"] = (
+                _nested_capture_metadata_consistent(
+                    artifact,
+                    require_metadata=(name == "candidates"),
+                )
+            )
 
     synchronised = all(checks.values())
     return {
