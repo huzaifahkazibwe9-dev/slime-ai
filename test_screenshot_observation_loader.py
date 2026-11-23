@@ -35,6 +35,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "counts": {"cyan": 2, "white": 2, "orange": 1, "pink": 1},
             "source_sha256": "a" * 64,
             "snapshot_id": "sha256:" + "a" * 64,
+            "board_snapshot_id": "sha256:" + "a" * 64,
             "gameplay_verified": False,
             "vision_classification_verified": False,
             "game_taps_enabled": False,
@@ -81,6 +82,10 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertEqual(state.validate(), [])
         self.assertEqual(audit["snapshot_id"], self.observation["snapshot_id"])
         self.assertEqual(state.snapshot_id, self.observation["snapshot_id"])
+        self.assertEqual(
+            self.observation["board_snapshot_id"],
+            self.observation["snapshot_id"],
+        )
         self.assertFalse(state.timestamp_identified)
 
     def test_unified_level_loader_accepts_explicit_screenshot_mode(self):
@@ -151,7 +156,13 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
     def test_rejects_snapshot_identity_mismatch(self):
         self.observation["snapshot_id"] = "sha256:" + "b" * 64
         self.write()
-        with self.assertRaisesRegex(ValueError, "snapshot identity"):
+        with self.assertRaisesRegex(ValueError, "snapshot/board snapshot identity"):
+            load_observed_level(self.observation_path, self.shooter_path)
+
+    def test_rejects_missing_board_snapshot_binding(self):
+        self.observation.pop("board_snapshot_id")
+        self.write()
+        with self.assertRaisesRegex(ValueError, "snapshot/board snapshot identity"):
             load_observed_level(self.observation_path, self.shooter_path)
 
     def test_rejects_attempt_to_mark_visuals_verified(self):
