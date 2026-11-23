@@ -321,8 +321,8 @@ class OrchestrationTests(unittest.TestCase):
             {
                 "decision": "ELIGIBLE_CANDIDATES_FOUND",
                 "planning_evidence_verified": True,
-            "gameplay_verified": False,
-            "game_taps_enabled": False,
+                "gameplay_verified": False,
+                "game_taps_enabled": False,
                 "actions_performed": False,
                 "capture_freshness_verified": True,
             "candidate_capture_provenance_verified": True,
