@@ -216,7 +216,7 @@ class ReachabilityConfidenceTests(unittest.TestCase):
                 "--output", str(root / "confidence.json"),
             ]
             with patch.object(sys, "argv", argv), self.assertRaisesRegex(
-                ValueError, "snapshot identity"
+                ValueError, "snapshot does not match"
             ):
                 runpy.run_module("reachability_confidence", run_name="__main__")
 
