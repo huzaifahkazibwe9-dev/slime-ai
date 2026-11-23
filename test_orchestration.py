@@ -58,7 +58,7 @@ class OrchestrationTests(unittest.TestCase):
                 "planning_allowed_by_sync": True,
             },
         }
-        candidates = {"identity_verified": True}
+        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertTrue(result["evidence_gate_passed"])
         self.assertTrue(result["checks"]["planning_capture_freshness_verified"])
@@ -89,7 +89,7 @@ class OrchestrationTests(unittest.TestCase):
                 "planning_allowed_by_sync": True,
             },
         }
-        candidates = {"identity_verified": True}
+        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(result["checks"]["planning_capture_freshness_verified"])
@@ -116,7 +116,7 @@ class OrchestrationTests(unittest.TestCase):
             "synchronised": True,
             "planning_allowed_by_sync": True,
         }
-        candidates = {"identity_verified": True}
+        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(result["checks"]["evidence_bundle_synchronised"])
@@ -147,7 +147,7 @@ class OrchestrationTests(unittest.TestCase):
                 "planning_allowed_by_sync": False,
             },
         }
-        candidates = {"identity_verified": True}
+        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertFalse(result["evidence_gate_passed"])
 
@@ -174,7 +174,7 @@ class OrchestrationTests(unittest.TestCase):
                 "planning_allowed_by_sync": True,
             },
         }
-        candidates = {"identity_verified": True}
+        candidates = {"identity_verified": True, "candidate_provenance_verified": True}
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(
@@ -183,6 +183,39 @@ class OrchestrationTests(unittest.TestCase):
         self.assertFalse(
             result["checks"]["identity_capture_session_provenance_complete"]
         )
+
+    def test_missing_candidate_capture_provenance_blocks(self):
+        result = evidence_status(
+            {
+                "decision": "ELIGIBLE_CANDIDATES_FOUND",
+                "gameplay_verified": True,
+                "actions_performed": False,
+                "capture_freshness_verified": True,
+            },
+            {
+                "identity_verified": True,
+                "timestamps_known": True,
+                "snapshot_linked": True,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+                "capture_session_linked": True,
+                "capture_session_id": "session-1",
+                "captured_at": "2026-11-23T10:00:00+00:00",
+                "timestamp_identified": True,
+                "errors": [],
+                "blockers": [],
+            },
+            {
+                "synchronised": True,
+                "planning_allowed_by_sync": True,
+                "bundle_synchronisation": {
+                    "synchronised": True,
+                    "planning_allowed_by_sync": True,
+                },
+            },
+            {"identity_verified": True},
+        )
+        self.assertFalse(result["evidence_gate_passed"])
+        self.assertFalse(result["checks"]["candidate_capture_provenance_verified"])
 
     def test_live_actions_always_disabled(self):
         result = evidence_status({}, {}, {}, {})
