@@ -108,6 +108,41 @@ class Build11AETests(unittest.TestCase):
         self.assertTrue(report["dynamic_accessibility_resolver_used"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_groups_accessible_at_batch_start_can_share_batch(self):
+        state = make_state()
+        calls = []
+        def resolver(current):
+            calls.append(current.remaining_pixels)
+            return ["A", "B"]
+        report = simulate_dynamic_multi_batch(
+            state, [{"groups": ["A", "B"]}],
+            SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+            accessibility_resolver=resolver,
+        )
+        self.assertEqual(report["status"], "SIMULATED")
+        self.assertEqual(report["simulated_remaining_pixels"], 0)
+        self.assertEqual(calls, [2])
+
+    def test_group_unlocked_mid_batch_is_rejected_until_next_batch(self):
+        state = make_state()
+        state.shooters["B"].accessible = False
+        calls = []
+        def resolver(current):
+            calls.append(current.remaining_pixels)
+            return ["A"] if current.board[0][0] == "red" else ["B"]
+        report = simulate_dynamic_multi_batch(
+            state, [{"groups": ["A", "B"]}],
+            SimulatorConfig(conveyor_capacity=2, ticks_per_lap=4),
+            accessibility_resolver=resolver,
+        )
+        self.assertEqual(report["status"], "SIMULATION_INCOMPLETE")
+        self.assertEqual(
+            report["failure"]["reason"],
+            "GROUP_NOT_ACCESSIBLE_AT_BATCH_START",
+        )
+        self.assertEqual(calls, [2])
+        self.assertFalse(report["game_taps_enabled"])
+
     def test_dynamic_accessibility_is_not_invented_without_resolver(self):
         state = make_state()
         state.shooters["B"].accessible = False
