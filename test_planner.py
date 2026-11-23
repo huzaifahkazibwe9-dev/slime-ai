@@ -222,6 +222,12 @@ class PlannerEvidenceTests(unittest.TestCase):
         e[0]["results"][0]["observed_ammo"] = 19
         self.assertIsNone(run_plan(e))
 
+    def test_boolean_shooter_ammunition_is_rejected(self):
+        state = make_state()
+        state.shooters["A"].ammo = True
+        self.assertTrue(state.validate())
+        self.assertIsNone(plan_next_move(state, *make_evidence()))
+
     def test_unverified_ammunition_evidence_rejected(self):
         e = list(make_evidence())
         e[0]["results"][0]["ammunition_evidence_verified"] = False
