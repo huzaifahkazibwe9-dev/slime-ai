@@ -41,12 +41,14 @@ def make_candidate_report(report=None):
     captured_at = report["captured_at"]
     snapshot_id = report["board_snapshot_id"]
     session_id = report["capture_session_id"]
-    observation = {
-        "board_snapshot_id": snapshot_id,
-        "capture_session_id": session_id,
-        "captured_at": captured_at,
-        "timestamp_identified": True,
-    }
+    def observation(position_id):
+        return {
+            "position_id": position_id,
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": session_id,
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+        }
     return {
         "board_snapshot_id": snapshot_id,
         "capture_session_id": session_id,
@@ -58,14 +60,20 @@ def make_candidate_report(report=None):
                 "capture_session_id": session_id,
                 "captured_at": captured_at,
                 "timestamp_identified": True,
-                "observations": [dict(observation)],
+                "observations": [
+                    observation(position_id) for position_id in
+                    ("bottom_1", "right_2", "top_2", "left_1")
+                ],
             },
             "blue_cyan": {
                 "board_snapshot_id": snapshot_id,
                 "capture_session_id": session_id,
                 "captured_at": captured_at,
                 "timestamp_identified": True,
-                "observations": [dict(observation)],
+                "observations": [
+                    observation(position_id) for position_id in
+                    ("bottom_2", "right_1", "top_1", "left_2")
+                ],
             },
         },
     }
