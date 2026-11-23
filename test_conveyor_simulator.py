@@ -133,6 +133,14 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 with self.assertRaises((ValueError, TypeError)):
                     create_simulator([record])
 
+    def test_factory_accepts_returned_storage_record(self):
+        sim = create_simulator([
+            {"id": "stored", "ammo": 0, "returned": True}
+        ], storage_occupied=1)
+        self.assertEqual(sim.active, [])
+        self.assertEqual(sim.returned_ids, [])
+        self.assertEqual(sim.storage_occupied, 1)
+
     def test_simulator_rejects_position_outside_lap(self):
         with self.assertRaises(ValueError):
             ConveyorSimulator(
