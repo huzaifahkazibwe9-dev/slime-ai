@@ -88,6 +88,29 @@ def validate_visual_provenance(visual):
     return errors
 
 
+def validate_observation_provenance(observations, visual):
+    """Reject per-observation metadata that conflicts with the parent capture."""
+    if not isinstance(observations, list) or not isinstance(visual, dict):
+        return ["Observation provenance requires a list and capture object"]
+
+    errors = []
+    fields = (
+        "board_snapshot_id",
+        "capture_session_id",
+        "captured_at",
+        "timestamp_identified",
+    )
+    for index, item in enumerate(observations):
+        if not isinstance(item, dict):
+            continue
+        for field in fields:
+            if field in item and item.get(field) != visual.get(field):
+                errors.append(
+                    f"Observation {index}: {field} conflicts with parent capture"
+                )
+    return errors
+
+
 def main():
     calibration = read("conveyor_calibration.json")
     visual = read("conveyor_visual_observations.json")
@@ -101,6 +124,9 @@ def main():
         observations, positions
     )
     validation_errors.extend(validate_visual_provenance(visual))
+    validation_errors.extend(
+        validate_observation_provenance(observations, visual)
+    )
     if validation_errors:
         report = {
             "screenshot_order": ORDER,
@@ -172,6 +198,10 @@ def main():
                 "colour": observation["colour"],
                 "ammo": observation["ammo"],
                 "center": position["center"],
+                "board_snapshot_id": visual["board_snapshot_id"],
+                "capture_session_id": visual["capture_session_id"],
+                "captured_at": visual["captured_at"],
+                "timestamp_identified": True,
             })
 
         ammo = [r["ammo"] for r in records]
@@ -199,6 +229,10 @@ def main():
 
         report["tracks"][name] = {
             "candidate_shooter": shooter_id,
+            "board_snapshot_id": visual["board_snapshot_id"],
+            "capture_session_id": visual["capture_session_id"],
+            "captured_at": visual["captured_at"],
+            "timestamp_identified": True,
             "panel_colour": shooter["color"]["name"],
             "observations": records,
             "ammo_non_increasing": non_increasing,
