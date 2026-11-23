@@ -48,6 +48,9 @@ def load_level(level=39, observation_path=None, shooter_path=None):
     state.colour_mappings_verified = colour_data[
         "verified_by_gameplay"
     ]
+    state.snapshot_id = vision.get("snapshot_id")
+    state.capture_session_id = vision.get("capture_session_id")
+    state.timestamp_identified = vision.get("timestamp_identified") is True
 
     audit = {
         "initial_occupancy_user_confirmed":
