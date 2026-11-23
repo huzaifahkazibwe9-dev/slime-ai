@@ -135,6 +135,36 @@ class ScreenshotIngestorTests(unittest.TestCase):
                     capture_session_id="bad session id",
                 )
 
+    def test_rejects_non_finite_calibration_bounds(self):
+        path = Path("data/test_ingestor_nonfinite.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            for bad_value in (float("nan"), float("inf"), float("-inf"), True):
+                with self.subTest(value=bad_value):
+                    with self.assertRaises(ValueError):
+                        extract_board(path, {
+                            "grid_size": [3, 3],
+                            "bounds": [3, 3, bad_value, 27],
+                        })
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_malformed_calibration_shapes(self):
+        path = Path("data/test_ingestor_bad_calibration.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            for calibration in (
+                [], {"grid_size": [3], "bounds": [3, 3, 27, 27]},
+                {"grid_size": [3, 3], "bounds": [3, 3, 27]},
+            ):
+                with self.subTest(calibration=calibration):
+                    with self.assertRaises(ValueError):
+                        extract_board(path, calibration)
+        finally:
+            path.unlink(missing_ok=True)
+
     def test_rejects_bounds_without_sampling_margin(self):
         path = Path("data/test_ingestor_edge_bounds.png")
         path.parent.mkdir(exist_ok=True)
