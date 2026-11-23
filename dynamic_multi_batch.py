@@ -84,6 +84,13 @@ def simulate_dynamic_multi_batch(
             }
             break
 
+        # Sample accessibility once at batch start. Newly exposed groups
+        # cannot become selectable until the next batch boundary.
+        batch_accessible = None
+        if accessibility_resolver is not None:
+            observed = accessibility_resolver(copy.deepcopy(working))
+            batch_accessible = {str(value) for value in (observed or [])}
+
         calculated_shots = {}
         for group_id in requested:
             group_id = str(group_id)
@@ -101,11 +108,26 @@ def simulate_dynamic_multi_batch(
             isolated = copy.deepcopy(working)
             isolated.conveyor = []
             isolated.storage = []
-            if accessibility_resolver is not None:
-                observed = accessibility_resolver(copy.deepcopy(working))
-                allowed = {str(value) for value in (observed or [])}
+            if batch_accessible is not None:
+                group_members = []
                 for shooter_id, shooter in isolated.shooters.items():
-                    shooter.accessible = str(shooter_id) in allowed
+                    members = [str(shooter_id)] + [
+                        str(member) for member in shooter.bonded_ids
+                    ]
+                    member_group_id = str(shooter.group_id or min(members))
+                    if member_group_id == group_id:
+                        group_members.append(str(shooter_id))
+                if not group_members or not set(group_members).issubset(batch_accessible):
+                    failure = {
+                        "reason": "GROUP_NOT_ACCESSIBLE_AT_BATCH_START",
+                        "batch": batch_index,
+                        "group_id": group_id,
+                        "required_shooter_ids": group_members,
+                        "accessible_shooter_ids": sorted(batch_accessible),
+                    }
+                    break
+                for shooter_id, shooter in isolated.shooters.items():
+                    shooter.accessible = str(shooter_id) in batch_accessible
 
             group_report = simulate_bonded_group(isolated, root)
             if group_report.get("status") != "SIMULATED":
@@ -208,6 +230,7 @@ def simulate_dynamic_multi_batch(
         "dynamic_accessibility_resolver_used": accessibility_resolver is not None,
         "limitations": [
             "Board shots are calculated from the current simulated board.",
+            "Accessibility is sampled once at each batch start; newly exposed groups require a later batch.",
             "Resolver output is an explicit simulation assumption, not verified gameplay evidence.",
             "Conveyor timing remains abstract and uncalibrated.",
             "Storage reactivation remains unverified and disabled by default.",
