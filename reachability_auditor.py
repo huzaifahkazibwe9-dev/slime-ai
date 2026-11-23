@@ -322,6 +322,7 @@ def main():
     report = audit(board_data, calibration, observations)
     report["board_source"] = str(board_path)
     report["board_snapshot_id"] = board_data.get("snapshot_id")
+    report["capture_session_id"] = board_data.get("capture_session_id")
     report["board_colour_truth_verified"] = False
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
