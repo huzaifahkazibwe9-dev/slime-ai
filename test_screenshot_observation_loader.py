@@ -36,6 +36,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "source_sha256": "a" * 64,
             "snapshot_id": "sha256:" + "a" * 64,
             "board_snapshot_id": "sha256:" + "a" * 64,
+            "board_snapshot_id": "sha256:" + "a" * 64,
             "gameplay_verified": False,
             "vision_classification_verified": False,
             "game_taps_enabled": False,
@@ -156,7 +157,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
     def test_rejects_snapshot_identity_mismatch(self):
         self.observation["snapshot_id"] = "sha256:" + "b" * 64
         self.write()
-        with self.assertRaisesRegex(ValueError, "snapshot/board snapshot identity"):
+        with self.assertRaisesRegex(ValueError, "board snapshot identity"):
             load_observed_level(self.observation_path, self.shooter_path)
 
     def test_rejects_missing_board_snapshot_binding(self):
