@@ -1,9 +1,38 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 INPUT_FILE = Path("data/reachability_confidence_latest.json")
 OUTPUT_FILE = Path("data/planning_gate_latest.json")
 
+
+def _parse_aware_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _capture_provenance(report):
+    snapshot_id = report.get("board_snapshot_id")
+    session_id = report.get("capture_session_id")
+    captured_at = _parse_aware_timestamp(report.get("captured_at"))
+    valid = (
+        isinstance(snapshot_id, str)
+        and snapshot_id.startswith("sha256:")
+        and len(snapshot_id) == 71
+        and all(char in "0123456789abcdef" for char in snapshot_id[7:])
+        and isinstance(session_id, str)
+        and bool(session_id.strip())
+        and report.get("timestamp_identified") is True
+        and captured_at is not None
+    )
+    return {"valid": valid, "captured_at": captured_at}
 
 def evaluate_planning(report):
     confidence_audit = report.get("confidence_audit", {})
@@ -13,6 +42,7 @@ def evaluate_planning(report):
         isinstance(freshness, dict) and freshness.get("fresh") is True
     )
     identity_verified = bool(report.get("conveyor_identity_verified", False))
+    provenance = _capture_provenance(report)
     mappings_verified = bool(report.get("gameplay_verified", False))
     confidence_audit = report.get("confidence_audit", {})
     confidence_snapshot_verified = (
@@ -56,6 +86,15 @@ def evaluate_planning(report):
             if not ammo_available:
                 blockers.append("NO_REMAINING_AMMUNITION")
             ammo_evidence = position.get("ammo_evidence")
+            ammo_observed_at = _parse_aware_timestamp(
+                ammo_evidence.get("observed_at")
+                if isinstance(ammo_evidence, dict) else None
+            )
+            ammo_timestamp_aligned = (
+                provenance["captured_at"] is not None
+                and ammo_observed_at is not None
+                and abs((ammo_observed_at - provenance["captured_at"]).total_seconds()) <= 120
+            )
             ammo_evidence_valid = (
                 isinstance(ammo_evidence, dict)
                 and ammo_evidence.get("verified") is True
@@ -68,14 +107,15 @@ def evaluate_planning(report):
                 and ammo_evidence.get("board_snapshot_id") == report.get("board_snapshot_id")
                 and isinstance(ammo_evidence.get("capture_session_id"), str)
                 and ammo_evidence.get("capture_session_id") == report.get("capture_session_id")
-                and isinstance(ammo_evidence.get("observed_at"), str)
-                and bool(ammo_evidence.get("observed_at").strip())
+                and ammo_timestamp_aligned
                 and isinstance(ammo_evidence.get("checks"), dict)
                 and all(value is True for value in ammo_evidence.get("checks", {}).values())
                 and len(ammo_evidence.get("checks", {})) >= 6
             )
             if not ammo_evidence_valid:
                 blockers.append("AMMUNITION_OBSERVATION_UNVERIFIED")
+            if not provenance["valid"]:
+                blockers.append("BOARD_CAPTURE_PROVENANCE_INCOMPLETE")
             if not board_synced:
                 blockers.append("BOARD_STATE_NOT_SYNCHRONISED")
             if not capture_freshness_verified:
@@ -119,6 +159,9 @@ def evaluate_planning(report):
         "board_dimensions": report.get("board_dimensions"),
         "board_snapshot_id": report.get("board_snapshot_id"),
         "capture_session_id": report.get("capture_session_id"),
+        "captured_at": report.get("captured_at"),
+        "timestamp_identified": report.get("timestamp_identified") is True,
+        "capture_provenance_verified": provenance["valid"],
         "capture_freshness_verified": capture_freshness_verified,
         "confidence_snapshot_verified": confidence_snapshot_verified,
         "counts": counts,
