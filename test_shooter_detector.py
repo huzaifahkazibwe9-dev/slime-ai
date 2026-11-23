@@ -1,4 +1,7 @@
 import unittest
+import tempfile
+from pathlib import Path
+from PIL import Image
 
 from shooter_detector import (
     REF_W,
@@ -7,6 +10,7 @@ from shooter_detector import (
     scale_box,
     scale_point,
     validate_panel_image_size,
+    verify_panel_crop,
 )
 
 
@@ -36,6 +40,44 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         box = scale_box((235, 150, 435, 285), sx, sy)
         self.assertTrue(0 <= box[0] < box[2] <= 830)
         self.assertTrue(0 <= box[1] < box[3] <= 540)
+
+    def test_panel_crop_is_bound_to_exact_source_screenshot_region(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = Image.new("RGB", (100, 80), (10, 20, 30))
+            for x in range(20, 70):
+                for y in range(10, 50):
+                    source.putpixel((x, y), (x, y, 100))
+            source_path = root / "source.png"
+            panel_path = root / "panel.png"
+            source.save(source_path)
+            source.crop((20, 10, 70, 50)).save(panel_path)
+            digest = verify_panel_crop(
+                source_path, panel_path, [20, 10, 70, 50]
+            )
+            self.assertEqual(len(digest), 64)
+
+    def test_panel_crop_rejects_unrelated_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new("RGB", (100, 80), (10, 20, 30)).save(root / "source.png")
+            Image.new("RGB", (50, 40), (200, 100, 50)).save(root / "panel.png")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                verify_panel_crop(
+                    root / "source.png", root / "panel.png",
+                    [20, 10, 70, 50]
+                )
+
+    def test_panel_crop_rejects_out_of_bounds_region(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new("RGB", (100, 80)).save(root / "source.png")
+            Image.new("RGB", (50, 40)).save(root / "panel.png")
+            with self.assertRaisesRegex(ValueError, "outside"):
+                verify_panel_crop(
+                    root / "source.png", root / "panel.png",
+                    [60, 10, 110, 50]
+                )
 
     def test_brown_shooter_colour_is_distinguished_from_orange(self):
         self.assertEqual(identify_color((193, 126, 63))["name"], "brown")
