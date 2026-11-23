@@ -72,6 +72,9 @@ def assess(state, audit, calibration, identity, firing):
         "colour_classification_verified": (
             audit.get("colour_classification_verified") is True
         ),
+        "shooter_capture_provenance_verified": (
+            audit.get("shooter_capture_provenance_verified") is True
+        ),
         "colour_mappings_gameplay_verified": mapping_verified,
         "at_least_one_accessible_shooter": accessible > 0,
         "conveyor_calibration_present": bool(
@@ -171,9 +174,12 @@ def main(observation_path=None, shooter_path=None):
         planning, identity_audit, synchronized_snapshot, candidate_report
     )
 
+    shooter_capture_verified = (
+        audit.get("shooter_capture_provenance_verified") is True
+    )
     manager.set_mode("ANALYSE")
     candidate = None
-    if gate["evidence_gate_passed"]:
+    if gate["evidence_gate_passed"] and shooter_capture_verified:
         candidate = plan_next_move(
             state,
             planning_report=planning,
@@ -183,6 +189,7 @@ def main(observation_path=None, shooter_path=None):
         )
     manager.stop()
     result["planning_evidence_gate"] = gate
+    result["shooter_capture_provenance_verified"] = shooter_capture_verified
     result["evidence_bundle_synchronisation"] = bundle_sync
 
     result["level"] = state.level
