@@ -150,7 +150,7 @@ class SnapshotSyncTests(unittest.TestCase):
 
     def test_bundle_rejects_artifact_from_different_capture_time(self):
         board, conveyor, identity, candidates, planning = self.bundle()
-        candidates["captured_at"] = "2026-11-23T10:00:01+00:00"
+        candidates["captured_at"] = "2026-11-23T10:03:00+00:00"
         result = synchronise_bundle(
             board, conveyor, identity, candidates, planning
         )
@@ -158,6 +158,11 @@ class SnapshotSyncTests(unittest.TestCase):
         self.assertFalse(
             result["checks"]["candidates_timestamp_matches_board"]
         )
+        candidates["captured_at"] = "2026-11-23T10:01:00+00:00"
+        within_limit = synchronise_bundle(
+            board, conveyor, identity, candidates, planning
+        )
+        self.assertTrue(within_limit["synchronised"])
 
     def test_bundle_rejects_unidentified_artifact_timestamp(self):
         board, conveyor, identity, candidates, planning = self.bundle()
