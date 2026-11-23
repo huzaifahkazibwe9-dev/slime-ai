@@ -43,6 +43,15 @@ def plan_capacity_aware_evolving_schedule(
         raise ValueError("Precomputed board_plan must be a valid evolving-board report")
     elif board_plan.get("source_state_unchanged") is not True:
         raise ValueError("Precomputed board_plan must preserve its source state")
+    elif board_plan.get("initial_pixels") != state.remaining_pixels:
+        raise ValueError("Precomputed board_plan does not match the current board")
+    elif any(
+        not isinstance(item, dict)
+        or not isinstance(item.get("group_id"), str)
+        or not item.get("group_id")
+        for item in board_plan["sequence"]
+    ):
+        raise ValueError("Precomputed board_plan contains an invalid sequence")
     sequence = board_plan.get("sequence", [])
 
     group_members = {}
