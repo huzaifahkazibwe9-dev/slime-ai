@@ -48,6 +48,29 @@ class PersistentTransitionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             persistent_transition(obs(a), obs(a), other)
 
+    def test_rejects_boolean_and_out_of_range_rgb(self):
+        for sample in ([True, 0, 0], [-1, 0, 0], [256, 0, 0], [1.5, 0, 0]):
+            with self.subTest(sample=sample):
+                a, b, c = board(), board(), board()
+                b[1][1] = sample
+                with self.assertRaises(ValueError):
+                    persistent_transition(obs(a), obs(b), obs(c))
+
+    def test_rejects_non_finite_thresholds(self):
+        a = board()
+        for threshold in (float("nan"), float("inf"), True):
+            with self.subTest(threshold=threshold):
+                with self.assertRaises(ValueError):
+                    persistent_transition(
+                        obs(a), obs(a), obs(a), threshold=threshold
+                    )
+
+    def test_rejects_malformed_grid_dimensions(self):
+        a = obs(board())
+        a["grid_size"] = [True, 5]
+        with self.assertRaises(ValueError):
+            persistent_transition(a, a, a)
+
     def test_safety_flags_remain_false(self):
         a, b, c = board(), board(), board()
         b[2][2] = [100, 100, 100]
