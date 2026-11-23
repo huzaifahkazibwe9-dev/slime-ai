@@ -54,8 +54,13 @@ def _simulate_conveyor_batch(original, state, groups):
     # Restore shooters already on the conveyor.
     for shooter_id in original.conveyor:
         shooter = original.shooters[shooter_id]
-        group_members = [shooter_id] + list(shooter.bonded_ids)
-        group_id = shooter.group_id or min(group_members)
+        group_id = original.bonded_group_id(shooter_id)
+        if group_id is None:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "INVALID_BONDED_GROUP_IDENTITY",
+            }
         progress = float(shooter.rotation_progress or 0.0)
         position = int(round(progress * config.ticks_per_lap))
         position %= config.ticks_per_lap
