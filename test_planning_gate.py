@@ -88,6 +88,22 @@ class PlanningGateTests(unittest.TestCase):
         position["observed_ammo"] = 10
         position["identity_verified"] = True
         position["planning_eligible"] = True
+        position["ammo_evidence"] = {
+            "position_id": "left_2",
+            "ammo": 10,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": "board-1",
+            "observed_at": "2026-11-23T10:00:00+03:00",
+            "verified": True,
+            "checks": {
+                "ammo_is_non_negative_integer": True,
+                "position_identity_matches": True,
+                "capture_session_present": True,
+                "board_snapshot_present": True,
+                "observation_timestamp_present": True,
+                "explicit_user_confirmation": True,
+            },
+        }
         scenario = position["scenarios"][0]
         scenario["confidence_eligible"] = True
         scenario["planning_eligible"] = True
@@ -115,6 +131,72 @@ class PlanningGateTests(unittest.TestCase):
             "AMMUNITION_OBSERVATION_UNVERIFIED",
             item["blockers"],
         )
+
+    def test_forged_boolean_flag_cannot_verify_ammo(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["ammunition_evidence_verified"] = True
+        position["identity_verified"] = True
+        position["planning_eligible"] = True
+        report["same_board_state_confirmed"] = True
+        report["conveyor_identity_verified"] = True
+        report["gameplay_verified"] = True
+        scenario = position["scenarios"][0]
+        scenario["confidence_eligible"] = True
+        scenario["planning_eligible"] = True
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["planning_eligible"])
+        self.assertIn(
+            "AMMUNITION_OBSERVATION_UNVERIFIED",
+            result["results"][0]["blockers"],
+        )
+
+    def test_ammo_evidence_for_wrong_shooter_is_rejected(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["ammo_evidence"] = {
+            "position_id": "right_1",
+            "ammo": 8,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": "board-1",
+            "observed_at": "2026-11-23T10:00:00+03:00",
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer",
+                "position_identity_matches",
+                "capture_session_present",
+                "board_snapshot_present",
+                "observation_timestamp_present",
+                "explicit_user_confirmation",
+            )},
+        }
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
+
+    def test_ammo_evidence_count_must_match_observation(self):
+        report = make_report()
+        position = report["results"][0]
+        position["observed_ammo"] = 8
+        position["ammo_evidence"] = {
+            "position_id": "left_2",
+            "ammo": 9,
+            "capture_session_id": "capture-1",
+            "board_snapshot_id": "board-1",
+            "observed_at": "2026-11-23T10:00:00+03:00",
+            "verified": True,
+            "checks": {key: True for key in (
+                "ammo_is_non_negative_integer",
+                "position_identity_matches",
+                "capture_session_present",
+                "board_snapshot_present",
+                "observation_timestamp_present",
+                "explicit_user_confirmation",
+            )},
+        }
+        result = evaluate_planning(report)
+        self.assertFalse(result["results"][0]["ammunition_evidence_verified"])
 
     def test_safety_flags_always_disabled(self):
         result = evaluate_planning(make_report())
