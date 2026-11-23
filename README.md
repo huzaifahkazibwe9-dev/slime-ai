@@ -2,6 +2,14 @@
 
 Slime Loop analysis and planning project for Termux.
 
+## One-command Termux build
+
+From the project directory, run:
+
+`bash build_pipeline.sh`
+
+The script ingests the saved Level 39 screenshot, refreshes shooter detection if the panel crop exists, integrates the candidate state, runs available read-only region/reachability analyses, performs dry-run orchestration, and finishes with diagnostics and unit tests. It does not tap the game or start background loops.
+
 ## Screenshot-to-state workflow
 
 1. Ingest a complete game screenshot:
