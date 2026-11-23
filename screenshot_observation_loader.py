@@ -14,6 +14,7 @@ from pathlib import Path
 
 from game_state import GameState
 from shooter_loader import load_shooters
+from screenshot_ingestor import classify_rgb
 
 DEFAULT_OBSERVATION = Path("data/board_observation_latest.json")
 DEFAULT_SHOOTERS = Path("data/shooter_detection.json")
@@ -67,6 +68,11 @@ def _require_grid(data):
                     or any(type(v) is not int or v < 0 or v > 255
                            for v in sample)):
                 raise ValueError(f"Invalid RGB sample at ({x},{y})")
+            if classify_rgb(sample) != label:
+                raise ValueError(
+                    f"RGB/classification mismatch at ({x},{y}): "
+                    f"saved={label}, recalculated={classify_rgb(sample)}"
+                )
             counts[label] += 1
 
     if data.get("counts") != dict(counts):
@@ -119,6 +125,8 @@ def load_observed_level(
         "grid_size": [width, height],
         "board_cells": width * height,
         "colour_counts": dict(sorted(counts.items())),
+        "classification_consistent_with_extractor": True,
+        "colour_truth_verified": False,
         "shooter_count": len(shooters),
         "shooter_panel_positions_only": True,
         "shooter_positions_gameplay_verified": False,
