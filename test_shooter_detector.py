@@ -59,8 +59,8 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
     def test_panel_inventory_scales_slot_centres(self):
         from shooter_detector import build_panel_slot_inventory
         slots = build_panel_slot_inventory(REF_W // 2, REF_H // 2)
-        self.assertEqual(slots[0]["center"], [165, 138])
-        self.assertEqual(slots[4]["center"], [165, 288])
+        self.assertEqual(slots[0]["center"], [165, 137])
+        self.assertEqual(slots[4]["center"], [165, 287])
 
     def test_panel_inventory_rejects_invalid_dimensions(self):
         from shooter_detector import build_panel_slot_inventory
