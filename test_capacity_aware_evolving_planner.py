@@ -102,6 +102,22 @@ class CapacityAwareEvolvingPlannerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match"):
             plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
 
+    def test_rejects_precomputed_plan_for_same_pixel_count_different_board(self):
+        state = make_state()
+        from evolving_board_planner import plan_evolving_board
+        board_plan = plan_evolving_board(state, max_nodes=20, beam_width=10)
+        state.board[0][0] = "green"
+        with self.assertRaisesRegex(ValueError, "current state"):
+            plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
+
+    def test_rejects_duplicate_precomputed_groups(self):
+        state = make_state()
+        from evolving_board_planner import plan_evolving_board
+        board_plan = plan_evolving_board(state, max_nodes=20, beam_width=10)
+        board_plan["sequence"] = board_plan["sequence"] * 2
+        with self.assertRaisesRegex(ValueError, "duplicate groups"):
+            plan_capacity_aware_evolving_schedule(state, board_plan=board_plan)
+
     def test_rejects_malformed_precomputed_sequence(self):
         state = make_state()
         from evolving_board_planner import plan_evolving_board
