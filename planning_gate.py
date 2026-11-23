@@ -53,6 +53,9 @@ def evaluate_planning(report):
                 and bool(ammo_evidence.get("capture_session_id").strip())
                 and isinstance(ammo_evidence.get("board_snapshot_id"), str)
                 and bool(ammo_evidence.get("board_snapshot_id").strip())
+                and ammo_evidence.get("board_snapshot_id") == report.get("board_snapshot_id")
+                and isinstance(ammo_evidence.get("capture_session_id"), str)
+                and ammo_evidence.get("capture_session_id") == report.get("capture_session_id")
                 and isinstance(ammo_evidence.get("observed_at"), str)
                 and bool(ammo_evidence.get("observed_at").strip())
                 and isinstance(ammo_evidence.get("checks"), dict)
@@ -98,6 +101,8 @@ def evaluate_planning(report):
     return {
         "level": report.get("level"),
         "board_dimensions": report.get("board_dimensions"),
+        "board_snapshot_id": report.get("board_snapshot_id"),
+        "capture_session_id": report.get("capture_session_id"),
         "counts": counts,
         "results": results,
         "decision": (
