@@ -126,6 +126,8 @@ class Build11AFTests(unittest.TestCase):
 
         self.assertEqual(result["candidate_count"], 1)
         self.assertTrue(result["search_truncated"])
+        self.assertFalse(result["completion"]["simulation_complete"])
+        self.assertIn("SEARCH_TRUNCATED", result["completion"]["blockers"])
 
     def test_valid_partial_plan_is_not_reported_as_full_level_complete(self):
         from game_state import Shooter
@@ -177,8 +179,13 @@ class Build11AFTests(unittest.TestCase):
         ):
             result = planner.plan_multi_batch_candidates(state)
 
-        self.assertTrue(result["completion"]["full_level_complete"])
-        self.assertEqual(result["completion"]["blockers"], [])
+        self.assertTrue(result["completion"]["simulation_complete"])
+        self.assertFalse(result["completion"]["full_level_complete"])
+        self.assertFalse(result["completion"]["live_level_completion_verified"])
+        self.assertIn(
+            "CONVEYOR_TIMING_UNCALIBRATED",
+            result["completion"]["blockers"],
+        )
     def test_live_execution_is_never_enabled(self):
         state = GameState([[None]])
 
