@@ -19,12 +19,15 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
     if not isinstance(source_board, list):
         raise ValueError("Invalid board data")
     occupancy = data.get("occupancy", {})
+    if not isinstance(occupancy, dict):
+        raise ValueError("Invalid occupancy metadata")
     mask = occupancy.get("mask")
 
     if len(source_board) != height:
         raise ValueError("Incorrect board height")
 
-    if any(len(row) != width for row in source_board):
+    if any(not isinstance(row, list) or len(row) != width
+           for row in source_board):
         raise ValueError("Incorrect board width")
 
     if not isinstance(mask, list) or len(mask) != height:
@@ -66,6 +69,8 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
     confidence_data = json.loads(
         Path(confidence_path).read_text()
     )
+    if not isinstance(confidence_data, dict):
+        raise ValueError("Invalid confidence report")
 
     if confidence_data.get("grid_size") != [width, height]:
         raise ValueError("Confidence grid dimensions do not match board")
@@ -93,6 +98,8 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE):
 
         for x in range(width):
             cell = confidence_cells[y][x]
+            if not isinstance(cell, dict):
+                raise ValueError(f"Invalid confidence cell at ({x},{y})")
 
             if cell.get("row") != y or cell.get("column") != x:
                 raise ValueError(
