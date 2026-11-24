@@ -47,6 +47,16 @@ class CachedBoardColourValidationTests(unittest.TestCase):
         self.cached["counts"] = {"red": 2}
         self.assertFalse(self.is_valid())
 
+    def test_rejects_label_that_disagrees_with_cached_rgb(self):
+        self.cached["board"] = [["blue"]]
+        self.cached["counts"] = {"blue": 1}
+        self.assertFalse(self.is_valid())
+
+    def test_accepts_label_recomputed_from_cached_rgb(self):
+        self.cached["board"] = [["red"]]
+        self.cached["raw_rgb"] = [[[230, 30, 30]]]
+        self.assertTrue(self.is_valid())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
