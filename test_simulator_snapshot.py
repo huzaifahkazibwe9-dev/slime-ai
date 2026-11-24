@@ -146,6 +146,40 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ]
         self.assertEqual(len(return_events), 2)
 
+    def test_rejects_incomplete_bonded_group_reactivation_events(self):
+        base = snapshot_simulator(create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 0,
+             "selected": True, "returned": True},
+            {"id": "a2", "group_id": "PAIR", "ammo": 0,
+             "selected": True, "returned": True},
+        ], storage_occupied=2))
+        base["tick_count"] = 1
+        invalid_events = [
+            [{
+                "tick": 1,
+                "event": "GROUP_REACTIVATED_FROM_STORAGE",
+                "group_id": "PAIR",
+            }],
+            [{
+                "tick": 1,
+                "event": "GROUP_REACTIVATED_FROM_STORAGE",
+                "group_id": "PAIR",
+                "members": ["a1"],
+            }],
+            [{
+                "tick": 1,
+                "event": "GROUP_REACTIVATED_FROM_STORAGE",
+                "group_id": "WRONG",
+                "members": ["a1", "a2"],
+            }],
+        ]
+        for events in invalid_events:
+            with self.subTest(events=events):
+                snapshot = copy.deepcopy(base)
+                snapshot["events"] = events
+                with self.assertRaises(ValueError):
+                    restore_simulator(snapshot)
+
     def test_rejects_return_event_that_precedes_latest_reactivation(self):
         snapshot = snapshot_simulator(create_simulator([
             {"id": "a", "group_id": "A", "ammo": 0, "selected": True, "returned": True}
