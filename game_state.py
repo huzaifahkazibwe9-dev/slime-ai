@@ -231,6 +231,21 @@ class GameState:
         if not group:
             return False
 
+        # A selectable component must be a complete, reciprocal bond graph.
+        # Do not let the planner act on a one-sided or inconsistent observation.
+        group_members = set(group)
+        for member in group:
+            linked_ids = getattr(self.shooters[member], "bonded_ids", ())
+            for linked in linked_ids:
+                if (linked not in group_members
+                        or member not in getattr(
+                            self.shooters[linked], "bonded_ids", ()
+                        )):
+                    return False
+
+        if self.bonded_group_id(shooter_id) is None:
+            return False
+
         if not self.shooters[shooter_id].accessible:
             return False
 
