@@ -22,6 +22,13 @@ COLOUR_LABELS = (
 )
 
 
+def _is_finite_number(value):
+    """Accept exact ints and finite floats, excluding bool and huge-int overflow."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
 def classify_rgb(rgb):
     r, g, b = [v / 255 for v in rgb]
     hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
@@ -88,7 +95,7 @@ def extract_board(image_path, calibration):
             raise ValueError("Grid dimensions must be positive integers")
 
         if (
-            any(type(value) not in (int, float) or not math.isfinite(value)
+            any(not _is_finite_number(value)
                 for value in (left, top, right, bottom))
             or left < 1 or top < 1
             or right <= left or bottom <= top
@@ -157,8 +164,7 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     if (not isinstance(grid_size, list) or len(grid_size) != 2
             or any(type(value) is not int or value < 1 for value in grid_size)
             or not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(value) not in (int, float) or not math.isfinite(value)
-                   for value in bounds)):
+            or any(not _is_finite_number(value) for value in bounds)):
         return False
     cached_grid_size = cached.get("grid_size")
     cached_bounds = cached.get("bounds")
@@ -170,8 +176,7 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         or cached_grid_size != grid_size
         or not isinstance(cached_bounds, list)
         or len(cached_bounds) != 4
-        or any(type(value) not in (int, float) or not math.isfinite(value)
-               for value in cached_bounds)
+        or any(not _is_finite_number(value) for value in cached_bounds)
         or cached_bounds != bounds
     ):
         return False
