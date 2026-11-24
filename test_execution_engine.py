@@ -107,21 +107,25 @@ class ExecutionEngineTests(unittest.TestCase):
         )
 
     def test_multi_batch_adapter_rejects_unknown_ammo_instead_of_assuming_zero(self):
+        visible = Shooter("V", "red", 2, "right", -1, 0, accessible=True)
         hidden = Shooter(
             "H", None, None, "right", -1, 0, revealed=False
         )
-        state = self.make_state([[None]], [hidden])
-        report = run_multi_batch_schedule(
-            state,
-            [{"groups": ["H"], "shots": {"H": 0}}],
-        )
-        self.assertFalse(report["schedule_valid"])
-        self.assertIn(
-            "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER",
-            report["failure_reason"],
-        )
-        self.assertTrue(report["source_state_unchanged"])
-        self.assertFalse(report["gameplay_actions_performed"])
+        cases = [
+            ([hidden], [{"groups": ["H"], "shots": {"H": 0}}]),
+            ([visible, hidden], [{"groups": ["V"], "shots": {"V": 1}}]),
+        ]
+        for shooters, batches in cases:
+            with self.subTest(shooters=[item.id for item in shooters]):
+                state = self.make_state([[None]], shooters)
+                report = run_multi_batch_schedule(state, batches)
+                self.assertFalse(report["schedule_valid"])
+                self.assertIn(
+                    "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER",
+                    report["failure_reason"],
+                )
+                self.assertTrue(report["source_state_unchanged"])
+                self.assertFalse(report["gameplay_actions_performed"])
 
     def test_three_bond_group_rejected_with_one_slot(self):
         shooters = [
