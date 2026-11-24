@@ -60,6 +60,26 @@ class ConveyorSimulatorTests(unittest.TestCase):
         self.assertFalse(sim.record_shots("single", 4))
         self.assertEqual(sim.active[0].ammo, 3)
 
+    def test_bonded_group_waits_until_all_members_complete_before_storage(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 1},
+        ], config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1))
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, [])
+        self.assertEqual(sim.storage_occupied, 0)
+        self.assertEqual(len(sim.active), 2)
+
+        self.assertTrue(sim.record_shots("A2", 1))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["A1", "A2"])
+        self.assertEqual(sim.storage_occupied, 2)
+
+        from simulator_snapshot import restore_simulator, snapshot_simulator
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.returned_ids, ["A1", "A2"])
+
     def test_reactivation_preserves_zero_ammo_and_group_identity(self):
         sim = create_simulator([
             {"id": "A1", "group_id": "PAIR", "ammo": 0},
