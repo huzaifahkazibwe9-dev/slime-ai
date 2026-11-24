@@ -106,6 +106,26 @@ class ExecutionEngineTests(unittest.TestCase):
             report["failure_reason"], "UNKNOWN_AMMO_ON_EXISTING_CONVEYOR"
         )
 
+    def test_candidate_conveyor_simulation_rejects_unknown_ammo(self):
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0, revealed=False
+        )
+        original = self.make_state([[None]], [hidden])
+        simulated = copy.deepcopy(original)
+
+        report = _simulate_conveyor_batch(
+            original, simulated, [("H",)]
+        )
+
+        self.assertFalse(report["batch_selection_valid"])
+        self.assertEqual(
+            report["failure_reason"],
+            "UNKNOWN_OR_INVALID_AMMO_ON_CANDIDATE_SHOOTER",
+        )
+        self.assertEqual(report["shooter_id"], "H")
+        self.assertEqual(original.shooters["H"].ammo, None)
+        self.assertEqual(simulated.shooters["H"].ammo, None)
+
     def test_multi_batch_adapter_rejects_unknown_ammo_instead_of_assuming_zero(self):
         visible = Shooter("V", "red", 2, "right", -1, 0, accessible=True)
         hidden = Shooter(
