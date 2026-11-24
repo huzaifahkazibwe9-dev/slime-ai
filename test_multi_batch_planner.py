@@ -224,5 +224,41 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(r["gameplay_actions_performed"])
 
 
+    def test_malformed_shooter_record_inputs_fail_closed(self):
+        cases = [
+            (None, "SHOOTER_RECORDS_MUST_BE_A_SEQUENCE"),
+            ([None], "SHOOTER_RECORD_MUST_BE_A_MAPPING"),
+            ([{"ammo": 1}], "SHOOTER_ID_MUST_BE_A_NONEMPTY_STRING"),
+            ([{"id": "A", "ammo": True}],
+             "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER"),
+            ([{"id": "A", "ammo": -1}],
+             "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER"),
+            ([{"id": "A", "ammo": 1, "position": 1.5}],
+             "SHOOTER_POSITION_STATE_MUST_BE_NONNEGATIVE_INTEGER"),
+            ([{"id": "A", "ammo": 1, "selected": "false"}],
+             "SHOOTER_STATE_FLAGS_MUST_BE_BOOLEAN"),
+            ([{"id": "A", "ammo": 1},
+              {"id": "A", "ammo": 2}],
+             "DUPLICATE_SHOOTER_ID"),
+        ]
+        for records, reason in cases:
+            with self.subTest(records=records):
+                result = simulate_batch_schedule(records, [])
+                self.assertFalse(result["schedule_valid"])
+                self.assertEqual(result["failure_reason"], reason)
+                self.assertFalse(result["live_execution_allowed"])
+                self.assertFalse(result["gameplay_actions_performed"])
+                self.assertEqual(result["batches_completed"], 0)
+
+    def test_malformed_initial_state_is_reported_without_exception(self):
+        result = simulate_batch_schedule(
+            [{"id": "A", "ammo": 1, "selected": True}],
+            [],
+            storage_occupied=0,
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertIn("INVALID_INITIAL_SIMULATOR_STATE", result["failure_reason"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
