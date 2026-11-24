@@ -290,6 +290,32 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sample quality status"):
             self.load_payload(payload)
 
+    def test_geometry_observations_none_is_accepted(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "shooters.json"
+            path.write_text(json.dumps(payload))
+            self.assertEqual(set(load_shooters(path, None)), {"A"})
+
+    def test_rejects_non_object_geometry_observations(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        for value in ([], ["unexpected"], "invalid", 7):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "shooters.json"
+                path.write_text(json.dumps(payload))
+                with self.assertRaisesRegex(ValueError, "geometry_observations must be an object"):
+                    load_shooters(path, value)
+
     def test_legacy_shooter_records_without_sample_quality_still_load(self):
         payload = {
             "visible_shooters": [
