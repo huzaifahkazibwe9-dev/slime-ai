@@ -105,6 +105,22 @@ class ConveyorSimulatorTests(unittest.TestCase):
         ])
         self.assertEqual(after, before)
 
+    def test_public_actions_reject_malformed_identifiers_without_mutation(self):
+        sim = create_simulator([
+            {"id": "a", "group_id": "A", "ammo": 3}
+        ])
+        self.assertFalse(sim.select_group(["A"]))
+        self.assertTrue(sim.select_group("A"))
+        before_ammo = sim.shooters[0].ammo
+        before_events = list(sim.events)
+
+        self.assertFalse(sim.record_shots(["a"], 1))
+        self.assertEqual(sim.shooters[0].ammo, before_ammo)
+        self.assertEqual(sim.events, before_events)
+        self.assertFalse(sim.reactivate_group(["A"]))
+        self.assertEqual(sim.shooters[0].ammo, before_ammo)
+        self.assertEqual(sim.events, before_events)
+
     def test_config_rejects_boolean_or_fractional_tick_counts(self):
         for value in (True, 2.5, 0, -1):
             with self.subTest(value=value):
