@@ -162,11 +162,10 @@ class ScreenshotIngestorTests(unittest.TestCase):
             real_read_bytes = Path.read_bytes
             image_reads = []
 
-            def replace_image_after_read(path):
-                data = real_read_bytes(path)
-                if path == image_path:
-                    image_reads.append(path)
-                    Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+            def replace_image_after_read():
+                data = real_read_bytes(image_path)
+                image_reads.append(image_path)
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
                 return data
 
             with patch("pathlib.Path.read_bytes", side_effect=replace_image_after_read):
