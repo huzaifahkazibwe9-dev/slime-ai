@@ -1,0 +1,44 @@
+name: Cloud coding-agent task
+description: Propose one bounded, testable Slime AI engineering task
+title: "[Agent task] "
+labels: ["agent-task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tasks submitted here are proposals. A human must review and authorize work. Agents must follow `AGENTS.md` and may only open draft pull requests.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State one specific bug, audit, or improvement.
+      placeholder: "Example: Verify the consuming-state contract for the bonded-group simulator."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable outcomes and required regression tests.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Files or modules in scope
+      description: Identify likely files; the agent must inspect call sites before editing.
+    validations:
+      required: false
+  - type: checkboxes
+    id: safeguards
+    attributes:
+      label: Required safeguards
+      options:
+        - label: Simulation and dry-run only; no live game taps or purchases.
+          required: true
+        - label: No direct main-branch edits and no automatic merge.
+          required: true
+        - label: Unverified visual evidence must fail closed.
+          required: true
+        - label: Report exact test results and unresolved limitations.
+          required: true
