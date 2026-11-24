@@ -1,7 +1,7 @@
 """Verified conveyor direction and screen-to-board geometry."""
 
 import json
-from math import floor, isfinite
+from math import floor
 from pathlib import Path
 
 REFERENCE_SIZE = (1080, 2220)
@@ -59,10 +59,10 @@ def load_verified_calibration(path):
         if not isinstance(shooter_id, str) or not shooter_id.strip() or shooter_id in seen_ids:
             raise ValueError(f"Calibration shooter {index} has a missing or duplicate ID.")
         seen_ids.add(shooter_id)
-        if segment not in expected_directions:
+        if not isinstance(segment, str) or segment not in expected_directions:
             raise ValueError(f"Calibration shooter {shooter_id} has an invalid segment.")
         if (not isinstance(center, list) or len(center) != 2
-                or any(type(value) not in (int, float) or not isfinite(value)
+                or any(type(value) not in (int, float)
                        for value in center)):
             raise ValueError(f"Calibration shooter {shooter_id} has an invalid center.")
         x, y = center
