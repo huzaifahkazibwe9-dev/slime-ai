@@ -152,8 +152,16 @@ def read_ammunition(image, box, temp):
     if result.returncode != 0 or not isinstance(result.stdout, str):
         return None
 
-    digits = re.findall(r"\d+", result.stdout)
-    return int(digits[0]) if len(digits) == 1 else None
+    # Accept only a single complete numeric token. A digit sequence
+    # embedded in unexpected OCR text is ambiguous and must fail closed.
+    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
+    if match is None:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        # Malformed or excessively long OCR output is unknown ammo, not a crash.
+        return None
 
 def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
     """Verify a panel image against a region of the full source screenshot.

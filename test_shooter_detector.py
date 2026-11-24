@@ -232,9 +232,33 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
             with patch("shooter_detector.subprocess.run") as run:
-                run.return_value = SimpleNamespace(stdout="40\\n", returncode=0)
+                run.return_value = SimpleNamespace(stdout="40\n", returncode=0)
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertEqual(result, 40)
+
+    def test_ammunition_ocr_rejects_digits_embedded_in_unexpected_text(self):
+        image = Image.new("RGB", (100, 70), "white")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout="ammo: 20"),
+            ):
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result)
+
+    def test_ammunition_ocr_accepts_surrounding_whitespace(self):
+        image = Image.new("RGB", (100, 70), "white")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout="  20\n\x0c"),
+            ):
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result, 20)
 
     def test_ammunition_ocr_rejects_multiple_numbers(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -242,6 +266,18 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             with patch("shooter_detector.subprocess.run") as run:
                 run.return_value = SimpleNamespace(stdout="40 20\\n", returncode=0)
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
+        self.assertIsNone(result)
+
+    def test_ammunition_ocr_rejects_excessively_long_numeric_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(
+                    stdout="9" * 5000, returncode=0
+                )
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
         self.assertIsNone(result)
 
     def test_ammunition_ocr_rejects_failed_tesseract_even_with_digits(self):
