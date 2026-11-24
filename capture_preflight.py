@@ -11,6 +11,14 @@ from capture_provenance import (
 from snapshot_sync import validate_capture_freshness
 
 
+def _positive_int_pair(value):
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(type(item) is int and item > 0 for item in value)
+    )
+
+
 def validate_capture_pair(
     observation_path,
     shooter_path,
@@ -103,13 +111,27 @@ def validate_capture_pair(
             "reason": "Independent source-pixel audit must be a JSON object.",
             "freshness": freshness,
         }
+    board_image_size = board.get("image_size")
+    board_grid_size = board.get("grid_size")
+    audit_image_size = pixel_audit.get("image_size")
+    audit_grid_size = pixel_audit.get("grid_size")
+    audit_label_mismatch_count = pixel_audit.get("label_mismatch_count")
     audit_matches = (
-        pixel_audit.get("source_sha256") == source_hash
-        and pixel_audit.get("image_size") == board.get("image_size")
-        and pixel_audit.get("grid_size") == board.get("grid_size")
+        _positive_int_pair(board_image_size)
+        and _positive_int_pair(board_grid_size)
+        and _positive_int_pair(audit_image_size)
+        and _positive_int_pair(audit_grid_size)
+        and audit_image_size == board_image_size
+        and audit_grid_size == board_grid_size
+        and type(audit_label_mismatch_count) is int
+        and audit_label_mismatch_count == 0
+        and pixel_audit.get("source_sha256") == source_hash
+        and pixel_audit.get("capture_session_id") == board_session
+        and pixel_audit.get("captured_at") == board.get("captured_at")
+        and pixel_audit.get("snapshot_id") == board.get("snapshot_id")
+        and pixel_audit.get("board_snapshot_id") == board.get("board_snapshot_id")
         and pixel_audit.get("pixel_samples_reproduced") is True
         and pixel_audit.get("extraction_fingerprint_match") is True
-        and pixel_audit.get("label_mismatch_count") == 0
         and pixel_audit.get("colour_counts_match") is True
         and pixel_audit.get("gameplay_verified") is False
         and pixel_audit.get("game_taps_enabled") is False
