@@ -247,7 +247,10 @@ def simulate_batch_schedule(
         seen.update(snapshot["seen"])
 
     try:
-        batch_iterator = iter(batches[start_index:])
+        batch_iterator = iter(
+            batches[start_index:]
+            if isinstance(batches, (list, tuple)) else batches
+        )
     except TypeError:
         result = sim.report()
         result.update({
