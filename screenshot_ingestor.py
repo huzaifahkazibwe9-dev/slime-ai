@@ -55,6 +55,25 @@ def median_rgb(img, x, y):
     )
 
 
+def sample_variation_diagnostics(patch):
+    """Report per-channel variation in a 3x3 RGB patch without judging it."""
+    values = np.asarray(patch, dtype=np.int16)
+    if values.shape != (3, 3, 3):
+        raise ValueError("Sample patch must have shape (3, 3, 3)")
+
+    channel_medians = np.median(values, axis=(0, 1))
+    channel_mad = np.median(
+        np.abs(values - channel_medians),
+        axis=(0, 1),
+    )
+    return {
+        "channel_median_absolute_deviation": [
+            round(float(value), 2) for value in channel_mad
+        ],
+        "status": "UNASSESSED",
+    }
+
+
 def extract_board(image_path, calibration):
     started = time.perf_counter()
     image_path = Path(image_path)
@@ -98,11 +117,11 @@ def extract_board(image_path, calibration):
         cell_height = (bottom - top) / rows
         pixels = np.asarray(img, dtype=np.uint8)
 
-        board, raw_rgb = [], []
+        board, raw_rgb, sample_diagnostics = [], [], []
         counts = {}
 
         for row in range(rows):
-            labels, rgb_row = [], []
+            labels, rgb_row, diagnostics_row = [], [], []
             for col in range(cols):
                 x = round(left + (col + 0.5) * cell_width)
                 y = round(top + (row + 0.5) * cell_height)
@@ -113,9 +132,11 @@ def extract_board(image_path, calibration):
                 colour = classify_rgb(rgb)
                 labels.append(colour)
                 rgb_row.append(list(rgb))
+                diagnostics_row.append(sample_variation_diagnostics(patch))
                 counts[colour] = counts.get(colour, 0) + 1
             board.append(labels)
             raw_rgb.append(rgb_row)
+            sample_diagnostics.append(diagnostics_row)
 
     return {
         "image_size": [width, height],
@@ -123,6 +144,7 @@ def extract_board(image_path, calibration):
         "bounds": [left, top, right, bottom],
         "board": board,
         "raw_rgb": raw_rgb,
+        "sample_diagnostics": sample_diagnostics,
         "counts": counts,
         "processing_seconds": round(time.perf_counter() - started, 6),
         "sampling_method": "numpy_vectorized_3x3_median",
@@ -157,10 +179,13 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     board = cached.get("board")
     raw_rgb = cached.get("raw_rgb")
+    sample_diagnostics = cached.get("sample_diagnostics")
     counts = cached.get("counts")
     if (not isinstance(counts, dict)
             or not isinstance(board, list) or len(board) != grid_size[1]
             or not isinstance(raw_rgb, list) or len(raw_rgb) != grid_size[1]
+            or not isinstance(sample_diagnostics, list)
+            or len(sample_diagnostics) != grid_size[1]
             or cached.get("sampling_method") != "numpy_vectorized_3x3_median"):
         return False
     if any(
@@ -178,6 +203,29 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
             for rgb in row
         )
         for row in raw_rgb
+    ):
+        return False
+
+    if any(
+        not isinstance(row, list) or len(row) != grid_size[0]
+        or any(
+            not isinstance(diagnostic, dict)
+            or diagnostic.get("status") != "UNASSESSED"
+            or not isinstance(
+                diagnostic.get("channel_median_absolute_deviation"), list
+            )
+            or len(diagnostic["channel_median_absolute_deviation"]) != 3
+            or any(
+                type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not 0 <= value <= 255
+                for value in diagnostic[
+                    "channel_median_absolute_deviation"
+                ]
+            )
+            for diagnostic in row
+        )
+        for row in sample_diagnostics
     ):
         return False
 
@@ -220,7 +268,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
             key: cached[key]
             for key in (
                 "image_size", "grid_size", "bounds", "board", "raw_rgb",
-                "counts", "sampling_method"
+                "sample_diagnostics", "counts", "sampling_method"
             )
         }
         extracted["processing_seconds"] = 0.0
