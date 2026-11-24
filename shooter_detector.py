@@ -1,4 +1,5 @@
 from PIL import Image, ImageOps
+from io import BytesIO
 from pathlib import Path
 import numpy as np
 import subprocess
@@ -155,18 +156,16 @@ def read_ammunition(image, box, temp):
     digits = re.findall(r"\d+", result.stdout)
     return int(digits[0]) if len(digits) == 1 else None
 
-def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
-    """Verify a panel image against a region of the full source screenshot.
-
-    Resizing and JPEG recompression are expected in the panel-crop workflow.
-    The crop's aspect ratio must remain calibrated, and pixel differences are
-    bounded using robust mean and 99th-percentile thresholds.
-    """
+def verify_panel_crop_bytes(source_bytes, panel_path, bounds,
+                            mean_tolerance=14, percentile_tolerance=48):
+    """Verify a panel crop and hash the exact same immutable source bytes."""
+    if not isinstance(source_bytes, bytes) or not source_bytes:
+        raise ValueError("Source screenshot bytes must be non-empty")
     if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
             or any(type(v) is not int for v in bounds)):
         raise ValueError("Panel bounds must be four integer coordinates")
     left, top, right, bottom = bounds
-    with Image.open(source_path) as source, Image.open(panel_path) as panel:
+    with Image.open(BytesIO(source_bytes)) as source, Image.open(panel_path) as panel:
         source = source.convert("RGB")
         panel = panel.convert("RGB")
         if not (0 <= left < right <= source.width
@@ -192,15 +191,27 @@ def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percen
                     "Panel image does not match the supplied screenshot region "
                     f"(mean={mean_difference:.2f}, p99={percentile_difference:.2f})"
                 )
-    return hashlib.sha256(Path(source_path).read_bytes()).hexdigest()
+    return hashlib.sha256(source_bytes).hexdigest()
 
-def extract_panel_crop(source_path, bounds, output_path=IMAGE):
-    """Create the calibrated shooter panel image from a full screenshot."""
+
+def verify_panel_crop(source_path, panel_path, bounds,
+                      mean_tolerance=14, percentile_tolerance=48):
+    """Path-based compatibility wrapper around immutable-byte verification."""
+    source_bytes = Path(source_path).read_bytes()
+    return verify_panel_crop_bytes(
+        source_bytes, panel_path, bounds, mean_tolerance, percentile_tolerance
+    )
+
+
+def extract_panel_crop_bytes(source_bytes, bounds, output_path=IMAGE):
+    """Extract a calibrated panel crop from one immutable screenshot snapshot."""
+    if not isinstance(source_bytes, bytes) or not source_bytes:
+        raise ValueError("Source screenshot bytes must be non-empty")
     if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
             or any(type(v) is not int for v in bounds)):
         raise ValueError("Panel bounds must be four integer coordinates")
     left, top, right, bottom = bounds
-    with Image.open(source_path) as source:
+    with Image.open(BytesIO(source_bytes)) as source:
         source = source.convert("RGB")
         if not (0 <= left < right <= source.width
                 and 0 <= top < bottom <= source.height):
@@ -208,13 +219,20 @@ def extract_panel_crop(source_path, bounds, output_path=IMAGE):
         crop = source.crop((left, top, right, bottom))
         expected_ratio = REF_W / REF_H
         actual_ratio = crop.width / crop.height
-        if abs(actual_ratio - expected_ratio) / expected_ratio > 0.02:
+        if abs(expected_ratio - actual_ratio) / expected_ratio > 0.02:
             raise ValueError("Selected source region does not match shooter panel aspect ratio")
         crop = crop.resize((REF_W, REF_H), Image.Resampling.LANCZOS)
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         crop.save(output_path, quality=95)
     return output_path
+
+
+def extract_panel_crop(source_path, bounds, output_path=IMAGE):
+    """Path-based compatibility wrapper around immutable-byte extraction."""
+    source_bytes = Path(source_path).read_bytes()
+    return extract_panel_crop_bytes(source_bytes, bounds, output_path)
+
 
 def load_user_confirmed_bonded_groups(path, shooter_ids):
     """Load bonds only from an explicit, user-confirmed local config."""
@@ -309,8 +327,12 @@ def main():
         raise ValueError("--source-screenshot and --panel-bounds must be supplied together")
     if args.extract_panel and not args.source_screenshot:
         raise ValueError("--extract-panel requires --source-screenshot and --panel-bounds")
+    source_bytes = None
+    if args.source_screenshot:
+        # One byte snapshot supplies extraction, crop verification and SHA-256.
+        source_bytes = Path(args.source_screenshot).read_bytes()
     if args.extract_panel:
-        extract_panel_crop(args.source_screenshot, args.panel_bounds, IMAGE)
+        extract_panel_crop_bytes(source_bytes, args.panel_bounds, IMAGE)
 
     if not IMAGE.exists():
         raise FileNotFoundError(IMAGE)
@@ -411,8 +433,8 @@ def main():
             parse_aware_capture_timestamp,
             validate_capture_session_id,
         )
-        source_hash = verify_panel_crop(
-            args.source_screenshot, IMAGE, args.panel_bounds
+        source_hash = verify_panel_crop_bytes(
+            source_bytes, IMAGE, args.panel_bounds
         )
         session_id = validate_capture_session_id(args.capture_session_id)
         captured_at = parse_aware_capture_timestamp(args.captured_at)
