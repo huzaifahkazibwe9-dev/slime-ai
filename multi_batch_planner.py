@@ -40,6 +40,14 @@ def simulate_batch_schedule(
     valid = True
 
     for index, batch in enumerate(batches):
+        def reject(reason, **extra):
+            nonlocal valid
+            valid = False
+            reports.append({
+                "batch": index, "valid": False,
+                "reason": reason, **extra
+            })
+
         if not isinstance(batch, dict):
             reject("BATCH_MUST_BE_A_MAPPING")
             break
@@ -48,14 +56,6 @@ def simulate_batch_schedule(
             reject("GROUPS_MUST_BE_A_SEQUENCE")
             break
         requested = [str(x) for x in raw_requested]
-
-        def reject(reason, **extra):
-            nonlocal valid
-            valid = False
-            reports.append({
-                "batch": index, "valid": False,
-                "reason": reason, **extra
-            })
 
         if not requested or len(requested) != len(set(requested)):
             reject("EMPTY_OR_DUPLICATE_GROUPS_IN_BATCH")
