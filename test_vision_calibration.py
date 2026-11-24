@@ -23,7 +23,7 @@ class VisionCalibrationTests(unittest.TestCase):
         self.assertEqual(report["accuracy"], 0.75)
         self.assertEqual(report["confusion_matrix"]["orange"]["red"], 1)
         self.assertEqual(report["per_class"]["red"]["precision"], 0.5)
-        self.assertEqual(report["per_class"]["red"]["recall"], 0.5)
+        self.assertEqual(report["per_class"]["red"]["recall"], 1.0)
         self.assertEqual(report["per_class"]["orange"]["recall"], 0.0)
 
     def test_does_not_claim_independent_truth_or_gameplay_verification(self):
