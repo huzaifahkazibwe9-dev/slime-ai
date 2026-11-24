@@ -40,7 +40,14 @@ def simulate_batch_schedule(
     valid = True
 
     for index, batch in enumerate(batches):
-        requested = [str(x) for x in batch.get("groups", [])]
+        if not isinstance(batch, dict):
+            reject("BATCH_MUST_BE_A_MAPPING")
+            break
+        raw_requested = batch.get("groups", [])
+        if not isinstance(raw_requested, (list, tuple)):
+            reject("GROUPS_MUST_BE_A_SEQUENCE")
+            break
+        requested = [str(x) for x in raw_requested]
 
         def reject(reason, **extra):
             nonlocal valid
@@ -58,9 +65,11 @@ def simulate_batch_schedule(
             reject("UNKNOWN_GROUP_ID")
             break
 
-        reactivate = [
-            str(x) for x in batch.get("reactivate_groups", [])
-        ]
+        raw_reactivate = batch.get("reactivate_groups", [])
+        if not isinstance(raw_reactivate, (list, tuple)):
+            reject("REACTIVATE_GROUPS_MUST_BE_A_SEQUENCE")
+            break
+        reactivate = [str(x) for x in raw_reactivate]
         if len(reactivate) != len(set(reactivate)):
             reject("DUPLICATE_REACTIVATION_GROUPS")
             break
