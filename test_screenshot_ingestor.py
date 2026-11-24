@@ -145,6 +145,30 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
             self.assertEqual(len(repaired["raw_rgb"]), 3)
 
+    def test_cached_pixel_edit_forces_fresh_full_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+
+            ingest(image_path, baseline_path, output_path)
+            cached = json.loads(output_path.read_text())
+            cached["raw_rgb"][0][0] = [230, 30, 30]
+            output_path.write_text(json.dumps(cached))
+
+            ingest(image_path, baseline_path, output_path)
+            repaired = json.loads(output_path.read_text())
+            self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
+            self.assertEqual(repaired["raw_rgb"][0][0], [245, 245, 245])
+            self.assertEqual(repaired["board"][0][0], "white")
+            self.assertFalse(repaired["gameplay_verified"])
+            self.assertFalse(repaired["game_taps_enabled"])
+
     def test_calibration_change_invalidates_cached_board_analysis(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
