@@ -22,6 +22,13 @@ COLOUR_LABELS = (
 )
 
 
+def _is_finite_number(value):
+    """Accept exact ints and finite floats, excluding bool and huge-int overflow."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
 def classify_rgb(rgb):
     r, g, b = [v / 255 for v in rgb]
     hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
@@ -88,7 +95,7 @@ def extract_board(image_path, calibration):
             raise ValueError("Grid dimensions must be positive integers")
 
         if (
-            any(type(value) not in (int, float) or not math.isfinite(value)
+            any(not _is_finite_number(value)
                 for value in (left, top, right, bottom))
             or left < 1 or top < 1
             or right <= left or bottom <= top
@@ -142,7 +149,14 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if cached.get("calibration_sha256") != calibration_digest:
         return False
-    if cached.get("image_size") != list(image_size):
+    cached_image_size = cached.get("image_size")
+    if (
+        not isinstance(cached_image_size, list)
+        or len(cached_image_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_image_size)
+        or cached_image_size != list(image_size)
+    ):
         return False
 
     grid_size = calibration.get("grid_size")
@@ -150,10 +164,21 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     if (not isinstance(grid_size, list) or len(grid_size) != 2
             or any(type(value) is not int or value < 1 for value in grid_size)
             or not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(value) not in (int, float) or not math.isfinite(value)
-                   for value in bounds)):
+            or any(not _is_finite_number(value) for value in bounds)):
         return False
-    if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
+    cached_grid_size = cached.get("grid_size")
+    cached_bounds = cached.get("bounds")
+    if (
+        not isinstance(cached_grid_size, list)
+        or len(cached_grid_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_grid_size)
+        or cached_grid_size != grid_size
+        or not isinstance(cached_bounds, list)
+        or len(cached_bounds) != 4
+        or any(not _is_finite_number(value) for value in cached_bounds)
+        or cached_bounds != bounds
+    ):
         return False
     left, top, right, bottom = bounds
     image_width, image_height = image_size
@@ -170,7 +195,7 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if any(
         not isinstance(row, list) or len(row) != grid_size[0]
-        or any(not isinstance(label, str) for label in row)
+        or any(label not in COLOUR_LABELS for label in row)
         for row in board
     ):
         return False
@@ -183,6 +208,22 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
             for rgb in row
         )
         for row in raw_rgb
+    ):
+        return False
+
+    # The cached labels must be reproducible from the cached RGB samples.
+    # This detects internally inconsistent cache records; it does not prove
+    # that the shared classifier matches the game's true tile colours.
+    for row_index, row in enumerate(board):
+        for column_index, label in enumerate(row):
+            if classify_rgb(raw_rgb[row_index][column_index]) != label:
+                return False
+
+    # Require exact integer counts: bool is an int subclass in Python and
+    # would otherwise compare equal to 0 or 1 in a dictionary.
+    if any(
+        key not in COLOUR_LABELS or type(value) is not int or value < 1
+        for key, value in counts.items()
     ):
         return False
 
