@@ -349,6 +349,34 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("does not match", resumed["failure_reason"])
 
+    def test_checkpoint_rejects_report_history_changed_from_original_batch(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 3},
+                   {"id": "B", "group_id": "B", "ammo": 3}]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1,
+            config=SimulatorConfig(conveyor_capacity=3, ticks_per_lap=3),
+        )
+        checkpoint = partial["checkpoint"]
+        self.assertIsInstance(checkpoint, dict)
+        # The forged history claims A was reactivated even though the original
+        # batch did not reactivate it. The seen set is adjusted to remain
+        # internally self-consistent, so validation must compare to the schedule.
+        checkpoint["batch_reports"][0]["reactivated_groups"] = ["A"]
+        checkpoint["seen_groups"] = []
+
+        resumed = simulate_batch_schedule(
+            records, batches,
+            config=SimulatorConfig(conveyor_capacity=3, ticks_per_lap=3),
+            resume_from=checkpoint,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("original schedule", resumed["failure_reason"])
+
     def test_checkpoint_rejects_seen_group_missing_from_simulator_state(self):
         records = [{"id": "A", "group_id": "A", "ammo": 3}]
         batches = [
