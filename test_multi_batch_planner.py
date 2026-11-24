@@ -353,7 +353,7 @@ class MultiBatchTests(unittest.TestCase):
         self.assertTrue(resumed["schedule_valid"])
         self.assertTrue(resumed["schedule_complete"])
         for field in (
-            "batch_reports", "events", "returned_ids",
+            "batch_reports", "events", "returned_shooters",
             "conveyor_occupied", "storage_occupied",
         ):
             self.assertEqual(resumed[field], uninterrupted[field], field)
