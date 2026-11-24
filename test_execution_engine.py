@@ -73,6 +73,35 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(len(active), 2)
         self.assertEqual({item["group_id"] for item in active}, {"pair-42"})
 
+    def test_asymmetric_bond_observation_cannot_be_selected(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            bonded_ids=[]
+        )
+        state = self.make_state([[ "red", None, "blue" ]], [a, b])
+        self.assertFalse(state.can_select_group("A"))
+        self.assertFalse(state.select_group("A"))
+        self.assertEqual(state.conveyor, [])
+
+    def test_conflicting_bond_group_ids_cannot_be_selected(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id="pair-a", bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            group_id="pair-b", bonded_ids=["A"]
+        )
+        state = self.make_state([[ "red", None, "blue" ]], [a, b])
+        self.assertIsNone(state.bonded_group_id("A"))
+        self.assertFalse(state.can_select_group("A"))
+        self.assertFalse(state.select_group("A"))
+        self.assertEqual(state.conveyor, [])
+
     def test_existing_conveyor_partial_bonded_group_is_rejected(self):
         a = Shooter(
             "A", "red", 2, "right", -1, 0,
