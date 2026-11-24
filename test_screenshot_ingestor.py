@@ -145,6 +145,43 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
             self.assertEqual(len(repaired["raw_rgb"]), 3)
 
+    def test_ingest_uses_one_immutable_screenshot_byte_snapshot(self):
+        from unittest.mock import patch
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            original_bytes = image_path.read_bytes()
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+            real_read_bytes = Path.read_bytes
+            image_reads = []
+
+            def replace_image_after_read():
+                data = real_read_bytes(image_path)
+                image_reads.append(image_path)
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+                return data
+
+            with patch("pathlib.Path.read_bytes", side_effect=replace_image_after_read):
+                ingest(image_path, baseline_path, output_path)
+
+            result = json.loads(output_path.read_text())
+            self.assertEqual(image_reads, [image_path])
+            self.assertEqual(
+                result["source_sha256"], hashlib.sha256(original_bytes).hexdigest()
+            )
+            self.assertEqual(result["board"][0][0], "white")
+            self.assertEqual(result["raw_rgb"][0][0], [245, 245, 245])
+            self.assertEqual(set(result["counts"]), {"white"})
+            self.assertFalse(result["gameplay_verified"])
+            self.assertFalse(result["game_taps_enabled"])
+
     def test_cached_pixel_edit_forces_fresh_full_analysis(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
