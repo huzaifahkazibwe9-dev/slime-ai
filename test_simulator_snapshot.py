@@ -98,6 +98,41 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
+    def test_rejects_event_reference_to_unknown_shooter(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "SHOOTER_ROTATED", "shooter_id": "missing"}
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_return_events(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "ammo": 0, "selected": True, "returned": True}
+        ], storage_occupied=1))
+        snapshot["returned_ids"] = ["a"]
+        snapshot["events"] = [
+            {"tick": 1, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "a"},
+            {"tick": 2, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "a"},
+        ]
+        snapshot["tick_count"] = 2
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_return_event_order_conflicting_with_returned_ids(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "ammo": 0, "selected": True, "returned": True},
+            {"id": "b", "ammo": 0, "selected": True, "returned": True},
+        ], storage_occupied=2))
+        snapshot["returned_ids"] = ["b", "a"]
+        snapshot["events"] = [
+            {"tick": 1, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "a"},
+            {"tick": 2, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "b"},
+        ]
+        snapshot["tick_count"] = 2
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
     def test_rejects_non_boolean_shooter_state_flags(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
         snapshot["shooters"][0]["selected"] = "true"
