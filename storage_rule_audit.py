@@ -13,8 +13,12 @@ def audit_storage_rules():
     )
     signature = inspect.signature(run_multi_batch_schedule)
 
+    # The simulator may enforce zero ammo per individual shooter or
+    # atomically across every member of a bonded group. Both are valid
+    # zero-ammo return gates; recognize the group-level implementation too.
     zero_ammo_only = (
         "if shooter.ammo == 0" in tick_source
+        or "all(member.ammo == 0 for member in members)" in tick_source
     )
     restores_ammo = (
         "ammo =" in reactivate_source
