@@ -36,8 +36,20 @@ class SlimeController:
             isinstance(evidence, dict)
             and evidence.get("evidence_gate_passed") is True
         )
+        capture_evidence_valid = False
+        observation = self.data_dir / "board_observation_latest.json"
+        shooters = self.data_dir / "shooter_detection.json"
+        if observation.is_file() and shooters.is_file():
+            try:
+                from capture_preflight import validate_capture_pair
+                capture_evidence_valid = (
+                    validate_capture_pair(observation, shooters).get("valid") is True
+                )
+            except Exception:
+                capture_evidence_valid = False
         verified_plan = (
-            evidence_gate_passed
+            capture_evidence_valid
+            and evidence_gate_passed
             and report.get("decision")
             == "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
             and isinstance(planner, dict)
@@ -51,6 +63,7 @@ class SlimeController:
             "plan_available": verified_plan,
             "decision": report.get("decision", "NO_REPORT"),
             "evidence_gate_passed": evidence_gate_passed,
+            "capture_evidence_valid": capture_evidence_valid,
             "touch_injection": False,
             "gameplay_actions_performed": False,
         }
