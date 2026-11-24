@@ -186,6 +186,14 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     ):
         return False
 
+    # The cached labels must be reproducible from the cached RGB samples.
+    # This detects internally inconsistent cache records; it does not prove
+    # that the shared classifier matches the game's true tile colours.
+    for row_index, row in enumerate(board):
+        for column_index, label in enumerate(row):
+            if classify_rgb(raw_rgb[row_index][column_index]) != label:
+                return False
+
     actual_counts = {}
     for row in board:
         for label in row:
