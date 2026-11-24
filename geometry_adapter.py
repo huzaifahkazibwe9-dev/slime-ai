@@ -1,9 +1,8 @@
 """Connect verified conveyor positions to solver virtual coordinates."""
 
 from pathlib import Path
-import json
 
-from conveyor_geometry import calculate_firing_geometry
+from conveyor_geometry import calculate_firing_geometry, load_verified_calibration
 
 CALIBRATION_FILE = Path("data/conveyor_calibration.json")
 
@@ -39,10 +38,8 @@ def apply_geometry(
 def run_tests():
     from game_state import Shooter
 
-    data = json.loads(CALIBRATION_FILE.read_text())
+    data = load_verified_calibration(CALIBRATION_FILE)
     image_size = tuple(data["image_size"])
-
-    assert data.get("verified_by_user") is True
 
     print("SLIME AI — SOLVER GEOMETRY ADAPTER")
     print("=" * 42)
