@@ -10,7 +10,12 @@ def simulate_batch_schedule(
     config=None,
     allow_storage_reactivation=False,
 ):
-    config = config or SimulatorConfig()
+    if config is None:
+        config = SimulatorConfig()
+    elif not isinstance(config, SimulatorConfig):
+        config_error = True
+    else:
+        config_error = False
 
     def invalid_input(reason):
         return {
@@ -32,6 +37,9 @@ def simulate_batch_schedule(
             "gameplay_actions_performed": False,
             "timing_calibrated_to_game": False,
         }
+
+    if config_error:
+        return invalid_input("CONFIG_MUST_BE_SIMULATOR_CONFIG")
 
     if type(allow_storage_reactivation) is not bool:
         return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
