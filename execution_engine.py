@@ -184,28 +184,27 @@ def _simulate_order(original, groups):
     for group in groups:
         root = group[0]
 
-        group_report = simulate_bonded_group(state, root)
+        # This candidate already owns a private state copy, so consume it
+        # directly instead of cloning and replaying the same group simulation.
+        group_report = simulate_bonded_group(
+            state, root, consume_state=True
+        )
         if (
             group_report.get("status") != "SIMULATED"
-            or not group_report.get("source_state_unchanged")
             or group_report.get("shooter_ids") != list(group)
+            or not group_report.get("group_selected_atomically")
+            or not all(member in state.conveyor for member in group)
+            or group_report.get("final_board") != state.board
         ):
             return None
 
-        # Apply the verified simulation to this candidate's private state.
-        state.select_group(root)
-
-        if not all(member in state.conveyor for member in group):
-            return None
-
-        state.board = copy.deepcopy(group_report["final_board"])
-
         for shooter_id in group:
-            if shooter_id not in group_report["remaining_ammo"]:
+            if (
+                shooter_id not in group_report["remaining_ammo"]
+                or state.shooters[shooter_id].ammo
+                != group_report["remaining_ammo"][shooter_id]
+            ):
                 return None
-            state.shooters[shooter_id].ammo = (
-                group_report["remaining_ammo"][shooter_id]
-            )
 
         group_simulations.append(group_report)
 
