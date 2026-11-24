@@ -439,6 +439,13 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
 
     report = {
         "build": "11M",
+        "capture_provenance": {
+            key: board_observation.get(key)
+            for key in (
+                "source_sha256", "capture_session_id", "captured_at",
+                "snapshot_id", "board_snapshot_id",
+            )
+        },
         "created_at": datetime.now(timezone.utc).isoformat(),
         "performance": {
             "timing_clock": "time.perf_counter",
