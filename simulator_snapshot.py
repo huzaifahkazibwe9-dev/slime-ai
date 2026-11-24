@@ -201,28 +201,36 @@ def restore_simulator(snapshot):
             for member in members:
                 latest_reactivation_index[member] = event_index
 
-    # A bonded group enters storage atomically. If the event history
-    # records a return for any currently stored member, it must record the
-    # complete group at the same tick after its latest reactivation.
-    for group_id, member_ids in group_members_by_id.items():
-        currently_returned = member_ids & returned_from_shooters
-        if not currently_returned:
-            continue
-        recorded = {
-            member_id for member_id in member_ids
-            if member_id in latest_return_index
-            and latest_return_index[member_id]
-                > latest_reactivation_index.get(member_id, -1)
-        }
-        if recorded and recorded != currently_returned:
+    # Validate every recorded return cycle, not just the current state.
+    # Bonded members enter storage together; a reactivation starts a new cycle.
+    pending_group_returns = {}
+    for event in events:
+        event_type = event.get("event")
+        if event_type == "SHOOTER_RETURNED_TO_STORAGE":
+            shooter_id = event["shooter_id"]
+            group_id = shooter_group_by_id[shooter_id]
+            member_ids = group_members_by_id[group_id]
+            pending = pending_group_returns.setdefault(group_id, {})
+            if shooter_id in pending:
+                raise ValueError("bonded group has duplicate return event")
+            pending[shooter_id] = event["tick"]
+            if len(pending) == len(member_ids):
+                if len(set(pending.values())) != 1:
+                    raise ValueError("bonded group return events must share a tick")
+            elif len(pending) > len(member_ids):
+                raise ValueError("bonded group return history is invalid")
+        elif event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+            group_id = event["group_id"]
+            pending = pending_group_returns.get(group_id, {})
+            if pending and set(pending) != group_members_by_id[group_id]:
+                raise ValueError("bonded group return history is incomplete")
+            pending_group_returns[group_id] = {}
+
+    for group_id, pending in pending_group_returns.items():
+        if pending and set(pending) != group_members_by_id[group_id]:
             raise ValueError("bonded group return history is incomplete")
-        if recorded:
-            return_ticks = {
-                events[latest_return_index[member_id]]["tick"]
-                for member_id in recorded
-            }
-            if len(return_ticks) != 1:
-                raise ValueError("bonded group return events must share a tick")
+        if pending and not group_members_by_id[group_id] & returned_from_shooters:
+            raise ValueError("active bonded group has unreconciled return history")
 
     current_return_events = {
         shooter_id: event_index
