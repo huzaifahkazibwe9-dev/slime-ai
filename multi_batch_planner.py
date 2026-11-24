@@ -170,7 +170,6 @@ def simulate_batch_schedule(
         })
         return result
 
-    index = 0
     while True:
         try:
             batch = next(batch_iterator)
