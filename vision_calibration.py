@@ -15,7 +15,7 @@ import argparse
 import json
 from pathlib import Path
 
-from screenshot_ingestor import classify_rgb
+from screenshot_ingestor import COLOUR_LABELS, classify_rgb
 
 SCHEMA_VERSION = 1
 
@@ -52,7 +52,11 @@ def validate_dataset(data):
         label = sample.get("label")
         if not isinstance(label, str) or not label.strip():
             raise ValueError(f"Sample {sample_id} label must be a non-empty string")
-        validated.append({"id": sample_id, "rgb": rgb[:], "label": label.strip()})
+        label = label.strip()
+        if label not in COLOUR_LABELS:
+            allowed = ", ".join(COLOUR_LABELS)
+            raise ValueError(f"Sample {sample_id} label must be one of: {allowed}")
+        validated.append({"id": sample_id, "rgb": rgb[:], "label": label})
     return validated
 
 
