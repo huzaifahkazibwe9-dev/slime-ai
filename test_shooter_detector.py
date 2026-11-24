@@ -217,6 +217,25 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             )
             self.assertEqual(len(digest), 64)
 
+    def test_panel_crop_rejects_invalid_pixel_difference_tolerances(self):
+        invalid = [float("nan"), float("inf"), -1, 256, True]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new("RGB", (100, 80), (10, 20, 30)).save(root / "source.png")
+            Image.new("RGB", (50, 40), (10, 20, 30)).save(root / "panel.png")
+            for value in invalid:
+                with self.subTest(value=value):
+                    with self.assertRaisesRegex(ValueError, "tolerance"):
+                        verify_panel_crop(
+                            root / "source.png", root / "panel.png",
+                            [20, 10, 70, 50], mean_tolerance=value
+                        )
+                    with self.assertRaisesRegex(ValueError, "tolerance"):
+                        verify_panel_crop(
+                            root / "source.png", root / "panel.png",
+                            [20, 10, 70, 50], percentile_tolerance=value
+                        )
+
     def test_panel_crop_rejects_wrong_aspect_ratio(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
