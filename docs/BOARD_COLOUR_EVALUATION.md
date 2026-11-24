@@ -52,6 +52,10 @@ cannot silently be treated as ground truth.
   predicted label.
 - Assign the label by visually checking the corresponding in-game tile and
   the agreed colour name.
+- Use the classifier's exact canonical spellings: `dark`, `white`, `gray`,
+  `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, or `pink`.
+  Do not mix aliases such as `grey`/`gray`; the evaluator compares labels
+  exactly and treats different spellings as different classes.
 - Include examples from different levels, board regions, tile shades, and
   screenshot conditions. Do not create a dataset by copying predicted labels.
 - Keep ambiguous samples out until a reviewer can resolve them; record them
