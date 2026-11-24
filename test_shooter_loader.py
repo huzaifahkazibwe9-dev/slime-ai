@@ -266,7 +266,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         shooters = self.load_payload(payload)
         self.assertEqual(set(shooters), {"clear"})
 
-    def test_bond_group_is_not_partially_loaded_when_member_sample_is_weak(self):
+    def test_entire_bond_group_is_withheld_when_member_sample_is_weak(self):
         payload = {
             "visible_shooters": [
                 {"id": "A", "color": {"name": "red"}, "ammo": 5,
@@ -277,8 +277,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             "bonded_groups": [["A", "B"]],
         }
         shooters = self.load_payload(payload)
-        self.assertEqual(set(shooters), {"A"})
-        self.assertEqual(shooters["A"].bonded_ids, [])
+        self.assertEqual(shooters, {})
 
     def test_rejects_unknown_sample_quality_status(self):
         payload = {
