@@ -194,6 +194,14 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
             if classify_rgb(raw_rgb[row_index][column_index]) != label:
                 return False
 
+    # Require exact integer counts: bool is an int subclass in Python and
+    # would otherwise compare equal to 0 or 1 in a dictionary.
+    if any(
+        key not in COLOUR_LABELS or type(value) is not int or value < 1
+        for key, value in counts.items()
+    ):
+        return False
+
     actual_counts = {}
     for row in board:
         for label in row:
