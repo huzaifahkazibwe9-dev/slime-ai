@@ -150,6 +150,34 @@ def simulate_batch_schedule(
             )
             break
 
+        # Validate shot input for every requested member before any
+        # reactivation or selection mutates simulator state.
+        shots_map = batch.get("shots", {})
+        if not isinstance(shots_map, dict):
+            reject("SHOTS_MUST_BE_A_MAPPING")
+            break
+        requested_members = [
+            member for group_id in requested for member in groups[group_id]
+        ]
+        if any(key not in requested_members for key in shots_map):
+            reject("UNKNOWN_SHOOTER_IN_SHOT_MAP")
+            break
+        invalid_shot = next((
+            (member, shots_map.get(member, 0))
+            for member in requested_members
+            if (
+                type(shots_map.get(member, 0)) is not int
+                or shots_map.get(member, 0) < 0
+                or shots_map.get(member, 0) > by_id[member].ammo
+            )
+        ), None)
+        if invalid_shot is not None:
+            reject(
+                "INVALID_OR_EXCESSIVE_SHOT_COUNT",
+                shooter_id=invalid_shot[0],
+            )
+            break
+
         for group_id in reactivate:
             if not sim.reactivate_group(group_id):
                 reject(
