@@ -18,6 +18,13 @@ from screenshot_ingestor import classify_rgb
 DEFAULT_OBSERVATION = Path("data/board_observation_latest.json")
 DEFAULT_SHOOTERS = Path("data/shooter_detection.json")
 
+def _is_finite_coordinate(value):
+    """Accept exact integers or finite floats without overflowing on huge ints."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
 
 def _require_grid(data):
     if not isinstance(data, dict):
@@ -36,8 +43,7 @@ def _require_grid(data):
             or any(type(v) is not int or v < 1 for v in image)):
         raise ValueError("Invalid image_size")
     if (not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(v) not in (int, float) or not math.isfinite(v)
-                   for v in bounds)):
+            or any(not _is_finite_coordinate(v) for v in bounds)):
         raise ValueError("Invalid board bounds")
 
     width, height = grid
