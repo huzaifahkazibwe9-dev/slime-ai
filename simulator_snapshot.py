@@ -6,7 +6,7 @@ observations from the live game and never enable gameplay actions.
 import copy
 
 from conveyor_simulator import (
-    ConveyorSimulator, Shooter, SimulatorConfig, create_simulator,
+    ConveyorSimulator, SimulatorConfig, create_simulator,
 )
 
 SNAPSHOT_SCHEMA_VERSION = 1
@@ -71,6 +71,11 @@ def restore_simulator(snapshot):
     shooters = snapshot.get("shooters")
     if not isinstance(shooters, list) or not shooters:
         raise ValueError("shooters must be a non-empty list")
+    if any(not isinstance(item, dict) for item in shooters):
+        raise ValueError("each shooter record must be an object")
+    if any(item.get("selected") is True and item.get("returned") is True
+           for item in shooters):
+        raise ValueError("a shooter cannot be both selected and returned")
     try:
         sim = create_simulator(
             shooters,
@@ -96,14 +101,19 @@ def restore_simulator(snapshot):
     events = snapshot.get("events")
     if not isinstance(events, list):
         raise ValueError("events must be a list")
+    previous_tick = -1
     for event in events:
         if not isinstance(event, dict):
             raise ValueError("each event must be an object")
         event_tick = event.get("tick")
         event_type = event.get("event")
         if (type(event_tick) is not int or not 0 <= event_tick <= tick_count
+                or event_tick < previous_tick
                 or not isinstance(event_type, str) or not event_type.strip()):
-            raise ValueError("event has invalid tick or event type")
+            raise ValueError("event has invalid or out-of-order tick/type")
+        previous_tick = event_tick
+    if not failed and events and events[-1].get("event") == "LEVEL_FAILURE":
+        raise ValueError("non-failed snapshot cannot end with LEVEL_FAILURE")
 
     returned_ids = snapshot.get("returned_ids")
     if not isinstance(returned_ids, list) or any(
