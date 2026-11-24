@@ -8,6 +8,70 @@ REFERENCE_SIZE = (1080, 2220)
 REFERENCE_BOARD_BOUNDS = (201, 431, 881, 1113)
 GRID_SIZE = (35, 35)
 
+def load_verified_calibration(path):
+    """Load calibration only when a user-confirmed file exists and is valid JSON."""
+    calibration_path = Path(path)
+    try:
+        raw = calibration_path.read_text()
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"Verified calibration file is missing: {calibration_path}. "
+            "Create it from a real screenshot and confirm the measured "
+            "shooter positions; do not infer or enable gameplay from defaults."
+        ) from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Calibration file is not valid JSON: {calibration_path}"
+        ) from exc
+    if not isinstance(data, dict):
+        raise ValueError("Calibration root must be a JSON object.")
+    if data.get("verified_by_user") is not True:
+        raise ValueError("Calibration must be explicitly confirmed by the user.")
+
+    def positive_integer_pair(value, field):
+        if (not isinstance(value, list) or len(value) != 2
+                or any(type(part) is not int or part <= 0 for part in value)):
+            raise ValueError(f"Calibration {field} must contain two positive integers.")
+        return value
+
+    width, height = positive_integer_pair(data.get("image_size"), "image_size")
+    positive_integer_pair(data.get("board_grid"), "board_grid")
+
+    expected_directions = {
+        "bottom": "up", "right": "left", "top": "down", "left": "right"
+    }
+    if data.get("directions") != expected_directions:
+        raise ValueError("Calibration directions do not match the supported segment mapping.")
+
+    shooters = data.get("shooters")
+    if not isinstance(shooters, list) or not shooters:
+        raise ValueError("Calibration shooters must be a non-empty array.")
+
+    seen_ids = set()
+    for index, shooter in enumerate(shooters):
+        if not isinstance(shooter, dict):
+            raise ValueError(f"Calibration shooter {index} must be an object.")
+        shooter_id = shooter.get("id")
+        segment = shooter.get("segment")
+        center = shooter.get("center")
+        if not isinstance(shooter_id, str) or not shooter_id.strip() or shooter_id in seen_ids:
+            raise ValueError(f"Calibration shooter {index} has a missing or duplicate ID.")
+        seen_ids.add(shooter_id)
+        if not isinstance(segment, str) or segment not in expected_directions:
+            raise ValueError(f"Calibration shooter {shooter_id} has an invalid segment.")
+        if (not isinstance(center, list) or len(center) != 2
+                or any(type(value) not in (int, float)
+                       for value in center)):
+            raise ValueError(f"Calibration shooter {shooter_id} has an invalid center.")
+        x, y = center
+        if not (0 <= x < width and 0 <= y < height):
+            raise ValueError(f"Calibration shooter {shooter_id} center is outside the image.")
+
+    return data
+
+
 DIRECTIONS = {
     "bottom": "up",
     "right": "left",
@@ -85,12 +149,9 @@ def calculate_firing_geometry(
 
 
 def audit_saved_calibration(path="data/conveyor_calibration.json"):
-    data = json.loads(Path(path).read_text())
+    data = load_verified_calibration(path)
     width, height = data["image_size"]
     results = []
-
-    if not data.get("verified_by_user"):
-        raise AssertionError("Calibration lacks user confirmation")
 
     for item in data["shooters"]:
         segment = item["segment"]
