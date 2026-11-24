@@ -55,6 +55,10 @@ def calculate_firing_geometry(
     if image_width <= 0 or image_height <= 0:
         raise ValueError("Invalid screenshot dimensions")
 
+    sx, sy = screen_center
+    if not (0 <= sx < image_width and 0 <= sy < image_height):
+        raise ValueError("Shooter center is outside screenshot bounds")
+
     if (not isinstance(board_bounds, (list, tuple))
             or len(board_bounds) != 4
             or not all(_finite_real(value) for value in board_bounds)):
@@ -65,7 +69,6 @@ def calculate_firing_geometry(
                    for value in grid_size)):
         raise ValueError("Grid size must contain two positive integers")
 
-    sx, sy = screen_center
     scale_x = image_width / REFERENCE_SIZE[0]
     scale_y = image_height / REFERENCE_SIZE[1]
 
