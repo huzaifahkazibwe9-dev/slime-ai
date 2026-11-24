@@ -216,6 +216,28 @@ def simulate_batch_schedule(
                 r.get("group_id", r["id"]) for r in records
             ]:
                 raise ValueError("checkpoint shooter groups do not match")
+            # Checkpoint reports are untrusted input too. Re-run the completed
+            # prefix from the original inputs and compare both its reports and
+            # final simulator state before accepting the saved history.
+            replay = simulate_batch_schedule(
+                records,
+                batches[:start_index],
+                storage_occupied=storage_occupied,
+                config=config,
+                allow_storage_reactivation=allow_storage_reactivation,
+            )
+            if (
+                not replay.get("schedule_valid")
+                or replay.get("batch_reports") != reports
+                or any(
+                    replay.get(key) != value
+                    for key, value in sim.report().items()
+                )
+            ):
+                raise ValueError(
+                    "checkpoint history does not match deterministic prefix replay"
+                )
+
             final_report = reports[-1] if reports else None
             if (
                 final_report is None
