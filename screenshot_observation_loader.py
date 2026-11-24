@@ -14,6 +14,10 @@ from pathlib import Path
 from game_state import GameState
 from shooter_loader import load_shooters
 from screenshot_ingestor import classify_rgb
+from capture_provenance import (
+    parse_aware_capture_timestamp,
+    validate_capture_session_id,
+)
 
 DEFAULT_OBSERVATION = Path("data/board_observation_latest.json")
 DEFAULT_SHOOTERS = Path("data/shooter_detection.json")
@@ -118,16 +122,44 @@ def load_observed_level(
     if not isinstance(shooter_data, dict):
         raise ValueError("Shooter detection must be a JSON object")
     shooter_provenance = shooter_data.get("capture_provenance", {})
+    board_session = data.get("capture_session_id")
+    board_timestamp = data.get("captured_at")
+    try:
+        normalized_board_session = validate_capture_session_id(board_session)
+        normalized_board_timestamp = parse_aware_capture_timestamp(
+            board_timestamp
+        )
+    except ValueError:
+        normalized_board_session = None
+        normalized_board_timestamp = None
+
+    try:
+        normalized_shooter_session = validate_capture_session_id(
+            shooter_provenance.get("capture_session_id")
+            if isinstance(shooter_provenance, dict) else None
+        )
+        normalized_shooter_timestamp = parse_aware_capture_timestamp(
+            shooter_provenance.get("captured_at")
+            if isinstance(shooter_provenance, dict) else None
+        )
+    except ValueError:
+        normalized_shooter_session = None
+        normalized_shooter_timestamp = None
+
+    board_capture_metadata_valid = bool(
+        normalized_board_session and normalized_board_timestamp
+    )
+    shooter_capture_metadata_valid = bool(
+        normalized_shooter_session and normalized_shooter_timestamp
+    )
     board_capture_matches = bool(
         isinstance(shooter_provenance, dict)
         and shooter_provenance.get("verified") is True
         and shooter_provenance.get("source_sha256") == data.get("source_sha256")
-        and isinstance(data.get("capture_session_id"), str)
-        and data.get("capture_session_id")
-        and shooter_provenance.get("capture_session_id") == data.get("capture_session_id")
-        and isinstance(data.get("captured_at"), str)
-        and data.get("captured_at")
-        and shooter_provenance.get("captured_at") == data.get("captured_at")
+        and board_capture_metadata_valid
+        and shooter_capture_metadata_valid
+        and normalized_shooter_session == normalized_board_session
+        and normalized_shooter_timestamp == normalized_board_timestamp
     )
     shooters = load_shooters(shooter_path)
     state = GameState(
@@ -157,6 +189,8 @@ def load_observed_level(
         "colour_truth_verified": False,
         "shooter_count": len(shooters),
         "shooter_panel_positions_only": True,
+        "board_capture_metadata_valid": board_capture_metadata_valid,
+        "shooter_capture_metadata_valid": shooter_capture_metadata_valid,
         "shooter_capture_provenance_verified": board_capture_matches,
         "shooter_capture_source_matches_board": (
             shooter_provenance.get("source_sha256") == data.get("source_sha256")
