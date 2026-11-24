@@ -313,6 +313,31 @@ class ScreenshotIngestorTests(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_rejects_grid_with_overlapping_sample_windows(self):
+        path = Path("data/test_ingestor_dense_grid.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaisesRegex(ValueError, "overlapping 3x3 sample windows"):
+                extract_board(path, {
+                    "grid_size": [10, 10],
+                    "bounds": [3, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_grid_dimensions_above_safe_sampling_limit(self):
+        path = Path("data/test_ingestor_huge_grid.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaisesRegex(ValueError, "safe sampling limit"):
+                extract_board(path, {
+                    "grid_size": [10001, 1],
+                    "bounds": [3, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
     def test_rejects_bounds_without_sampling_margin(self):
         path = Path("data/test_ingestor_edge_bounds.png")
         path.parent.mkdir(exist_ok=True)

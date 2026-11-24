@@ -89,6 +89,8 @@ def _extract_board_image(img, calibration):
         or cols < 1 or rows < 1
     ):
         raise ValueError("Grid dimensions must be positive integers")
+    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
+        raise ValueError("Grid dimensions exceed the safe sampling limit")
 
     if (
         any(not _is_finite_number(value)
@@ -104,16 +106,25 @@ def _extract_board_image(img, calibration):
 
     cell_width = (right - left) / cols
     cell_height = (bottom - top) / rows
+    x_centers = [round(left + (col + 0.5) * cell_width) for col in range(cols)]
+    y_centers = [round(top + (row + 0.5) * cell_height) for row in range(rows)]
+    if (any(b - a < 3 for a, b in zip(x_centers, x_centers[1:]))
+            or any(b - a < 3 for a, b in zip(y_centers, y_centers[1:]))):
+        raise ValueError(
+            "Calibration grid produces overlapping 3x3 sample windows; "
+            "increase board bounds or reduce grid dimensions"
+        )
+    if (any(x - 1 < 0 or x + 1 >= width for x in x_centers)
+            or any(y - 1 < 0 or y + 1 >= height for y in y_centers)):
+        raise ValueError("Calibration grid places a sample window outside the screenshot")
     pixels = np.asarray(img, dtype=np.uint8)
 
     board, raw_rgb = [], []
     counts = {}
 
-    for row in range(rows):
+    for row, y in enumerate(y_centers):
         labels, rgb_row = [], []
-        for col in range(cols):
-            x = round(left + (col + 0.5) * cell_width)
-            y = round(top + (row + 0.5) * cell_height)
+        for col, x in enumerate(x_centers):
             patch = pixels[y - 1:y + 2, x - 1:x + 2]
             rgb = tuple(int(v) for v in np.median(patch, axis=(0, 1)))
             colour = classify_rgb(rgb)

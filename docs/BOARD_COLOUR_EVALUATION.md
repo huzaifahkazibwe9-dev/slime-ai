@@ -128,3 +128,13 @@ and the evaluator does not silently discard or rewrite them.
 ## Source screenshot dimension verification
 
 When a template includes `image_size`, the evaluator's `--source-image` check uses one immutable byte snapshot to verify both the SHA-256 digest and the decoded image dimensions. A matching hash with inconsistent recorded dimensions is rejected. Reports distinguish hash verification from dimension verification. This confirms file consistency, not that sample coordinates or human-assigned colours are correct.
+
+## Sampling-grid geometry guard
+
+Board extraction rejects calibrations whose rounded sample centres would
+place adjacent 3×3 median windows fewer than three pixels apart. This prevents
+multiple logical cells from reusing overlapping pixel patches and makes the
+sample-to-cell mapping unambiguous at the pixel-window level. The extractor
+also caps each grid axis at 10,000 cells and the total grid at 1,000,000 cells
+before allocating sampling structures. These are defensive geometry checks;
+they do not establish that the calibration bounds align with actual game tiles.
