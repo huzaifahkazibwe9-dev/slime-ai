@@ -6,7 +6,6 @@ the source screenshot, fills every label, and changes labelled_by_user to true.
 Predicted board colours are never copied into the label field.
 """
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
