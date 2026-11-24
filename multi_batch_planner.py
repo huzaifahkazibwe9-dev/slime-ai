@@ -352,9 +352,12 @@ def simulate_batch_schedule(
                 break
             if ticks and not any(s.ammo == 0 for s in sim.active):
                 break
-            if not sim.tick(1):
-                break
+            tick_succeeded = sim.tick(1)
+            # Count attempted ticks as well as successful ones: a failing
+            # tick advances simulator time before detecting storage overflow.
             ticks += 1
+            if not tick_succeeded:
+                break
             if not any(s.ammo == 0 for s in sim.active):
                 break
 
