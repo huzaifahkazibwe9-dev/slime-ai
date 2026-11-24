@@ -14,6 +14,11 @@ def build_template(observation):
     if not isinstance(observation, dict):
         raise ValueError("Observation must be a JSON object")
 
+    image_size = observation.get("image_size")
+    if (not isinstance(image_size, list) or len(image_size) != 2
+            or any(type(value) is not int or value < 1 for value in image_size)):
+        raise ValueError("image_size must contain positive integer width and height")
+
     raw_rgb = observation.get("raw_rgb")
     grid_size = observation.get("grid_size")
     if (not isinstance(grid_size, list) or len(grid_size) != 2
@@ -52,7 +57,7 @@ def build_template(observation):
         "schema_version": 1,
         "labelled_by_user": False,
         "source_sha256": source_hash.lower(),
-        "image_size": observation.get("image_size"),
+        "image_size": image_size[:],
         "grid_size": grid_size[:],
         "samples": samples,
         "labelling_instructions": (
