@@ -33,6 +33,9 @@ def simulate_batch_schedule(
             "timing_calibrated_to_game": False,
         }
 
+    if type(allow_storage_reactivation) is not bool:
+        return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
+
     if not isinstance(shooter_records, (list, tuple)):
         return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
     records = []
@@ -159,7 +162,11 @@ def simulate_batch_schedule(
         if not isinstance(raw_requested, (list, tuple)):
             reject("GROUPS_MUST_BE_A_SEQUENCE")
             break
-        requested = [str(x) for x in raw_requested]
+        if any(not isinstance(x, str) or not x.strip()
+               for x in raw_requested):
+            reject("GROUP_IDS_MUST_BE_NONEMPTY_STRINGS")
+            break
+        requested = list(raw_requested)
 
         if not requested or len(requested) != len(set(requested)):
             reject("EMPTY_OR_DUPLICATE_GROUPS_IN_BATCH")
@@ -173,7 +180,11 @@ def simulate_batch_schedule(
         if not isinstance(raw_reactivate, (list, tuple)):
             reject("REACTIVATE_GROUPS_MUST_BE_A_SEQUENCE")
             break
-        reactivate = [str(x) for x in raw_reactivate]
+        if any(not isinstance(x, str) or not x.strip()
+               for x in raw_reactivate):
+            reject("REACTIVATION_GROUP_IDS_MUST_BE_NONEMPTY_STRINGS")
+            break
+        reactivate = list(raw_reactivate)
         if len(reactivate) != len(set(reactivate)):
             reject("DUPLICATE_REACTIVATION_GROUPS")
             break
