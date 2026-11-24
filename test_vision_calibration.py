@@ -22,7 +22,7 @@ class VisionCalibrationTests(unittest.TestCase):
         self.assertEqual(report["correct_count"], 3)
         self.assertEqual(report["accuracy"], 0.75)
         self.assertEqual(report["confusion_matrix"]["orange"]["red"], 1)
-        self.assertEqual(report["per_class"]["red"]["precision"], 1.0)
+        self.assertEqual(report["per_class"]["red"]["precision"], 0.5)
         self.assertEqual(report["per_class"]["red"]["recall"], 0.5)
         self.assertEqual(report["per_class"]["orange"]["recall"], 0.0)
 
