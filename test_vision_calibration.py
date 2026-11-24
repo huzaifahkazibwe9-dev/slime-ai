@@ -115,6 +115,19 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "row/column"):
             validate_dataset(malformed_grid)
 
+    def test_rejects_unreasonably_large_grid_dimensions(self):
+        malformed = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [1001, 1000],
+            "samples": [
+                {"id": "cell-1", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "1,000,000 total cells"):
+            validate_dataset(malformed)
+
     def test_rejects_duplicate_board_coordinates(self):
         data = {
             **self.dataset,
