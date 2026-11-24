@@ -186,6 +186,11 @@ def restore_simulator(snapshot):
             raise ValueError("event has invalid storage occupancy")
         if occupancy != replayed_occupancy:
             raise ValueError("storage occupancy event delta is inconsistent")
+        if event_type == "SHOOTER_RETURNED_TO_STORAGE":
+            storage_free = event.get("storage_free")
+            if (type(storage_free) is not int
+                    or storage_free != config.storage_capacity - replayed_occupancy):
+                raise ValueError("return event storage_free is inconsistent")
         occupancy_event_count += 1
     if occupancy_event_count and replayed_occupancy != sim.storage_occupied:
         raise ValueError("latest storage event disagrees with restored occupancy")
