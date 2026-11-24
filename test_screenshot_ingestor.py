@@ -1,10 +1,14 @@
 import json
 import tempfile
 import unittest
+
+import numpy as np
 from pathlib import Path
 from PIL import Image
 
-from screenshot_ingestor import classify_rgb, extract_board, ingest
+from screenshot_ingestor import (
+    classify_rgb, extract_board, ingest, sample_variation_diagnostics,
+)
 
 
 class ScreenshotIngestorTests(unittest.TestCase):
@@ -34,6 +38,44 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(result["sampling_method"], "numpy_vectorized_3x3_median")
         finally:
             path.unlink(missing_ok=True)
+
+    def test_non_square_grid_has_matching_diagnostic_dimensions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "non_square.png"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(path)
+
+            result = extract_board(path, {
+                "grid_size": [3, 2],
+                "bounds": [3, 3, 27, 15],
+            })
+
+        self.assertEqual(result["grid_size"], [3, 2])
+        self.assertEqual(len(result["board"]), 2)
+        self.assertTrue(all(len(row) == 3 for row in result["board"]))
+        self.assertEqual(len(result["raw_rgb"]), 2)
+        self.assertEqual(len(result["sample_diagnostics"]), 2)
+        self.assertTrue(all(
+            len(row) == 3 for row in result["sample_diagnostics"]
+        ))
+
+    def test_sample_variation_is_informational_and_preserves_median(self):
+        uniform = np.full((3, 3, 3), 245, dtype=np.uint8)
+        varied_values = [0, 0, 0, 245, 245, 245, 245, 255, 255]
+        varied = np.asarray(varied_values, dtype=np.uint8).reshape(3, 3, 1)
+        varied = np.repeat(varied, 3, axis=2)
+
+        uniform_diagnostic = sample_variation_diagnostics(uniform)
+        varied_diagnostic = sample_variation_diagnostics(varied)
+
+        self.assertEqual(uniform_diagnostic["channel_median_absolute_deviation"], [0.0] * 3)
+        self.assertEqual(varied_diagnostic["channel_median_absolute_deviation"], [10.0] * 3)
+        self.assertEqual(uniform_diagnostic["status"], "UNASSESSED")
+        self.assertEqual(varied_diagnostic["status"], "UNASSESSED")
+        self.assertEqual(tuple(np.median(uniform, axis=(0, 1))), (245.0,) * 3)
+        self.assertEqual(tuple(np.median(varied, axis=(0, 1))), (245.0,) * 3)
+        self.assertEqual(classify_rgb(tuple(np.median(uniform, axis=(0, 1)))), "white")
+        self.assertEqual(classify_rgb(tuple(np.median(varied, axis=(0, 1)))), "white")
 
     def test_rejects_image_too_small(self):
         path = Path("data/test_ingestor_small.png")
@@ -144,6 +186,42 @@ class ScreenshotIngestorTests(unittest.TestCase):
             repaired = json.loads(output_path.read_text())
             self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
             self.assertEqual(len(repaired["raw_rgb"]), 3)
+
+    def test_missing_or_malformed_cached_sample_diagnostics_forces_full_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+
+            for damage in ("missing", "wrong_dimensions", "invalid_value"):
+                with self.subTest(damage=damage):
+                    ingest(image_path, baseline_path, output_path)
+                    cached = json.loads(output_path.read_text())
+                    if damage == "missing":
+                        cached.pop("sample_diagnostics")
+                    elif damage == "wrong_dimensions":
+                        cached["sample_diagnostics"].pop()
+                    else:
+                        cached["sample_diagnostics"][0][0][
+                            "channel_median_absolute_deviation"
+                        ][0] = 256
+                    output_path.write_text(json.dumps(cached))
+
+                    ingest(image_path, baseline_path, output_path)
+                    repaired = json.loads(output_path.read_text())
+                    self.assertEqual(
+                        repaired["analysis_cache_status"], "FULL_ANALYSIS"
+                    )
+                    self.assertEqual(len(repaired["sample_diagnostics"]), 3)
+                    self.assertTrue(all(
+                        len(row) == 3
+                        for row in repaired["sample_diagnostics"]
+                    ))
 
     def test_calibration_change_invalidates_cached_board_analysis(self):
         with tempfile.TemporaryDirectory() as directory:

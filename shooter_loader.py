@@ -23,7 +23,6 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     # New detector records include a sample-quality assessment. A weak sample
     # must not be converted into a Shooter colour. Older diagnostic files
     # without this optional field retain their legacy loading behaviour.
-    eligible = []
     low_confidence_ids = set()
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
@@ -37,16 +36,29 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality status")
             if status == "LOW_CONFIDENCE_SAMPLE":
                 low_confidence_ids.add(item.get("id"))
-                continue
-        eligible.append(item)
-    # If a member of a confirmed bond has an unreliable visual sample, do not
-    # load the remaining members as an incomplete bonded group. Preserve
-    # malformed/unknown group references so the normal validator rejects them.
+
+    # A confirmed bonded component is atomic: if any member has a weak visual
+    # sample, withhold every member rather than silently loading the others as
+    # independent shooters. Malformed group entries remain for validation below.
+    blocked_group_ids = {
+        member
+        for group in groups
+        if isinstance(group, list)
+        and any(isinstance(member, str) and member in low_confidence_ids
+                for member in group)
+        for member in group
+        if isinstance(member, str)
+    }
+    blocked_ids = low_confidence_ids | blocked_group_ids
+    detected = [
+        item for item in detected
+        if item.get("id") not in blocked_ids
+    ]
     groups = [
         group for group in groups
-        if not any(member in low_confidence_ids for member in group)
+        if not any(isinstance(member, str) and member in blocked_ids
+                   for member in group)
     ]
-    detected = eligible
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
@@ -89,7 +101,10 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
 
     # Optional observations must come from separately verified
     # conveyor screenshots, never from the shooter panel image.
-    geometry_observations = geometry_observations or {}
+    if geometry_observations is None:
+        geometry_observations = {}
+    elif not isinstance(geometry_observations, dict):
+        raise ValueError("geometry_observations must be an object")
 
     group_lookup = {}
     bonded_lookup = {}

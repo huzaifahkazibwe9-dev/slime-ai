@@ -73,6 +73,30 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside"):
             assess_color_sample(image, 5, 20)
 
+    def test_sample_quality_rejects_nonfinite_or_out_of_range_thresholds(self):
+        image = Image.new("RGB", (40, 40), (35, 35, 35))
+        invalid = [
+            {"minimum_contrast": float("nan")},
+            {"minimum_contrast": -1},
+            {"minimum_contrast": 442},
+            {"minimum_contrast": 10**1000},
+            {"maximum_mad": float("inf")},
+            {"maximum_mad": 10**1000},
+            {"maximum_mad": -1},
+            {"maximum_mad": 256},
+        ]
+        for options in invalid:
+            with self.subTest(options=options):
+                with self.assertRaisesRegex(ValueError, "contrast|MAD"):
+                    assess_color_sample(image, 20, 20, **options)
+
+    def test_panel_aspect_tolerance_must_be_finite_and_bounded(self):
+        invalid = [0, -0.1, 1.1, float("nan"), float("inf"), 10**1000, True]
+        for tolerance in invalid:
+            with self.subTest(tolerance=tolerance):
+                with self.assertRaisesRegex(ValueError, "tolerance"):
+                    validate_panel_image_size(REF_W, REF_H, tolerance=tolerance)
+
     def test_reference_panel_dimensions_are_valid(self):
         self.assertTrue(validate_panel_image_size(REF_W, REF_H))
 
@@ -195,6 +219,25 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             )
             self.assertEqual(len(digest), 64)
 
+    def test_panel_crop_rejects_invalid_pixel_difference_tolerances(self):
+        invalid = [float("nan"), float("inf"), -1, 256, 10**1000, True]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            Image.new("RGB", (100, 80), (10, 20, 30)).save(root / "source.png")
+            Image.new("RGB", (50, 40), (10, 20, 30)).save(root / "panel.png")
+            for value in invalid:
+                with self.subTest(value=value):
+                    with self.assertRaisesRegex(ValueError, "tolerance"):
+                        verify_panel_crop(
+                            root / "source.png", root / "panel.png",
+                            [20, 10, 70, 50], mean_tolerance=value
+                        )
+                    with self.assertRaisesRegex(ValueError, "tolerance"):
+                        verify_panel_crop(
+                            root / "source.png", root / "panel.png",
+                            [20, 10, 70, 50], percentile_tolerance=value
+                        )
+
     def test_panel_crop_rejects_wrong_aspect_ratio(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -232,7 +275,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
             with patch("shooter_detector.subprocess.run") as run:
-                run.return_value = SimpleNamespace(stdout="40\\n", returncode=0)
+                run.return_value = SimpleNamespace(stdout="40\n", returncode=0)
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertEqual(result, 40)
 
@@ -315,6 +358,45 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             path.write_text('{"verified_by_user": true, "bonded_groups": [["A", "B"], ["A", "C"]]}')
             with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
                 load_user_confirmed_bonded_groups(path, ["A", "B", "C"])
+
+
+    def test_ammunition_ocr_rejects_digits_embedded_in_unexpected_text(self):
+        image = Image.new("RGB", (100, 70), "white")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout="ammo: 20"),
+            ):
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result)
+
+
+    def test_ammunition_ocr_accepts_surrounding_whitespace(self):
+        image = Image.new("RGB", (100, 70), "white")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(returncode=0, stdout="  20\n\x0c"),
+            ):
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result, 20)
+
+
+    def test_ammunition_ocr_rejects_excessively_long_numeric_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(
+                    stdout="9" * 5000, returncode=0
+                )
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":
