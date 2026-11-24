@@ -142,6 +142,33 @@ def restore_simulator(snapshot):
             or set(returned_ids) != returned_from_shooters):
         raise ValueError("returned_ids do not match returned shooter flags")
 
+    known_shooter_ids = {shooter.shooter_id for shooter in sim.shooters}
+    event_return_ids = []
+    for event in events:
+        shooter_id = event.get("shooter_id")
+        if shooter_id is not None and shooter_id not in known_shooter_ids:
+            raise ValueError("event references an unknown shooter")
+        if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE":
+            if not isinstance(shooter_id, str):
+                raise ValueError("return event must identify its shooter")
+            event_return_ids.append(shooter_id)
+        members = event.get("members")
+        if members is not None and (
+            not isinstance(members, list)
+            or any(member not in known_shooter_ids for member in members)
+        ):
+            raise ValueError("event contains unknown group members")
+    if (len(event_return_ids) != len(set(event_return_ids))
+            or any(
+                event_return_ids[index] not in returned_ids
+                for index in range(len(event_return_ids))
+            )
+            or [
+                shooter_id for shooter_id in returned_ids
+                if shooter_id in set(event_return_ids)
+            ] != event_return_ids):
+        raise ValueError("return event order conflicts with returned_ids")
+
     if failed and (not events or events[-1].get("event") != "LEVEL_FAILURE"):
         raise ValueError("failed snapshot must end with a LEVEL_FAILURE event")
     if failed and events[-1].get("reason") != failure_reason:
