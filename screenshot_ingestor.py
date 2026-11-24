@@ -141,6 +141,21 @@ def extract_board(image_path, calibration):
     }
 
 
+def _extraction_payload_sha256(extracted):
+    """Fingerprint cached extraction fields to detect accidental payload edits."""
+    payload = {
+        key: extracted[key]
+        for key in (
+            "image_size", "grid_size", "bounds", "board", "raw_rgb",
+            "counts", "sampling_method"
+        )
+    }
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calibration):
     """Accept cached pixels only for an exact source/configuration match."""
     if not isinstance(cached, dict):
@@ -231,7 +246,15 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     for row in board:
         for label in row:
             actual_counts[label] = actual_counts.get(label, 0) + 1
-    return counts == actual_counts
+    if counts != actual_counts:
+        return False
+
+    # Detect accidental edits to cached extraction data. This is not an
+    # authenticity signature; a writer can recompute it after editing.
+    try:
+        return cached.get("extraction_sha256") == _extraction_payload_sha256(cached)
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
@@ -295,8 +318,10 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     snapshot_id = "sha256:" + digest
 
+    extraction_sha256 = _extraction_payload_sha256(extracted)
     result = {
         **extracted,
+        "extraction_sha256": extraction_sha256,
         "source": str(image_path),
         "source_sha256": digest,
         "calibration_sha256": calibration_digest,

@@ -1,6 +1,6 @@
 import unittest
 
-from screenshot_ingestor import _cached_board_is_valid
+from screenshot_ingestor import _cached_board_is_valid, _extraction_payload_sha256
 
 
 class CachedBoardColourValidationTests(unittest.TestCase):
@@ -20,6 +20,7 @@ class CachedBoardColourValidationTests(unittest.TestCase):
             "counts": {"red": 1},
             "sampling_method": "numpy_vectorized_3x3_median",
         }
+        self.cached["extraction_sha256"] = _extraction_payload_sha256(self.cached)
 
     def is_valid(self):
         return _cached_board_is_valid(
@@ -32,6 +33,18 @@ class CachedBoardColourValidationTests(unittest.TestCase):
 
     def test_accepts_well_formed_canonical_cached_board(self):
         self.assertTrue(self.is_valid())
+
+    def test_rejects_missing_extraction_payload_digest(self):
+        self.cached.pop("extraction_sha256")
+        self.assertFalse(self.is_valid())
+
+    def test_rejects_accidental_cached_rgb_payload_edit(self):
+        self.cached["raw_rgb"][0][0][0] = 229
+        self.assertFalse(self.is_valid())
+
+    def test_rejects_accidental_cached_board_payload_edit(self):
+        self.cached["board"][0][0] = "blue"
+        self.assertFalse(self.is_valid())
 
     def test_rejects_unknown_cached_colour_even_when_counts_match(self):
         self.cached["board"] = [["ultraviolet"]]
