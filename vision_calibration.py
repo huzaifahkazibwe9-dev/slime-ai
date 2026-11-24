@@ -253,6 +253,15 @@ def main():
     print("Accuracy:", report["accuracy"])
     print("Macro recall:", report["macro_recall"])
     print("Labels:", ", ".join(report["labels"]))
+    coverage = report["coverage"]
+    print("Missing labelled colour classes:",
+          ", ".join(coverage["missing_classes"]) or "none")
+    if coverage["spatial_coverage_available"]:
+        print("Empty board regions:",
+              ", ".join(coverage["empty_spatial_regions"]) or "none")
+    else:
+        print("Spatial coverage: unavailable (no grid metadata)")
+    print("Coverage adequacy assessed: False")
     print("Independent label verification: False")
     print("Gameplay verified: False")
     print("Game taps enabled: False")
