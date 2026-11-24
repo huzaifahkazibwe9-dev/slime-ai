@@ -85,6 +85,24 @@ def calculate_firing_geometry(
     cell_width = (right - left) / cols
     cell_height = (bottom - top) / rows
 
+    # A shooter must lie on the declared conveyor segment. Reject positions
+    # outside the calibrated segment instead of clamping them to an edge lane.
+    if segment in ("bottom", "top"):
+        if not left <= sx <= right:
+            raise ValueError("Shooter center is outside the horizontal conveyor span")
+    else:
+        if not top <= sy <= bottom:
+            raise ValueError("Shooter center is outside the vertical conveyor span")
+
+    if segment == "bottom" and sy < bottom:
+        raise ValueError("Bottom-segment shooter center is not below the board")
+    if segment == "top" and sy > top:
+        raise ValueError("Top-segment shooter center is not above the board")
+    if segment == "right" and sx < right:
+        raise ValueError("Right-segment shooter center is not right of the board")
+    if segment == "left" and sx > left:
+        raise ValueError("Left-segment shooter center is not left of the board")
+
     if segment in ("bottom", "top"):
         col = floor((sx - left) / cell_width)
         col = max(0, min(cols - 1, col))
