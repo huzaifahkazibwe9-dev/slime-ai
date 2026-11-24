@@ -48,6 +48,8 @@ def validate_dataset(data):
         if (not isinstance(grid_size, list) or len(grid_size) != 2
                 or any(type(value) is not int or value < 1 for value in grid_size)):
             raise ValueError("grid_size must contain positive integer columns and rows")
+        if grid_size[0] * grid_size[1] > 1_000_000:
+            raise ValueError("grid_size must not exceed 1,000,000 total cells")
 
     samples = data.get("samples")
     if not isinstance(samples, list) or not samples:
