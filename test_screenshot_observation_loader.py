@@ -98,7 +98,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         from io import BytesIO
 
         image = Image.new("RGB", (30, 30), (0, 0, 0))
-        centres = {"x": [7, 15, 23], "y": [7, 15]}
+        centres = {"x": [7, 15, 23], "y": [9, 21]}
         colours = [
             [(230, 30, 30), (10, 180, 230), (245, 245, 245)],
             [(200, 120, 60), (240, 80, 220), (20, 180, 70)],
