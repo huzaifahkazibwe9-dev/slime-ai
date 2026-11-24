@@ -116,6 +116,21 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
             self.assertEqual(len(load_panel_slots(path)), 1)
 
+    def test_panel_inventory_rejects_unhashable_status(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "A", "row": 1, "column": 1, "center": [10, 10],
+                "status": ["readable"], "selectable_candidate": False,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "invalid status"):
+                load_panel_slots(path)
+
     def test_panel_inventory_rejects_boolean_dimensions(self):
         from shooter_loader import load_panel_slots
         payload = {
@@ -290,6 +305,91 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "sample quality status"):
             self.load_payload(payload)
+
+    def test_rejects_unhashable_sample_quality_status(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": ["LOW_CONFIDENCE_SAMPLE"]},
+            }],
+            "bonded_groups": [],
+        }
+        with self.assertRaisesRegex(ValueError, "sample quality status"):
+            self.load_payload(payload)
+
+    def test_rejects_invalid_id_even_when_sample_is_low_confidence(self):
+        payload = {
+            "visible_shooters": [{
+                "id": ["not", "hashable"], "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [],
+        }
+        with self.assertRaisesRegex(ValueError, "invalid id"):
+            self.load_payload(payload)
+
+    def test_rejects_duplicate_ids_across_filtered_and_loaded_samples(self):
+        entry = {"id": "A", "color": {"name": "red"}, "ammo": 5}
+        weak = dict(
+            entry,
+            sample_quality={"status": "LOW_CONFIDENCE_SAMPLE"},
+        )
+        with self.assertRaisesRegex(ValueError, "IDs must be unique"):
+            self.load_payload({
+                "visible_shooters": [entry, weak],
+                "bonded_groups": [],
+            })
+
+    def test_rejects_malformed_bond_member_even_if_another_member_is_weak(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [["A", ["malformed"]]],
+        }
+        with self.assertRaisesRegex(ValueError, "invalid shooter ID"):
+            self.load_payload(payload)
+
+    def test_rejects_unknown_bond_member_hidden_by_weak_sample(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [["A", "missing"]],
+        }
+        with self.assertRaisesRegex(ValueError, "unknown shooters"):
+            self.load_payload(payload)
+
+    def test_rejects_overlapping_groups_even_when_one_group_has_weak_member(self):
+        shooters = [
+            {"id": "A", "color": {"name": "red"}, "ammo": 5},
+            {"id": "B", "color": {"name": "blue"}, "ammo": 5,
+             "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"}},
+            {"id": "C", "color": {"name": "green"}, "ammo": 5},
+        ]
+        with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
+            self.load_payload({
+                "visible_shooters": shooters,
+                "bonded_groups": [["A", "B"], ["A", "C"]],
+            })
+
+    def test_geometry_observations_must_be_an_object(self):
+        for observations in ([], ["A"], "invalid", 1):
+            with self.subTest(observations=observations):
+                payload = {
+                    "visible_shooters": [{
+                        "id": "A", "color": {"name": "red"}, "ammo": 5,
+                    }],
+                    "bonded_groups": [],
+                }
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "shooters.json"
+                    path.write_text(json.dumps(payload))
+                    with self.assertRaisesRegex(
+                            ValueError, "geometry_observations must be an object"):
+                        load_shooters(path, geometry_observations=observations)
 
     def test_legacy_shooter_records_without_sample_quality_still_load(self):
         payload = {

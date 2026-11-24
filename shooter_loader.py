@@ -20,23 +20,73 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     if any(not isinstance(group, list) for group in groups):
         raise ValueError("Each bonded group must be a list")
 
+    # Validate identifiers before filtering weak samples. Otherwise malformed
+    # IDs on discarded records can raise TypeError or disappear from validation.
+    all_ids = []
+    for index, item in enumerate(detected):
+        if not isinstance(item, dict):
+            raise ValueError(f"Shooter entry {index} must be an object")
+        shooter_id = item.get("id")
+        if not isinstance(shooter_id, str) or not shooter_id:
+            raise ValueError(f"Shooter entry {index} has an invalid id")
+        all_ids.append(shooter_id)
+    if len(all_ids) != len(set(all_ids)):
+        raise ValueError("Shooter IDs must be unique")
+
+    # Validate complete bonded metadata against the unfiltered inventory.
+    # Filtering a weak member must not hide an unknown ID, duplicate member,
+    # overlapping group, or malformed group size in the source observation.
+    known_observation_ids = set(all_ids)
+    grouped_observation_ids = set()
+    for group_index, group in enumerate(groups):
+        if any(not isinstance(member, str) or not member for member in group):
+            raise ValueError(
+                f"Bonded group {group_index} contains an invalid shooter ID"
+            )
+        if len(group) < 2:
+            raise ValueError(
+                f"Bonded group {group_index} must contain at least 2 shooters"
+            )
+        if len(group) > 3:
+            raise ValueError(
+                f"Bonded group {group_index} exceeds the maximum size of 3"
+            )
+        if len(group) != len(set(group)):
+            raise ValueError(
+                f"Bonded group {group_index} contains duplicate shooter IDs"
+            )
+        unknown = set(group) - known_observation_ids
+        if unknown:
+            raise ValueError(
+                f"Bonded group {group_index} references unknown shooters: "
+                + ", ".join(sorted(unknown))
+            )
+        overlap = grouped_observation_ids.intersection(group)
+        if overlap:
+            raise ValueError(
+                "A shooter cannot belong to multiple bonded groups: "
+                + ", ".join(sorted(overlap))
+            )
+        grouped_observation_ids.update(group)
+
     # New detector records include a sample-quality assessment. A weak sample
     # must not be converted into a Shooter colour. Older diagnostic files
     # without this optional field retain their legacy loading behaviour.
     eligible = []
     low_confidence_ids = set()
     for index, item in enumerate(detected):
-        if not isinstance(item, dict):
-            raise ValueError(f"Shooter entry {index} must be an object")
         quality = item.get("sample_quality")
         if quality is not None:
             if not isinstance(quality, dict):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality")
             status = quality.get("status")
-            if status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}:
-                raise ValueError(f"Shooter entry {index} has invalid sample quality status")
+            if (not isinstance(status, str)
+                    or status not in ("DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE")):
+                raise ValueError(
+                    f"Shooter entry {index} has invalid sample quality status"
+                )
             if status == "LOW_CONFIDENCE_SAMPLE":
-                low_confidence_ids.add(item.get("id"))
+                low_confidence_ids.add(item["id"])
                 continue
         eligible.append(item)
     # If a member of a confirmed bond has an unreliable visual sample, do not
@@ -89,7 +139,10 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
 
     # Optional observations must come from separately verified
     # conveyor screenshots, never from the shooter panel image.
-    geometry_observations = geometry_observations or {}
+    if geometry_observations is None:
+        geometry_observations = {}
+    elif not isinstance(geometry_observations, dict):
+        raise ValueError("geometry_observations must be an object")
 
     group_lookup = {}
     bonded_lookup = {}
@@ -215,7 +268,7 @@ def load_panel_slots(path=DETECTION_FILE):
         if (not isinstance(center, list) or len(center) != 2
                 or any(type(value) is not int or value < 0 for value in center)):
             raise ValueError(f"Panel slot {slot_id} has an invalid center")
-        if status not in allowed_statuses:
+        if not isinstance(status, str) or status not in allowed_statuses:
             raise ValueError(f"Panel slot {slot_id} has an invalid status")
         if image_width is not None and not (
                 center[0] < image_width and center[1] < image_height):
