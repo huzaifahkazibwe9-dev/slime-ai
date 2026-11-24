@@ -51,6 +51,20 @@ class SimulatorSnapshotTests(unittest.TestCase):
         sim.events.append({"tick": 0, "event": "LATER"})
         self.assertEqual(snapshot["events"], [])
 
+    def test_snapshot_rejects_non_json_event_values(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        sim.events.append({"tick": 0, "event": "CUSTOM", "value": object()})
+        with self.assertRaises(ValueError):
+            snapshot_simulator(sim)
+
+    def test_restore_rejects_non_finite_json_numbers(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "CUSTOM", "value": float("nan")}
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
     def test_rejects_storage_occupancy_below_returned_shooters(self):
         sim = create_simulator([
             {"id": "a", "ammo": 0, "returned": True},
