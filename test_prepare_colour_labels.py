@@ -82,6 +82,28 @@ class ColourLabelTemplateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_template(observation)
 
+    def test_rejects_non_object_observation(self):
+        for observation in (None, [], "observation", 42):
+            with self.subTest(observation=observation):
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
+    def test_rejects_non_list_rgb_container_and_cells(self):
+        for raw_rgb in (None, "rgb", {"rows": []}, [[None, [1, 2, 3]], [[4, 5, 6], [7, 8, 9]]]):
+            with self.subTest(raw_rgb=raw_rgb):
+                observation = self.observation()
+                observation["raw_rgb"] = raw_rgb
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
+    def test_rejects_non_integer_grid_values(self):
+        for grid_size in ([2, 2.0], [2.5, 2], [True, 2]):
+            with self.subTest(grid_size=grid_size):
+                observation = self.observation()
+                observation["grid_size"] = grid_size
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
     def test_rejects_grid_mismatch(self):
         observation = self.observation()
         observation["raw_rgb"] = [[[1, 2, 3]]]
