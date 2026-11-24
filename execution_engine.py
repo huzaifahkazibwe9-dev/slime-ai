@@ -328,6 +328,31 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
     if state.validate():
         raise ValueError("GameState validation failed")
 
+    # Screenshot-derived states carry an explicit provenance gate. If the
+    # shooter panel cannot be tied to the board screenshot/session, do not
+    # produce a candidate plan from a potentially mixed capture.
+    if (hasattr(state, "shooter_capture_provenance_verified")
+            and state.shooter_capture_provenance_verified is not True):
+        return {
+            "engine": "single_batch_dry_run_v1",
+            "status": "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE",
+            "initial_pixels": state.remaining_pixels,
+            "accessible_group_count": 0,
+            "candidates_examined": 0,
+            "candidate_limit": max_candidates,
+            "search_truncated": False,
+            "best": None,
+            "top_candidates": [],
+            "source_state_unchanged": True,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "limitations": [
+                "Board and shooter observations must share verified screenshot provenance.",
+                "No candidate plan is produced from mismatched or unverified captures.",
+            ],
+        }
+
     if (not isinstance(max_candidates, int)
             or isinstance(max_candidates, bool)
             or max_candidates < 1):
@@ -431,6 +456,25 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
 
     if state.validate():
         raise ValueError("GameState validation failed")
+
+    if (hasattr(state, "shooter_capture_provenance_verified")
+            and state.shooter_capture_provenance_verified is not True):
+        return {
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": len(state.conveyor),
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+        }
 
     if config is None:
         config = SimulatorConfig()
