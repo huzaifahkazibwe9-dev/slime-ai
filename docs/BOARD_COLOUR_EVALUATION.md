@@ -138,3 +138,11 @@ sample-to-cell mapping unambiguous at the pixel-window level. The extractor
 also caps each grid axis at 10,000 cells and the total grid at 1,000,000 cells
 before allocating sampling structures. These are defensive geometry checks;
 they do not establish that the calibration bounds align with actual game tiles.
+
+## Sample-centre provenance
+
+Fresh screenshot extraction records the rounded pixel centre used for each board column and row in the sample_centres field. The observation loader recomputes those centres from the saved grid dimensions and calibration bounds and rejects a supplied centre map that disagrees. This makes the cell-to-sample coordinate mapping explicit and auditable. Older hand-authored observations without this optional field remain loadable for compatibility. The check verifies geometry metadata consistency; it does not independently establish that the calibration bounds match the visible game tiles.
+
+## Independent source-image RGB verification
+
+The screenshot observation loader supports an optional `--source-image` argument. It checks the exact source-file SHA-256 and dimensions, then independently recomputes each recorded 3×3 RGB median from the decoded original image using Pillow pixel reads and Python channel medians. It rejects any sample mismatch and reports the number of cells checked. This is a file-to-sample consistency check, not proof that calibration bounds identify the correct game tiles or that colour labels represent gameplay truth. The source image must be the exact byte-identical screenshot used for extraction.

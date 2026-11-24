@@ -15,6 +15,7 @@ class CachedBoardColourValidationTests(unittest.TestCase):
             "image_size": [100, 100],
             "grid_size": [1, 1],
             "bounds": [1, 1, 99, 99],
+            "sample_centres": {"x": [50], "y": [50]},
             "board": [["red"]],
             "raw_rgb": [[[230, 30, 30]]],
             "counts": {"red": 1},
