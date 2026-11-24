@@ -30,6 +30,18 @@ def _is_finite_number(value):
     return type(value) is float and math.isfinite(value)
 
 
+def sample_centres_for_grid(grid_size, bounds):
+    """Return rounded pixel centres used for each logical board cell."""
+    cols, rows = grid_size
+    left, top, right, bottom = bounds
+    cell_width = (right - left) / cols
+    cell_height = (bottom - top) / rows
+    return {
+        "x": [round(left + (col + 0.5) * cell_width) for col in range(cols)],
+        "y": [round(top + (row + 0.5) * cell_height) for row in range(rows)],
+    }
+
+
 def classify_rgb(rgb):
     r, g, b = [v / 255 for v in rgb]
     hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
@@ -104,10 +116,9 @@ def _extract_board_image(img, calibration):
             "with room for the 3x3 sampling window"
         )
 
-    cell_width = (right - left) / cols
-    cell_height = (bottom - top) / rows
-    x_centers = [round(left + (col + 0.5) * cell_width) for col in range(cols)]
-    y_centers = [round(top + (row + 0.5) * cell_height) for row in range(rows)]
+    sample_centres = sample_centres_for_grid(grid_size, bounds)
+    x_centers = sample_centres["x"]
+    y_centers = sample_centres["y"]
     if (any(b - a < 3 for a, b in zip(x_centers, x_centers[1:]))
             or any(b - a < 3 for a, b in zip(y_centers, y_centers[1:]))):
         raise ValueError(
@@ -138,6 +149,7 @@ def _extract_board_image(img, calibration):
         "image_size": [width, height],
         "grid_size": [cols, rows],
         "bounds": [left, top, right, bottom],
+        "sample_centres": sample_centres,
         "board": board,
         "raw_rgb": raw_rgb,
         "counts": counts,
@@ -162,7 +174,7 @@ def _extraction_payload_sha256(extracted):
     payload = {
         key: extracted[key]
         for key in (
-            "image_size", "grid_size", "bounds", "board", "raw_rgb",
+            "image_size", "grid_size", "bounds", "sample_centres", "board", "raw_rgb",
             "counts", "sampling_method"
         )
     }
@@ -215,6 +227,12 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     image_width, image_height = image_size
     if (left < 1 or top < 1 or right <= left or bottom <= top
             or right > image_width - 1 or bottom > image_height - 1):
+        return False
+    try:
+        expected_centres = sample_centres_for_grid(grid_size, bounds)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+    if cached.get("sample_centres") != expected_centres:
         return False
     board = cached.get("board")
     raw_rgb = cached.get("raw_rgb")
