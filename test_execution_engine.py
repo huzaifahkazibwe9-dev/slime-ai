@@ -121,6 +121,36 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertFalse(state.select_group("A"))
         self.assertEqual(state.conveyor, [])
 
+    def test_malformed_bond_metadata_fails_closed_without_raising(self):
+        malformed_values = [None, "B", [["B"]], [None], [1]]
+        for malformed in malformed_values:
+            with self.subTest(bonded_ids=malformed):
+                shooter = Shooter(
+                    "A", "red", 2, "right", -1, 0,
+                    accessible=True, bonded_ids=malformed
+                )
+                state = self.make_state([["red"]], [shooter])
+                self.assertFalse(shooter.valid())
+                self.assertEqual(state.bonded_group("A"), [])
+                self.assertFalse(state.can_select_group("A"))
+                self.assertTrue(any(
+                    "Invalid bonded_ids" in error
+                    for error in state.validate()
+                ))
+                self.assertEqual(state.conveyor, [])
+
+    def test_non_string_group_id_fails_closed(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id=["not", "a", "string"]
+        )
+        state = self.make_state([["red"]], [a])
+        self.assertFalse(a.valid())
+        self.assertFalse(state.can_select_group("A"))
+        self.assertTrue(any(
+            "Invalid shooter: A" in error for error in state.validate()
+        ))
+
     def test_existing_conveyor_partial_bonded_group_is_rejected(self):
         a = Shooter(
             "A", "red", 2, "right", -1, 0,
