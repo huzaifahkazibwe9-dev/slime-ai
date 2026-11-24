@@ -253,6 +253,26 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                     })
 
 
+    def test_loader_rejects_invalid_ammunition_counts(self):
+        for value in (None, True, False, 1.5, -1, "5"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "non-negative integer ammunition"):
+                    self.load_payload({
+                        "visible_shooters": [{
+                            "id": "A", "color": {"name": "red"}, "ammo": value
+                        }],
+                        "bonded_groups": [],
+                    })
+
+    def test_loader_accepts_zero_ammunition(self):
+        shooters = self.load_payload({
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 0
+            }],
+            "bonded_groups": [],
+        })
+        self.assertEqual(shooters["A"].ammo, 0)
+
     def test_low_confidence_sample_is_not_loaded_as_shooter(self):
         payload = {
             "visible_shooters": [
