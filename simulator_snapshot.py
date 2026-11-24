@@ -171,7 +171,12 @@ def restore_simulator(snapshot):
             if event_type == "SHOOTER_RETURNED_TO_STORAGE":
                 expected = previous_occupancy + 1
             else:
-                expected = previous_occupancy - len(event.get("members", []))
+                members = event.get("members")
+                if not isinstance(members, list) or not members:
+                    raise ValueError(
+                        "reactivation event must list its group members"
+                    )
+                expected = previous_occupancy - len(members)
             if occupancy != expected:
                 raise ValueError("storage occupancy event delta is inconsistent")
         previous_occupancy = occupancy
