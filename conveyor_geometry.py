@@ -1,7 +1,7 @@
 """Verified conveyor direction and screen-to-board geometry."""
 
 import json
-from math import floor
+from math import floor, isfinite
 from pathlib import Path
 
 REFERENCE_SIZE = (1080, 2220)
@@ -29,6 +29,46 @@ def load_verified_calibration(path):
         raise ValueError("Calibration root must be a JSON object.")
     if data.get("verified_by_user") is not True:
         raise ValueError("Calibration must be explicitly confirmed by the user.")
+
+    def positive_integer_pair(value, field):
+        if (not isinstance(value, list) or len(value) != 2
+                or any(type(part) is not int or part <= 0 for part in value)):
+            raise ValueError(f"Calibration {field} must contain two positive integers.")
+        return value
+
+    width, height = positive_integer_pair(data.get("image_size"), "image_size")
+    positive_integer_pair(data.get("board_grid"), "board_grid")
+
+    expected_directions = {
+        "bottom": "up", "right": "left", "top": "down", "left": "right"
+    }
+    if data.get("directions") != expected_directions:
+        raise ValueError("Calibration directions do not match the supported segment mapping.")
+
+    shooters = data.get("shooters")
+    if not isinstance(shooters, list) or not shooters:
+        raise ValueError("Calibration shooters must be a non-empty array.")
+
+    seen_ids = set()
+    for index, shooter in enumerate(shooters):
+        if not isinstance(shooter, dict):
+            raise ValueError(f"Calibration shooter {index} must be an object.")
+        shooter_id = shooter.get("id")
+        segment = shooter.get("segment")
+        center = shooter.get("center")
+        if not isinstance(shooter_id, str) or not shooter_id.strip() or shooter_id in seen_ids:
+            raise ValueError(f"Calibration shooter {index} has a missing or duplicate ID.")
+        seen_ids.add(shooter_id)
+        if segment not in expected_directions:
+            raise ValueError(f"Calibration shooter {shooter_id} has an invalid segment.")
+        if (not isinstance(center, list) or len(center) != 2
+                or any(type(value) not in (int, float) or not isfinite(value)
+                       for value in center)):
+            raise ValueError(f"Calibration shooter {shooter_id} has an invalid center.")
+        x, y = center
+        if not (0 <= x < width and 0 <= y < height):
+            raise ValueError(f"Calibration shooter {shooter_id} center is outside the image.")
+
     return data
 
 
