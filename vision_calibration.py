@@ -48,6 +48,8 @@ def validate_dataset(data):
         if (not isinstance(grid_size, list) or len(grid_size) != 2
                 or any(type(value) is not int or value < 1 for value in grid_size)):
             raise ValueError("grid_size must contain positive integer columns and rows")
+        if any(value > 10_000 for value in grid_size):
+            raise ValueError("grid_size dimensions must not exceed 10,000")
         if grid_size[0] * grid_size[1] > 1_000_000:
             raise ValueError("grid_size must not exceed 1,000,000 total cells")
 
@@ -126,12 +128,24 @@ def summarize_coverage(samples, data):
     }
     sampled_rows = {row for row, _ in sampled_coordinates}
     sampled_columns = {column for _, column in sampled_coordinates}
+    row_sample_counts = {row: 0 for row in sampled_rows}
+    column_sample_counts = {column: 0 for column in sampled_columns}
+    for row, column in sampled_coordinates:
+        row_sample_counts[row] += 1
+        column_sample_counts[column] += 1
     total_cells = columns * rows
     result["board_cell_coverage"] = {
         "sampled_cell_count": len(sampled_coordinates),
         "total_board_cell_count": total_cells,
         "unsampled_cell_count": total_cells - len(sampled_coordinates),
         "sample_coverage_fraction": round(len(sampled_coordinates) / total_cells, 6),
+        "row_sample_counts": {
+            str(row): row_sample_counts[row] for row in sorted(row_sample_counts)
+        },
+        "column_sample_counts": {
+            str(column): column_sample_counts[column]
+            for column in sorted(column_sample_counts)
+        },
         "rows_with_samples": len(sampled_rows),
         "rows_without_samples": [
             row for row in range(rows) if row not in sampled_rows
