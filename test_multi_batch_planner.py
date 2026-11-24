@@ -290,6 +290,77 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         self.assertFalse(result["gameplay_actions_performed"])
 
+    def test_checkpoint_resume_matches_uninterrupted_schedule(self):
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 1},
+            {"id": "B", "group_id": "B", "ammo": 1},
+        ]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        config = SimulatorConfig(
+            conveyor_capacity=1, storage_capacity=3, ticks_per_lap=2
+        )
+        partial = simulate_batch_schedule(
+            records, batches, config=config, max_batches=1
+        )
+        self.assertTrue(partial["schedule_valid"])
+        self.assertFalse(partial["schedule_complete"])
+        self.assertEqual(partial["next_batch_index"], 1)
+        self.assertIsInstance(partial["checkpoint"], dict)
+        self.assertEqual(partial["batches_completed"], 1)
+
+        resumed = simulate_batch_schedule(
+            records, batches, config=config,
+            resume_from=partial["checkpoint"],
+        )
+        uninterrupted = simulate_batch_schedule(records, batches, config=config)
+        self.assertTrue(resumed["schedule_valid"])
+        self.assertTrue(resumed["schedule_complete"])
+        self.assertIsNone(resumed["checkpoint"])
+        self.assertEqual(resumed["batches_completed"], 2)
+        for field in (
+            "returned_shooters", "storage_occupied", "conveyor_occupied",
+            "tick_count", "events", "groups_scheduled",
+        ):
+            self.assertEqual(resumed[field], uninterrupted[field], field)
+
+    def test_checkpoint_rejects_changed_schedule(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 1}]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 0}},
+        ]
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=2),
+        )
+        changed = [
+            {"groups": ["A"], "shots": {"A": 0}},
+            {"groups": ["B"], "shots": {"B": 0}},
+        ]
+        resumed = simulate_batch_schedule(
+            records, changed,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=2),
+            resume_from=partial["checkpoint"],
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("does not match", resumed["failure_reason"])
+
+    def test_checkpoint_requires_finite_batch_sequence(self):
+        result = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 1}],
+            iter([{"groups": ["A"], "shots": {"A": 1}}]),
+            max_batches=1,
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["failure_reason"],
+            "CHECKPOINT_REQUIRES_A_FINITE_BATCH_SEQUENCE",
+        )
+
     def test_live_actions_disabled(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 2}],
