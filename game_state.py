@@ -56,9 +56,15 @@ class Shooter:
             if self.color is None or self.ammo is None:
                 return False
 
+        if not isinstance(self.bonded_ids, (list, tuple)):
+            return False
+        if any(not isinstance(member, str) or not member
+               for member in self.bonded_ids):
+            return False
+        if self.group_id is not None and not isinstance(self.group_id, str):
+            return False
         if self.id in self.bonded_ids:
             return False
-
         if len(self.bonded_ids) != len(set(self.bonded_ids)):
             return False
 
@@ -197,7 +203,13 @@ class GameState:
             ordered.append(current)
             # Older planner fixtures may use lightweight shooter objects
             # without an explicit bond list; treat those as unbonded singles.
-            for member in getattr(shooter, "bonded_ids", ()):
+            linked_ids = getattr(shooter, "bonded_ids", ())
+            if not isinstance(linked_ids, (list, tuple)):
+                return []
+            if any(not isinstance(member, str) or not member
+                   for member in linked_ids):
+                return []
+            for member in linked_ids:
                 if member not in self.shooters:
                     return []
                 if member not in visited and member not in pending:
@@ -216,10 +228,15 @@ class GameState:
         members = self.bonded_group(shooter_id)
         if not members:
             return None
-        explicit = {
-            str(getattr(self.shooters[member], "group_id", None))
+        group_values = [
+            getattr(self.shooters[member], "group_id", None)
             for member in members
-            if getattr(self.shooters[member], "group_id", None) is not None
+        ]
+        if any(value is not None and not isinstance(value, str)
+               for value in group_values):
+            return None
+        explicit = {
+            value for value in group_values if value is not None
         }
         if len(explicit) > 1:
             return None
@@ -229,6 +246,27 @@ class GameState:
         group = self.bonded_group(shooter_id)
 
         if not group:
+            return False
+
+        # A selectable component must be a complete, reciprocal bond graph.
+        # Do not let the planner act on a one-sided or inconsistent observation.
+        group_members = set(group)
+        for member in group:
+            linked_ids = getattr(self.shooters[member], "bonded_ids", ())
+            if not isinstance(linked_ids, (list, tuple)):
+                return False
+            for linked in linked_ids:
+                if not isinstance(linked, str) or linked not in group_members:
+                    return False
+                reverse_ids = getattr(
+                    self.shooters[linked], "bonded_ids", ()
+                )
+                if not isinstance(reverse_ids, (list, tuple)):
+                    return False
+                if member not in reverse_ids:
+                    return False
+
+        if self.bonded_group_id(shooter_id) is None:
             return False
 
         if not self.shooters[shooter_id].accessible:
@@ -273,42 +311,70 @@ class GameState:
             if not shooter.valid():
                 errors.append(f"Invalid shooter: {shooter_id}")
 
-            for member in shooter.bonded_ids:
-                if member not in self.shooters:
+            linked_ids = getattr(shooter, "bonded_ids", None)
+            if not isinstance(linked_ids, (list, tuple)):
+                errors.append(f"Invalid bonded_ids for shooter: {shooter_id}")
+                continue
+            for member in linked_ids:
+                if not isinstance(member, str) or not member:
+                    errors.append(
+                        f"Invalid bonded shooter reference on: {shooter_id}"
+                    )
+                elif member not in self.shooters:
                     errors.append(
                         f"Unknown bonded shooter: {member}"
                     )
-                elif shooter_id not in self.shooters[member].bonded_ids:
-                    errors.append(
-                        f"Asymmetric bond: {shooter_id} and {member}"
+                else:
+                    reverse_ids = getattr(
+                        self.shooters[member], "bonded_ids", None
                     )
+                    if (not isinstance(reverse_ids, (list, tuple))
+                            or shooter_id not in reverse_ids):
+                        errors.append(
+                            f"Asymmetric bond: {shooter_id} and {member}"
+                        )
 
-        # A bonded component is one atomic selectable unit. Validate the
-        # whole connected component, not just each shooter's direct links.
+        # Validate complete connected components independently of
+        # bonded_group(), which intentionally refuses components over 3.
         checked_groups = set()
         for shooter_id in self.shooters:
             if shooter_id in checked_groups:
                 continue
-            group = self.bonded_group(shooter_id)
-            if not group:
-                # Missing references and oversized components are already
-                # reported by the per-edge checks below / above.
-                continue
-            checked_groups.update(group)
-            if len(group) > 3:
+            pending = [shooter_id]
+            component = set()
+            while pending:
+                current = pending.pop()
+                if current in component or current not in self.shooters:
+                    continue
+                component.add(current)
+                linked_ids = getattr(
+                    self.shooters[current], "bonded_ids", ()
+                )
+                if not isinstance(linked_ids, (list, tuple)):
+                    continue
+                for member in linked_ids:
+                    if (isinstance(member, str)
+                            and member in self.shooters
+                            and member not in component):
+                        pending.append(member)
+            checked_groups.update(component)
+            ordered_component = sorted(component)
+            if len(component) > 3:
                 errors.append(
                     "Bonded group exceeds maximum size of 3: "
-                    + ", ".join(group)
+                    + ", ".join(ordered_component)
                 )
             explicit_ids = {
-                str(self.shooters[member].group_id)
-                for member in group
-                if self.shooters[member].group_id is not None
+                self.shooters[member].group_id
+                for member in component
+                if isinstance(
+                    getattr(self.shooters[member], "group_id", None), str
+                )
             }
             if len(explicit_ids) > 1:
                 errors.append(
                     "Inconsistent group_id values in bonded component: "
-                    + ", ".join(group)
+                    + ", ".join(ordered_component)
                 )
 
         occupied = self.conveyor + self.storage
