@@ -74,6 +74,31 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
+    def test_rejects_out_of_order_event_ticks(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["tick_count"] = 2
+        snapshot["events"] = [
+            {"tick": 2, "event": "SHOOTER_ROTATED"},
+            {"tick": 1, "event": "AMMO_UPDATED"},
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_shooter_both_selected_and_returned(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["shooters"][0]["selected"] = True
+        snapshot["shooters"][0]["returned"] = True
+        snapshot["storage_occupied"] = 1
+        snapshot["returned_ids"] = ["a"]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_nonfailed_snapshot_ending_in_failure_event(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [{"tick": 0, "event": "LEVEL_FAILURE", "reason": "x"}]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
     def test_rejects_failed_flag_without_failure_reason(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
         snapshot["failed"] = True
