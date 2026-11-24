@@ -9,6 +9,7 @@ from capture_pipeline import (
     load_capture_config,
     run_capture_pipeline,
     validate_capture_outputs,
+    audit_capture_pixels,
 )
 
 
@@ -83,7 +84,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
             })
             with patch("capture_pipeline.subprocess.run") as run, patch(
                 "capture_pipeline.validate_capture_outputs"
-            ) as validate:
+            ) as validate, patch("capture_pipeline.audit_capture_pixels") as audit:
                 run_capture_pipeline(screenshot, config)
         self.assertEqual(run.call_count, 2)
         ingestor_args = run.call_args_list[0].args[0]
@@ -99,10 +100,12 @@ class CapturePipelineConfigTests(unittest.TestCase):
             ["10", "20", "900", "600"],
         )
         validate.assert_called_once()
+        audit.assert_called_once()
         self.assertEqual(
             validate.call_args.args[2],
             hashlib.sha256(b"placeholder").hexdigest(),
         )
+        self.assertEqual(audit.call_args.args[1], b"placeholder")
 
     def test_rejects_board_hash_that_differs_from_input_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -156,6 +159,51 @@ class CapturePipelineConfigTests(unittest.TestCase):
             })
             with self.assertRaisesRegex(ValueError, "integer coordinates"):
                 load_capture_config(path)
+
+
+    def test_audit_capture_pixels_persists_report_only_when_all_checks_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            output_path = Path(directory) / "audit.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": True,
+                "extraction_fingerprint_match": True,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                result = audit_capture_pixels(board_path, b"source", output_path)
+            self.assertEqual(result, report)
+            self.assertEqual(json.loads(output_path.read_text()), report)
+
+    def test_audit_capture_pixels_rejects_sample_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": False,
+                "extraction_fingerprint_match": True,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                with self.assertRaisesRegex(ValueError, "RGB sample mismatches"):
+                    audit_capture_pixels(board_path, b"source", Path(directory) / "audit.json")
+
+    def test_audit_capture_pixels_rejects_missing_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": True,
+                "extraction_fingerprint_match": False,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                with self.assertRaisesRegex(ValueError, "fingerprint"):
+                    audit_capture_pixels(board_path, b"source", Path(directory) / "audit.json")
 
 
 if __name__ == "__main__":
