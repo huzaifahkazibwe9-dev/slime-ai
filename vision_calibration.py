@@ -231,7 +231,8 @@ def verify_source_image(data, source_image_bytes):
     return {"sha256": actual_hash, "dimensions_checked": dimensions_checked}
 
 
-def evaluate_dataset(data):    samples = validate_dataset(data)
+def evaluate_dataset(data):
+    samples = validate_dataset(data)
     evaluated = []
     labels = set()
     for sample in samples:
