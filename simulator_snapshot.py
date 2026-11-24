@@ -12,6 +12,24 @@ from conveyor_simulator import (
 
 SNAPSHOT_SCHEMA_VERSION = 2
 
+# Schema-v2 snapshots only accept events emitted by this simulator version.
+# A new event kind requires an explicit schema/validator update rather than
+# being silently accepted as an opaque history record.
+SUPPORTED_EVENT_TYPES = frozenset({
+    "AMMO_UPDATED",
+    "GROUP_REACTIVATED_FROM_STORAGE",
+    "LEVEL_FAILURE",
+    "SELECTION_REJECTED",
+    "SHOOTER_COMPLETED",
+    "SHOOTER_CONTINUES_ROTATING",
+    "SHOOTER_ENTERED",
+    "SHOOTER_RETURNED_TO_STORAGE",
+    "SHOOTER_ROTATED",
+    "SHOOTER_WAITING_FOR_BONDED_GROUP",
+    "SHOT_RECORD_REJECTED",
+    "STORAGE_REACTIVATION_REJECTED",
+})
+
 
 def _require_json_compatible(value):
     """Reject values that JSON cannot preserve without changing their shape."""
@@ -128,6 +146,8 @@ def restore_simulator(snapshot):
                 or event_tick < previous_tick
                 or not isinstance(event_type, str) or not event_type.strip()):
             raise ValueError("event has invalid or out-of-order tick/type")
+        if event_type not in SUPPORTED_EVENT_TYPES:
+            raise ValueError("snapshot contains an unsupported event type")
         previous_tick = event_tick
     if not failed and events and events[-1].get("event") == "LEVEL_FAILURE":
         raise ValueError("non-failed snapshot cannot end with LEVEL_FAILURE")
