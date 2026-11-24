@@ -363,6 +363,10 @@ class ConveyorSimulator:
 
 def create_simulator(shooter_records, storage_occupied=0, config=None):
     """Build from records; optionally restore already-active conveyor state."""
+    if config is None:
+        config = SimulatorConfig()
+    elif not isinstance(config, SimulatorConfig):
+        raise ValueError("config must be a SimulatorConfig")
     shooters = []
     for item in shooter_records:
         shooters.append(
@@ -379,5 +383,5 @@ def create_simulator(shooter_records, storage_occupied=0, config=None):
     return ConveyorSimulator(
         shooters=shooters,
         storage_occupied=storage_occupied,
-        config=config or SimulatorConfig(),
+        config=config,
     )
