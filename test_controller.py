@@ -17,6 +17,8 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "board_snapshot_id": "sha256:" + source_hash,
         "capture_session_id": "session-abc",
         "captured_at": captured_at,
+        "image_size": [1080, 2220],
+        "grid_size": [35, 35],
     }
     shooter = {
         "capture_provenance": {
@@ -29,6 +31,18 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     root = Path(directory)
     (root / "board_observation_latest.json").write_text(json.dumps(board))
     (root / "shooter_detection.json").write_text(json.dumps(shooter))
+    audit = {
+        "source_sha256": source_hash,
+        "image_size": [1080, 2220],
+        "grid_size": [35, 35],
+        "pixel_samples_reproduced": True,
+        "extraction_fingerprint_match": True,
+        "label_mismatch_count": 0,
+        "colour_counts_match": True,
+        "gameplay_verified": False,
+        "game_taps_enabled": False,
+    }
+    (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
 
 
 class ControllerTests(unittest.TestCase):
