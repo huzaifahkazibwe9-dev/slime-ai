@@ -115,6 +115,21 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "row/column"):
             validate_dataset(malformed_grid)
 
+    def test_rejects_duplicate_board_coordinates(self):
+        data = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [4, 4],
+            "samples": [
+                {"id": "first", "row": 1, "column": 2,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+                {"id": "duplicate-cell", "row": 1, "column": 2,
+                 "rgb": [245, 245, 245], "label": "white"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "Duplicate board coordinate"):
+            validate_dataset(data)
+
     def test_requires_image_and_grid_dimensions_together(self):
         malformed = {**self.dataset, "image_size": [1080, 2220]}
         with self.assertRaisesRegex(ValueError, "supplied together"):
