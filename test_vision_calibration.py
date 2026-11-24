@@ -77,6 +77,49 @@ class VisionCalibrationTests(unittest.TestCase):
         })
         self.assertEqual([sample["label"] for sample in validated], list(COLOUR_LABELS))
 
+    def test_reports_source_image_provenance_from_template(self):
+        from hashlib import sha256
+
+        data = {
+            **self.dataset,
+            "source_sha256": sha256(b"original screenshot").hexdigest(),
+            "image_size": [1080, 2220],
+            "grid_size": [2, 2],
+            "samples": [
+                {"id": "cell-1", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        report = evaluate_dataset(data)
+        self.assertEqual(
+            report["source_provenance"]["source_sha256"],
+            data["source_sha256"],
+        )
+        self.assertEqual(report["source_provenance"]["image_size"], [1080, 2220])
+        self.assertFalse(report["source_provenance"]["source_image_hash_checked"])
+
+    def test_rejects_malformed_source_hash_and_grid_coordinates(self):
+        malformed_hash = {**self.dataset, "source_sha256": "z" * 64}
+        with self.assertRaisesRegex(ValueError, "source_sha256"):
+            validate_dataset(malformed_hash)
+
+        malformed_grid = {
+            **self.dataset,
+            "image_size": [1080, 2220],
+            "grid_size": [2, 2],
+            "samples": [
+                {"id": "cell-1", "row": 2, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "row/column"):
+            validate_dataset(malformed_grid)
+
+    def test_requires_image_and_grid_dimensions_together(self):
+        malformed = {**self.dataset, "image_size": [1080, 2220]}
+        with self.assertRaisesRegex(ValueError, "supplied together"):
+            validate_dataset(malformed)
+
     def test_rejects_empty_or_malformed_datasets(self):
         for malformed in (None, [], {}, {
             "schema_version": 1, "labelled_by_user": True, "samples": []
