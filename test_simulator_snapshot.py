@@ -65,6 +65,38 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
+    def test_rejects_latest_storage_event_occupancy_mismatch(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        return_event = next(
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        )
+        return_event["storage_occupied"] = 0
+        with self.assertRaisesRegex(ValueError, "disagrees with restored occupancy"):
+            restore_simulator(snapshot)
+
+    def test_rejects_invalid_storage_occupancy_in_event(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        return_event = next(
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        )
+        return_event["storage_occupied"] = True
+        with self.assertRaisesRegex(ValueError, "invalid storage occupancy"):
+            restore_simulator(snapshot)
+
     def test_rejects_storage_occupancy_below_returned_shooters(self):
         sim = create_simulator([
             {"id": "a", "ammo": 0, "returned": True},
