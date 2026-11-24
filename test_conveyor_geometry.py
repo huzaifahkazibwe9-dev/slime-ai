@@ -14,6 +14,21 @@ class ConveyorGeometryInputValidationTests(unittest.TestCase):
         values.update(overrides)
         return calculate_firing_geometry(**values)
 
+    def test_position_verification_flag_must_be_boolean(self):
+        for value in ("yes", 1, None, [], object()):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "verification flag"):
+                    self.calculate(position_verified=value)
+
+    def test_direction_mapping_is_not_claimed_as_gameplay_verified(self):
+        result = self.calculate()
+        self.assertFalse(result["verified_direction"])
+        self.assertEqual(
+            result["direction_mapping"],
+            "configured_segment_mapping_not_gameplay_verified",
+        )
+        self.assertFalse(result["game_taps_enabled"])
+
     def test_accepts_valid_geometry(self):
         result = self.calculate()
         self.assertEqual(result["direction"], "up")

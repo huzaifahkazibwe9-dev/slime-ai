@@ -36,6 +36,8 @@ def calculate_firing_geometry(
 ):
     if not isinstance(segment, str):
         raise ValueError("Conveyor segment must be a string")
+    if type(position_verified) is not bool:
+        raise ValueError("Position verification flag must be a boolean")
     segment = segment.lower()
 
     if segment not in DIRECTIONS:
@@ -129,8 +131,11 @@ def calculate_firing_geometry(
         "direction": direction,
         "origin": (col, row),
         "first_board_cell": first_cells[direction],
-        "verified_direction": True,
-        "verified_screen_position": bool(position_verified),
+        # This is a configured geometric mapping, not empirical proof of
+        # the game's actual firing direction.
+        "verified_direction": False,
+        "direction_mapping": "configured_segment_mapping_not_gameplay_verified",
+        "verified_screen_position": position_verified,
         "game_taps_enabled": False,
     }
 
