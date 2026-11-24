@@ -139,7 +139,8 @@ def simulate_batch_schedule(
         start_index = 0
     else:
         try:
-            if resume_from.get("schema_version") != CHECKPOINT_SCHEMA_VERSION:
+            if (type(resume_from.get("schema_version")) is not int
+                    or resume_from.get("schema_version") != CHECKPOINT_SCHEMA_VERSION):
                 raise ValueError("unsupported checkpoint schema version")
             if resume_from.get("simulation_only") is not True:
                 raise ValueError("checkpoint must be simulation-only")
@@ -162,6 +163,7 @@ def simulate_batch_schedule(
                 or len(saved_reports) != start_index
                 or any(
                     not isinstance(r, dict)
+                    or type(r.get("batch")) is not int
                     or r.get("batch") != i
                     or r.get("valid") is not True
                     for i, r in enumerate(saved_reports)
