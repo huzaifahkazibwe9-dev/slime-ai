@@ -73,6 +73,25 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(len(active), 2)
         self.assertEqual({item["group_id"] for item in active}, {"pair-42"})
 
+    def test_validation_reports_bonded_component_over_three(self):
+        shooters = [
+            Shooter("A", "red", 2, "right", -1, 0,
+                    accessible=True, bonded_ids=["B"]),
+            Shooter("B", "blue", 2, "left", 2, 0,
+                    bonded_ids=["A", "C"]),
+            Shooter("C", "green", 2, "up", 0, -1,
+                    bonded_ids=["B", "D"]),
+            Shooter("D", "yellow", 2, "down", 0, 2,
+                    bonded_ids=["C"]),
+        ]
+        state = self.make_state([["red"]], shooters)
+        errors = state.validate()
+        self.assertTrue(any(
+            "Bonded group exceeds maximum size of 3" in error
+            for error in errors
+        ))
+        self.assertFalse(state.can_select_group("A"))
+
     def test_asymmetric_bond_observation_cannot_be_selected(self):
         a = Shooter(
             "A", "red", 2, "right", -1, 0,
