@@ -182,7 +182,9 @@ def restore_simulator(snapshot):
         if not 0 <= replayed_occupancy <= config.storage_capacity:
             raise ValueError("storage occupancy event delta is out of range")
         occupancy = event.get("storage_occupied")
-        if type(occupancy) is not int or occupancy != replayed_occupancy:
+        if type(occupancy) is not int:
+            raise ValueError("event has invalid storage occupancy")
+        if occupancy != replayed_occupancy:
             raise ValueError("storage occupancy event delta is inconsistent")
         occupancy_event_count += 1
     if occupancy_event_count and replayed_occupancy != sim.storage_occupied:
