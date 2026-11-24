@@ -10,7 +10,7 @@ from conveyor_simulator import (
     ConveyorSimulator, SimulatorConfig, create_simulator,
 )
 
-SNAPSHOT_SCHEMA_VERSION = 1
+SNAPSHOT_SCHEMA_VERSION = 2
 
 
 def _require_json_compatible(value):
@@ -37,6 +37,7 @@ def snapshot_simulator(sim):
             "ticks_per_lap": sim.config.ticks_per_lap,
         },
         "storage_occupied": sim.storage_occupied,
+        "initial_storage_occupied": sim.initial_storage_occupied,
         "tick_count": sim.tick_count,
         "failed": sim.failed,
         "failure_reason": sim.failure_reason,
@@ -152,7 +153,12 @@ def restore_simulator(snapshot):
         group_members_by_id.setdefault(shooter.group_id, set()).add(
             shooter.shooter_id
         )
-    previous_occupancy = None
+    initial_storage = snapshot.get("initial_storage_occupied")
+    if (type(initial_storage) is not int
+            or not 0 <= initial_storage <= config.storage_capacity):
+        raise ValueError("initial storage occupancy history is invalid")
+    sim.initial_storage_occupied = initial_storage
+    replayed_occupancy = initial_storage
     occupancy_event_count = 0
     for event in events:
         event_type = event.get("event")
@@ -164,27 +170,25 @@ def restore_simulator(snapshot):
             raise ValueError("non-storage event cannot change storage occupancy")
         if not changes_storage:
             continue
+        if event_type == "SHOOTER_RETURNED_TO_STORAGE":
+            replayed_occupancy += 1
+        else:
+            members = event.get("members")
+            if not isinstance(members, list) or not members:
+                raise ValueError(
+                    "reactivation event must list its group members"
+                )
+            replayed_occupancy -= len(members)
+        if not 0 <= replayed_occupancy <= config.storage_capacity:
+            raise ValueError("storage occupancy event delta is out of range")
         occupancy = event.get("storage_occupied")
-        if (type(occupancy) is not int
-                or not 0 <= occupancy <= config.storage_capacity):
-            raise ValueError("event has invalid storage occupancy")
-        if previous_occupancy is not None:
-            if event_type == "SHOOTER_RETURNED_TO_STORAGE":
-                expected = previous_occupancy + 1
-            else:
-                members = event.get("members")
-                if not isinstance(members, list) or not members:
-                    raise ValueError(
-                        "reactivation event must list its group members"
-                    )
-                expected = previous_occupancy - len(members)
-            if occupancy != expected:
-                raise ValueError("storage occupancy event delta is inconsistent")
-        previous_occupancy = occupancy
+        if type(occupancy) is not int or occupancy != replayed_occupancy:
+            raise ValueError("storage occupancy event delta is inconsistent")
         occupancy_event_count += 1
-    if (occupancy_event_count
-            and previous_occupancy != sim.storage_occupied):
+    if occupancy_event_count and replayed_occupancy != sim.storage_occupied:
         raise ValueError("latest storage event disagrees with restored occupancy")
+    if not occupancy_event_count and initial_storage != sim.storage_occupied:
+        raise ValueError("storage occupancy changed without a storage event")
 
     latest_return_index = {}
     latest_reactivation_index = {}
