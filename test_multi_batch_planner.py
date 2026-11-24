@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from multi_batch_planner import simulate_batch_schedule
 from conveyor_simulator import SimulatorConfig
 
@@ -263,6 +264,90 @@ class MultiBatchTests(unittest.TestCase):
         )
         self.assertFalse(result["schedule_valid"])
         self.assertIn("INVALID_INITIAL_SIMULATOR_STATE", result["failure_reason"])
+
+
+    def test_partial_group_selection_failure_rolls_back_entire_batch(self):
+        from conveyor_simulator import ConveyorSimulator
+
+        original = ConveyorSimulator.select_group
+        calls = {"count": 0}
+
+        def fail_second_group(sim, group_id):
+            calls["count"] += 1
+            if calls["count"] == 2:
+                return False
+            return original(sim, group_id)
+
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 1},
+            {"id": "B", "group_id": "B", "ammo": 1},
+        ]
+        with patch.object(
+            ConveyorSimulator, "select_group", fail_second_group
+        ):
+            result = simulate_batch_schedule(
+                records,
+                [{"groups": ["A", "B"], "shots": {"A": 1, "B": 1}}],
+                config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+            )
+
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["batch_reports"][-1]["reason"],
+            "SIMULATOR_REJECTED_GROUP_SELECTION",
+        )
+        self.assertEqual(result["conveyor_occupied"], 0)
+        self.assertEqual(result["active_shooters"], [])
+        self.assertEqual(result["tick_count"], 0)
+        self.assertEqual(result["returned_shooters"], [])
+
+    def test_reactivation_is_rolled_back_if_later_selection_fails(self):
+        from conveyor_simulator import ConveyorSimulator
+
+        original = ConveyorSimulator.select_group
+        calls = {"count": 0}
+
+        def fail_second_group(sim, group_id):
+            calls["count"] += 1
+            if calls["count"] == 2:
+                return False
+            return original(sim, group_id)
+
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 0},
+            {"id": "B", "group_id": "B", "ammo": 0},
+            {"id": "C", "group_id": "C", "ammo": 1},
+        ]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 0}},
+            {"groups": ["B"], "shots": {"B": 0}},
+            {
+                "groups": ["A", "C"],
+                "reactivate_groups": ["A"],
+                "shots": {"A": 0, "C": 0},
+            },
+        ]
+        with patch.object(
+            ConveyorSimulator, "select_group", fail_second_group
+        ):
+            result = simulate_batch_schedule(
+                records,
+                batches,
+                config=SimulatorConfig(
+                    conveyor_capacity=3, storage_capacity=5, ticks_per_lap=1
+                ),
+                allow_storage_reactivation=True,
+            )
+
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["batch_reports"][-1]["reason"],
+            "SIMULATOR_REJECTED_GROUP_SELECTION",
+        )
+        self.assertEqual(result["storage_occupied"], 2)
+        self.assertEqual(set(result["returned_shooters"]), {"A", "B"})
+        self.assertEqual(result["conveyor_occupied"], 0)
+        self.assertEqual(result["active_shooters"], [])
 
 
 if __name__ == "__main__":
