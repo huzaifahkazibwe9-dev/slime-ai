@@ -84,6 +84,9 @@ def calculate_firing_geometry(
 
     cell_width = (right - left) / cols
     cell_height = (bottom - top) / rows
+    if (not _finite_real(cell_width) or not _finite_real(cell_height)
+            or cell_width <= 0 or cell_height <= 0):
+        raise ValueError("Scaled board cell dimensions must be finite and positive")
 
     # A shooter must lie on the declared conveyor segment. Reject positions
     # outside the calibrated segment instead of clamping them to an edge lane.
