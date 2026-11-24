@@ -291,6 +291,67 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sample quality status"):
             self.load_payload(payload)
 
+    def test_rejects_unhashable_sample_quality_status(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": ["LOW_CONFIDENCE_SAMPLE"]},
+            }],
+            "bonded_groups": [],
+        }
+        with self.assertRaisesRegex(ValueError, "sample quality status"):
+            self.load_payload(payload)
+
+    def test_rejects_invalid_id_even_when_sample_is_low_confidence(self):
+        payload = {
+            "visible_shooters": [{
+                "id": ["not", "hashable"], "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [],
+        }
+        with self.assertRaisesRegex(ValueError, "invalid id"):
+            self.load_payload(payload)
+
+    def test_rejects_duplicate_ids_across_filtered_and_loaded_samples(self):
+        entry = {"id": "A", "color": {"name": "red"}, "ammo": 5}
+        weak = dict(
+            entry,
+            sample_quality={"status": "LOW_CONFIDENCE_SAMPLE"},
+        )
+        with self.assertRaisesRegex(ValueError, "IDs must be unique"):
+            self.load_payload({
+                "visible_shooters": [entry, weak],
+                "bonded_groups": [],
+            })
+
+    def test_rejects_malformed_bond_member_even_if_another_member_is_weak(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [["A", ["malformed"]]],
+        }
+        with self.assertRaisesRegex(ValueError, "invalid shooter ID"):
+            self.load_payload(payload)
+
+    def test_geometry_observations_must_be_an_object(self):
+        for observations in ([], ["A"], "invalid", 1):
+            with self.subTest(observations=observations):
+                payload = {
+                    "visible_shooters": [{
+                        "id": "A", "color": {"name": "red"}, "ammo": 5,
+                    }],
+                    "bonded_groups": [],
+                }
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "shooters.json"
+                    path.write_text(json.dumps(payload))
+                    with self.assertRaisesRegex(
+                            ValueError, "geometry_observations must be an object"):
+                        load_shooters(path, geometry_observations=observations)
+
     def test_legacy_shooter_records_without_sample_quality_still_load(self):
         payload = {
             "visible_shooters": [
