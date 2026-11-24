@@ -351,6 +351,30 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid shooter ID"):
             self.load_payload(payload)
 
+    def test_rejects_unknown_bond_member_hidden_by_weak_sample(self):
+        payload = {
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"},
+            }],
+            "bonded_groups": [["A", "missing"]],
+        }
+        with self.assertRaisesRegex(ValueError, "unknown shooters"):
+            self.load_payload(payload)
+
+    def test_rejects_overlapping_groups_even_when_one_group_has_weak_member(self):
+        shooters = [
+            {"id": "A", "color": {"name": "red"}, "ammo": 5},
+            {"id": "B", "color": {"name": "blue"}, "ammo": 5,
+             "sample_quality": {"status": "LOW_CONFIDENCE_SAMPLE"}},
+            {"id": "C", "color": {"name": "green"}, "ammo": 5},
+        ]
+        with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
+            self.load_payload({
+                "visible_shooters": shooters,
+                "bonded_groups": [["A", "B"], ["A", "C"]],
+            })
+
     def test_geometry_observations_must_be_an_object(self):
         for observations in ([], ["A"], "invalid", 1):
             with self.subTest(observations=observations):
