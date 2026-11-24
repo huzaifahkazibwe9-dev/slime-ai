@@ -89,7 +89,10 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
 
     # Optional observations must come from separately verified
     # conveyor screenshots, never from the shooter panel image.
-    geometry_observations = geometry_observations or {}
+    if geometry_observations is None:
+        geometry_observations = {}
+    elif not isinstance(geometry_observations, dict):
+        raise ValueError("geometry_observations must be an object")
 
     group_lookup = {}
     bonded_lookup = {}
