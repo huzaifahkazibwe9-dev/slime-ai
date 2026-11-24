@@ -155,7 +155,21 @@ def simulate_batch_schedule(
         })
         return result
 
-    for index, batch in enumerate(batch_iterator):
+    index = 0
+    while True:
+        try:
+            batch = next(batch_iterator)
+        except StopIteration:
+            break
+        except Exception as exc:
+            valid = False
+            reports.append({
+                "batch": index,
+                "valid": False,
+                "reason": "BATCH_ITERATION_FAILED",
+                "exception_type": type(exc).__name__,
+            })
+            break
         def reject(reason, **extra):
             nonlocal valid
             valid = False
@@ -398,6 +412,8 @@ def simulate_batch_schedule(
         if sim.failed:
             valid = False
             break
+
+        index += 1
 
     result = sim.report()
     result.update({
