@@ -123,3 +123,8 @@ the RGB value, labels, and sample IDs so a reviewer can revisit those cells.
 Repeated RGB values with one consistent label are not treated as errors.
 Conflicts are diagnostic flags, not automatic proof of which label is correct,
 and the evaluator does not silently discard or rewrite them.
+
+
+## Source screenshot dimension verification
+
+When a template includes `image_size`, the evaluator's `--source-image` check uses one immutable byte snapshot to verify both the SHA-256 digest and the decoded image dimensions. A matching hash with inconsistent recorded dimensions is rejected. Reports distinguish hash verification from dimension verification. This confirms file consistency, not that sample coordinates or human-assigned colours are correct.

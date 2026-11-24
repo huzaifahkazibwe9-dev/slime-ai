@@ -13,9 +13,12 @@ establish that labels are correct or that the samples represent gameplay.
 """
 import argparse
 import hashlib
+import io
 import json
 import re
 from pathlib import Path
+
+from PIL import Image
 
 from screenshot_ingestor import COLOUR_LABELS, classify_rgb
 
@@ -203,6 +206,31 @@ def summarize_coverage(samples, data):
     return result
 
 
+def verify_source_image(data, source_image_bytes):
+    """Verify screenshot digest and, when recorded, its pixel dimensions."""
+    expected_hash = data.get("source_sha256")
+    if not isinstance(expected_hash, str):
+        raise ValueError("Dataset has no source_sha256; cannot verify --source-image")
+    actual_hash = hashlib.sha256(source_image_bytes).hexdigest()
+    if actual_hash != expected_hash:
+        raise ValueError("Source screenshot SHA-256 does not match the labelled dataset")
+
+    dimensions_checked = False
+    if data.get("image_size") is not None:
+        try:
+            with Image.open(io.BytesIO(source_image_bytes)) as image:
+                actual_size = list(image.size)
+        except Exception as exc:
+            raise ValueError("Source screenshot is not a readable image") from exc
+        if actual_size != data["image_size"]:
+            raise ValueError(
+                "Source screenshot dimensions do not match the labelled dataset "
+                f"(expected {data['image_size']}, got {actual_size})"
+            )
+        dimensions_checked = True
+    return {"sha256": actual_hash, "dimensions_checked": dimensions_checked}
+
+
 def evaluate_dataset(data):
     samples = validate_dataset(data)
     evaluated = []
@@ -265,6 +293,7 @@ def evaluate_dataset(data):
             "image_size": data.get("image_size"),
             "grid_size": data.get("grid_size"),
             "source_image_hash_checked": False,
+            "source_image_dimensions_checked": False,
         },
         "correct_count": correct,
         "accuracy": round(correct / total, 6),
@@ -300,13 +329,12 @@ def main():
     data = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     report = evaluate_dataset(data)
     if args.source_image:
-        expected = data.get("source_sha256")
-        if not isinstance(expected, str):
-            raise ValueError("Dataset has no source_sha256; cannot verify --source-image")
-        actual = hashlib.sha256(Path(args.source_image).read_bytes()).hexdigest()
-        if actual != expected:
-            raise ValueError("Source screenshot SHA-256 does not match the labelled dataset")
+        source_image_bytes = Path(args.source_image).read_bytes()
+        verification = verify_source_image(data, source_image_bytes)
         report["source_provenance"]["source_image_hash_checked"] = True
+        report["source_provenance"]["source_image_dimensions_checked"] = (
+            verification["dimensions_checked"]
+        )
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
