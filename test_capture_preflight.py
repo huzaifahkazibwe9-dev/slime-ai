@@ -24,6 +24,8 @@ class CapturePreflightTests(unittest.TestCase):
             "board_snapshot_id": "sha256:" + source_hash,
             "capture_session_id": board_session,
             "captured_at": board_time,
+            "image_size": [1080, 2220],
+            "grid_size": [35, 35],
         }
         shooter = {
             "capture_provenance": {
@@ -37,6 +39,18 @@ class CapturePreflightTests(unittest.TestCase):
         shooter_path = Path(root) / "shooters.json"
         board_path.write_text(json.dumps(board))
         shooter_path.write_text(json.dumps(shooter))
+        audit_path = Path(root) / "source_pixel_audit_latest.json"
+        audit_path.write_text(json.dumps({
+            "source_sha256": source_hash,
+            "image_size": [1080, 2220],
+            "grid_size": [35, 35],
+            "pixel_samples_reproduced": True,
+            "extraction_fingerprint_match": True,
+            "label_mismatch_count": 0,
+            "colour_counts_match": True,
+            "gameplay_verified": False,
+            "game_taps_enabled": False,
+        }))
         return board_path, shooter_path, now
 
     def test_accepts_recent_matching_capture_pair(self):
@@ -109,6 +123,48 @@ class CapturePreflightTests(unittest.TestCase):
             result = validate_capture_pair(board, shooters, now=now)
         self.assertFalse(result["valid"])
         self.assertIn("snapshot identifiers", result["reason"])
+
+
+    def test_rejects_missing_source_pixel_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            (Path(directory) / "source_pixel_audit_latest.json").unlink()
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is missing", result["reason"])
+
+    def test_rejects_audit_for_different_screenshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["source_sha256"] = "b" * 64
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("not tied to this screenshot", result["reason"])
+
+    def test_rejects_pixel_sample_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["pixel_samples_reproduced"] = False
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_audit_grid_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["grid_size"] = [34, 35]
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
 
 
 if __name__ == "__main__":
