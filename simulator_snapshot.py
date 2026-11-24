@@ -151,17 +151,33 @@ def restore_simulator(snapshot):
         group_members_by_id.setdefault(shooter.group_id, set()).add(
             shooter.shooter_id
         )
-    occupancy_events = [
-        event for event in events if "storage_occupied" in event
-    ]
-    for event in occupancy_events:
-        occupancy = event["storage_occupied"]
+    previous_occupancy = None
+    occupancy_event_count = 0
+    for event in events:
+        event_type = event.get("event")
+        changes_storage = event_type in {
+            "SHOOTER_RETURNED_TO_STORAGE",
+            "GROUP_REACTIVATED_FROM_STORAGE",
+        }
+        if "storage_occupied" in event and not changes_storage:
+            raise ValueError("non-storage event cannot change storage occupancy")
+        if not changes_storage:
+            continue
+        occupancy = event.get("storage_occupied")
         if (type(occupancy) is not int
                 or not 0 <= occupancy <= config.storage_capacity):
             raise ValueError("event has invalid storage occupancy")
-    if (occupancy_events
-            and occupancy_events[-1]["storage_occupied"]
-                != sim.storage_occupied):
+        if previous_occupancy is not None:
+            if event_type == "SHOOTER_RETURNED_TO_STORAGE":
+                expected = previous_occupancy + 1
+            else:
+                expected = previous_occupancy - len(event.get("members", []))
+            if occupancy != expected:
+                raise ValueError("storage occupancy event delta is inconsistent")
+        previous_occupancy = occupancy
+        occupancy_event_count += 1
+    if (occupancy_event_count
+            and previous_occupancy != sim.storage_occupied):
         raise ValueError("latest storage event disagrees with restored occupancy")
 
     latest_return_index = {}
