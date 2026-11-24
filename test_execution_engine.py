@@ -73,6 +73,86 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(len(active), 2)
         self.assertEqual({item["group_id"] for item in active}, {"pair-42"})
 
+    def test_validation_reports_bonded_component_over_three(self):
+        shooters = [
+            Shooter("A", "red", 2, "right", -1, 0,
+                    accessible=True, bonded_ids=["B"]),
+            Shooter("B", "blue", 2, "left", 2, 0,
+                    bonded_ids=["A", "C"]),
+            Shooter("C", "green", 2, "up", 0, -1,
+                    bonded_ids=["B", "D"]),
+            Shooter("D", "yellow", 2, "down", 0, 2,
+                    bonded_ids=["C"]),
+        ]
+        state = self.make_state([["red"]], shooters)
+        errors = state.validate()
+        self.assertTrue(any(
+            "Bonded group exceeds maximum size of 3" in error
+            for error in errors
+        ))
+        self.assertFalse(state.can_select_group("A"))
+
+    def test_asymmetric_bond_observation_cannot_be_selected(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            bonded_ids=[]
+        )
+        state = self.make_state([[ "red", None, "blue" ]], [a, b])
+        self.assertFalse(state.can_select_group("A"))
+        self.assertFalse(state.select_group("A"))
+        self.assertEqual(state.conveyor, [])
+
+    def test_conflicting_bond_group_ids_cannot_be_selected(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id="pair-a", bonded_ids=["B"]
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            group_id="pair-b", bonded_ids=["A"]
+        )
+        state = self.make_state([[ "red", None, "blue" ]], [a, b])
+        self.assertIsNone(state.bonded_group_id("A"))
+        self.assertFalse(state.can_select_group("A"))
+        self.assertFalse(state.select_group("A"))
+        self.assertEqual(state.conveyor, [])
+
+    def test_malformed_bond_metadata_fails_closed_without_raising(self):
+        malformed_values = [None, "B", [["B"]], [None], [1]]
+        for malformed in malformed_values:
+            with self.subTest(bonded_ids=malformed):
+                shooter = Shooter(
+                    "A", "red", 2, "right", -1, 0,
+                    accessible=True, bonded_ids=malformed
+                )
+                state = self.make_state([["red"]], [shooter])
+                self.assertFalse(shooter.valid())
+                self.assertEqual(state.bonded_group("A"), [])
+                self.assertFalse(state.can_select_group("A"))
+                validation_errors = state.validate()
+                self.assertTrue(any(
+                    ("Invalid bonded_ids" in error
+                     or "Invalid bonded shooter reference" in error)
+                    for error in validation_errors
+                ))
+                self.assertEqual(state.conveyor, [])
+
+    def test_non_string_group_id_fails_closed(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id=["not", "a", "string"]
+        )
+        state = self.make_state([["red"]], [a])
+        self.assertFalse(a.valid())
+        self.assertFalse(state.can_select_group("A"))
+        self.assertTrue(any(
+            "Invalid shooter: A" in error for error in state.validate()
+        ))
+
     def test_existing_conveyor_partial_bonded_group_is_rejected(self):
         a = Shooter(
             "A", "red", 2, "right", -1, 0,
