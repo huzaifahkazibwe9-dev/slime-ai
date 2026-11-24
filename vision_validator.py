@@ -102,6 +102,11 @@ def audit_data(data):
         "recalculated_counts": dict(counts),
         "classification_mismatch_count": len(mismatches),
         "classification_mismatch_examples": mismatches[:20],
+        "classification_validation_independent": False,
+        "classification_validation_scope": (
+            "Checks saved labels against the shared extraction classifier; "
+            "does not independently validate real-game colour truth."
+        ),
         "initial_occupancy_user_confirmed": occupancy_confirmed,
         "vision_classification_verified": False,
         "gameplay_colour_mapping_verified": False,
@@ -123,12 +128,13 @@ def main():
     report = audit_data(data)
     REPORT_FILE.write_text(json.dumps(report, indent=2))
 
-    print("SLIME AI — INDEPENDENT VISION DATA AUDIT")
+    print("SLIME AI — VISION DATA CONSISTENCY AUDIT")
     print("=" * 48)
     print("Grid:", report.get("grid_size"))
     print("Expected cells:", report.get("expected_cells"))
     print("Valid RGB samples:", report.get("valid_rgb_samples"))
     print("Saved counts match:", report.get("saved_counts_match"))
+    print("Independent colour validation: False")
     print("Classification mismatches:",
           report.get("classification_mismatch_count"))
     print("Occupancy user-confirmed:",
