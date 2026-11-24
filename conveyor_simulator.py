@@ -5,7 +5,7 @@ its configurable timing is an exact measurement of the live game.
 Live gameplay actions are never performed here.
 """
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -65,7 +65,7 @@ class ConveyorSimulator:
     failure_reason: str = ""
     events: List[dict] = field(default_factory=list)
     returned_ids: List[str] = field(default_factory=list)
-    initial_storage_occupied: int = None
+    initial_storage_occupied: Optional[int] = None
 
     def __post_init__(self):
         if not isinstance(self.config, SimulatorConfig):
