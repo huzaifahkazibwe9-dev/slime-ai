@@ -114,6 +114,47 @@ class MultiBatchTests(unittest.TestCase):
         self.assertEqual(r["batches_completed"], 2)
         self.assertEqual(r["returned_shooters"], ["A"])
 
+
+    def test_invalid_shot_count_is_rejected_before_group_selection(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 2}]
+        r = simulate_batch_schedule(
+            records,
+            [{"groups": ["A"], "shots": {"A": 3}}],
+            config=SimulatorConfig(conveyor_capacity=1, ticks_per_lap=3),
+        )
+        self.assertFalse(r["schedule_valid"])
+        self.assertEqual(
+            r["batch_reports"][-1]["reason"],
+            "INVALID_OR_EXCESSIVE_SHOT_COUNT",
+        )
+        self.assertEqual(r["conveyor_occupied"], 0)
+        self.assertEqual(r["tick_count"], 0)
+        self.assertEqual(r["active_shooters"], [])
+
+    def test_non_mapping_shot_input_is_rejected_before_reactivation(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 0}]
+        r = simulate_batch_schedule(
+            records,
+            [
+                {"groups": ["A"], "shots": {"A": 0}},
+                {
+                    "groups": ["A"],
+                    "reactivate_groups": ["A"],
+                    "shots": [],
+                },
+            ],
+            config=SimulatorConfig(conveyor_capacity=1, ticks_per_lap=1),
+            allow_storage_reactivation=True,
+        )
+        self.assertFalse(r["schedule_valid"])
+        self.assertEqual(
+            r["batch_reports"][-1]["reason"],
+            "SHOTS_MUST_BE_A_MAPPING",
+        )
+        self.assertEqual(r["returned_shooters"], ["A"])
+        self.assertEqual(r["storage_occupied"], 1)
+        self.assertEqual(r["conveyor_occupied"], 0)
+
     def test_live_actions_disabled(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 2}],
