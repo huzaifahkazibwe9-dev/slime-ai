@@ -169,15 +169,32 @@ def simulate_batch_schedule(
             ):
                 raise ValueError("checkpoint scheduler history is invalid")
             expected_seen = set()
-            for report in saved_reports:
+            for report_index, report in enumerate(saved_reports):
+                scheduled_batch = batches[report_index]
+                if not isinstance(scheduled_batch, dict):
+                    raise ValueError("checkpoint references a malformed scheduled batch")
+                expected_requested = scheduled_batch.get("groups", [])
+                expected_reactivated = scheduled_batch.get("reactivate_groups", [])
+                if (
+                    not isinstance(expected_requested, (list, tuple))
+                    or not isinstance(expected_reactivated, (list, tuple))
+                    or any(
+                        not isinstance(group_id, str) or not group_id
+                        for group_id in list(expected_requested) + list(expected_reactivated)
+                    )
+                ):
+                    raise ValueError("checkpoint references malformed scheduled groups")
                 reactivated = report.get("reactivated_groups", [])
                 requested = report.get("groups", [])
                 if (
                     not isinstance(reactivated, list)
                     or not isinstance(requested, list)
-                    or any(not isinstance(g, str) for g in reactivated + requested)
+                    or requested != list(expected_requested)
+                    or reactivated != list(expected_reactivated)
                 ):
-                    raise ValueError("checkpoint group history is invalid")
+                    raise ValueError(
+                        "checkpoint report does not match the original schedule"
+                    )
                 expected_seen.difference_update(reactivated)
                 expected_seen.update(requested)
             if set(saved_seen) != expected_seen:
