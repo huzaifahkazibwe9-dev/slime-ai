@@ -55,8 +55,11 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
 
     if type(consume_state) is not bool:
         raise TypeError("consume_state must be a bool")
-    original = copy.deepcopy(state)
-    # A caller may pass a disposable state copy to avoid another full clone.
+    initial_pixels = state.remaining_pixels
+    initial_ammo = shooter.ammo
+    # A caller may pass a disposable state copy. Avoid cloning it merely to
+    # compute integrity metadata; the public default remains non-mutating.
+    original = None if consume_state else copy.deepcopy(state)
     simulated = state if consume_state else copy.deepcopy(state)
     graph_started = time.perf_counter()
     graph = build_region_graph(simulated.board)
@@ -115,18 +118,20 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
             "note": "Local simulation profiling only; not gameplay latency.",
         },
         "shooter_id": shooter_id,
-        "initial_pixels": original.remaining_pixels,
+        "initial_pixels": initial_pixels,
         "remaining_pixels": simulated.remaining_pixels,
-        "pixels_removed": original.remaining_pixels - simulated.remaining_pixels,
-        "initial_ammo": original.shooters[shooter_id].ammo,
+        "pixels_removed": initial_pixels - simulated.remaining_pixels,
+        "initial_ammo": initial_ammo,
         "remaining_ammo": simulated.shooters[shooter_id].ammo,
         "shots_attempted": len(steps),
         "steps": steps,
         "region_history": history,
         "final_region_graph": graph,
         "final_board": copy.deepcopy(simulated.board),
-        "source_state_unchanged": state == original,
-        "source_state_integrity_checked": True,
+        "source_state_unchanged": (
+            state == original if original is not None else False
+        ),
+        "source_state_integrity_checked": original is not None,
         "dynamic_regions_rebuilt_after_removal": True,
         "gameplay_verified": False,
         "live_execution_allowed": False,
