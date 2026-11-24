@@ -1,0 +1,94 @@
+import copy
+import unittest
+
+from conveyor_simulator import SimulatorConfig, create_simulator
+from simulator_snapshot import restore_simulator, snapshot_simulator
+
+
+class SimulatorSnapshotTests(unittest.TestCase):
+    def test_round_trip_preserves_state_events_and_tick_count(self):
+        sim = create_simulator([
+            {"id": "a", "ammo": 0},
+            {"id": "b", "ammo": 4},
+        ], config=SimulatorConfig(ticks_per_lap=2))
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.record_shots("a", 0))
+        self.assertTrue(sim.tick(2))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.tick_count, sim.tick_count)
+        self.assertEqual(restored.events, sim.events)
+        self.assertEqual(restored.returned_ids, sim.returned_ids)
+        self.assertEqual(restored.storage_occupied, sim.storage_occupied)
+        self.assertEqual(
+            [(s.shooter_id, s.ammo, s.position, s.completed_laps,
+              s.selected, s.returned) for s in restored.shooters],
+            [(s.shooter_id, s.ammo, s.position, s.completed_laps,
+              s.selected, s.returned) for s in sim.shooters],
+        )
+
+    def test_round_trip_preserves_failed_partial_tick_history(self):
+        sim = create_simulator(
+            [{"id": "first", "ammo": 0}, {"id": "second", "ammo": 0}],
+            storage_occupied=4,
+            config=SimulatorConfig(storage_capacity=5, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("first"))
+        self.assertTrue(sim.select_group("second"))
+        self.assertFalse(sim.tick(1))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertTrue(restored.failed)
+        self.assertEqual(restored.failure_reason, sim.failure_reason)
+        self.assertEqual(restored.tick_count, 1)
+        self.assertEqual(restored.returned_ids, ["first"])
+        self.assertEqual(restored.storage_occupied, 5)
+        self.assertEqual(restored.events, sim.events)
+
+    def test_snapshot_is_detached_from_later_mutations(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        snapshot = snapshot_simulator(sim)
+        sim.events.append({"tick": 0, "event": "LATER"})
+        self.assertEqual(snapshot["events"], [])
+
+    def test_rejects_storage_occupancy_below_returned_shooters(self):
+        sim = create_simulator([
+            {"id": "a", "ammo": 0, "returned": True},
+        ], storage_occupied=1)
+        snapshot = snapshot_simulator(sim)
+        snapshot["storage_occupied"] = 0
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_inconsistent_returned_ids(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "ammo": 0, "returned": True},
+        ], storage_occupied=1))
+        snapshot["returned_ids"] = []
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_beyond_snapshot_tick(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [{"tick": 1, "event": "SHOOTER_ROTATED"}]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_failed_flag_without_failure_reason(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["failed"] = True
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_unknown_schema_and_live_action_flags(self):
+        original = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        for key, value in (("schema_version", 99), ("live_taps_enabled", True),
+                           ("live_actions_performed", True)):
+            snapshot = copy.deepcopy(original)
+            snapshot[key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                restore_simulator(snapshot)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
