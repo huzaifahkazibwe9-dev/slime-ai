@@ -1,0 +1,89 @@
+# Pull Request Integration Roadmap
+
+## Purpose
+
+This repository currently has many open draft pull requests. A passing CI run on an individual branch does not establish that every branch can be merged independently or that the full stack is release-ready. This document records a conservative integration order and identifies overlapping work before consolidation.
+
+## Integration rules
+
+1. Keep `main` as the only release baseline; do not merge a child branch before its required parent.
+2. Re-run CI on the exact final head SHA after every rebase or conflict resolution.
+3. Merge only after reviewing the combined diff, not merely the individual PR's green status.
+4. Preserve fail-closed behavior: missing, stale, mismatched, or malformed evidence must never produce an actionable plan.
+5. Keep live game input and purchases disabled. A plan is advisory/simulation-only.
+6. Do not describe screenshot provenance checks as proof of authentic capture, correct calibration, human label truth, or gameplay accuracy.
+
+## Recommended consolidation groups
+
+### A. Core simulation and safety baseline
+
+Review the integrated geometry, vision/OCR, bonded-group, and simulation changes first:
+- #19 geometry integration
+- #20 vision/OCR integration
+- #21 bonded-group invariants
+- #22 simulation and multi-batch safeguards
+- #30 shooter-record preflight
+- #31 simulator snapshot/restore
+
+Before merging, verify that the integration branches include their intended prerequisites and that tests cover cross-module state transitions. #31 is a large cumulative change and deserves a focused review of snapshot schema compatibility and rollback semantics.
+
+### B. Screenshot ingestion and capture provenance
+
+Treat #38–#48 as one dependency chain rather than independent merge candidates:
+- Template/cache validation: #38–#42
+- Numeric bounds and shooter capture metadata: #43–#45
+- Cross-stage hash/session consistency: #46
+- Fresh paired capture requirements: #47–#48
+
+Merge in dependency order only after a final combined CI run. Hashes and timestamps provide consistency checks, not cryptographic authenticity or proof that the visual calibration matches the game board.
+
+### C. Human-labelled colour evaluation
+
+#35 establishes the evaluation framework. #36 and #38–#39 extend template and cache validation. #49–#54 contain related source-image verification, coverage, and compatibility work.
+
+Potential overlap requiring explicit resolution:
+- #52 adds source-image verification implementation.
+- #53 documents the verification matrix.
+- #54 adds compatibility tests.
+These are currently sibling branches based on #51. Consolidate their distinct changes into one sequential branch or rebase them one at a time; do not merge all three independently without checking duplicate hunks and tests.
+
+No real-game colour accuracy claim is justified until a representative, independently human-reviewed screenshot dataset has been populated and evaluated.
+
+### D. Independent pixel audit and planning gate
+
+Treat #55–#60 as a second dependency chain:
+- #55–#56 sampling geometry and provenance
+- #57 independent source-pixel reproduction
+- #58 capture-pipeline gate
+- #59 planning preflight
+- #60 capture-identity binding
+
+These checks establish internal consistency of stored samples against source bytes. They do not prove calibration alignment, human label correctness, or gameplay performance.
+
+### E. Status freshness and saved-plan identity
+
+#61 and #62 extend the capture chain so status output cannot advertise a plan backed by stale or different evidence. Keep them after #60. Confirm legacy report handling is intentionally fail-closed and documented.
+
+## Known overlap and cleanup candidates
+
+- #9 and #10 were superseded by the combined multi-batch preflight in #11; close as superseded after confirming no unique changes remain.
+- #14 and #25 both address malformed geometry observation containers; compare their diffs and retain one authoritative implementation/test path.
+- #15 and #29 both address CI on PRs targeting feature branches. #37 is already merged into `main`; verify whether #15/#29 add anything beyond the merged workflow before closing them.
+- #52/#53/#54 are sibling PRs with related source-image verification changes; consolidate rather than merge as unrelated siblings.
+- #1–#8 and #10 may contain changes already incorporated into later integrated PRs. Audit commit ancestry and file-level diffs before closing or merging; PR titles alone are not sufficient evidence of duplication.
+
+## Release-candidate exit criteria
+
+A release candidate is not ready until all of the following are true:
+
+- The selected dependency chain is integrated into one candidate branch.
+- CI passes on the exact candidate commit for every supported Python version.
+- The complete test suite passes after integration, including regression tests across capture, cache, planning, and status.
+- The Termux build script passes syntax validation; device installation and runtime checks remain a separate later stage.
+- A representative human-labelled screenshot dataset has been independently reviewed and evaluated before making colour-accuracy claims.
+- Real-device calibration alignment and game-state interpretation have been manually verified.
+- No live taps, automated purchases, or other game actions are enabled without a separate, explicit safety and reliability review.
+
+## Current status
+
+This roadmap is an integration plan, not evidence that any unmerged PR has been incorporated. As of this document, only PR #37 is known to be merged into `main`; the other referenced PRs remain subject to fresh status checks.
