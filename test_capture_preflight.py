@@ -205,5 +205,49 @@ class CapturePreflightTests(unittest.TestCase):
         self.assertIn("pixel audit is incomplete", result["reason"])
 
 
+    def test_rejects_boolean_dimension_in_board_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            data = json.loads(board.read_text())
+            data["image_size"] = [True, 2220]
+            board.write_text(json.dumps(data))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_boolean_dimension_in_pixel_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["grid_size"] = [35, True]
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_boolean_label_mismatch_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["label_mismatch_count"] = False
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_float_label_mismatch_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["label_mismatch_count"] = 0.0
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()
