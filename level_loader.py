@@ -30,6 +30,11 @@ def load_level(level=39, observation_path=None, shooter_path=None):
     board_data = load_board(vision_path)
     board = board_data["board"]
 
+    if board_data["width"] != 35:
+        raise ValueError("Unexpected board width")
+
+    if board_data["height"] != 35:
+        raise ValueError("Unexpected board height")
 
     shooters = load_shooters()
 
@@ -121,7 +126,13 @@ if __name__ == "__main__":
         print("Gameplay verification: False")
         print("Game taps enabled: False")
     else:
+        assert state.width == 35
+        assert state.height == 35
+        assert state.remaining_pixels == 1225
+        assert audit["occupied_pixels"] == 1225
         assert audit["initial_occupancy_user_confirmed"] is True
-        print("\nLEGACY BASELINE INTEGRATION PASSED")
-        print("Board dimensions are taken from the loaded baseline data.")
+        assert len(state.shooters) == 4
+        assert len(state.colour_mappings) == 4
+        print("\nLEVEL INTEGRATION PASSED")
+        print("All 1,225 starting tiles preserved.")
         print("Unverified colour mappings remain explicitly unverified.")
