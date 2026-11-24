@@ -126,6 +126,24 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(original.shooters["H"].ammo, None)
         self.assertEqual(simulated.shooters["H"].ammo, None)
 
+    def test_multi_batch_adapter_rejects_invalid_config_without_exception(self):
+        state = self.make_state([["red"]], [
+            Shooter("R", "red", 2, "right", -1, 0, accessible=True)
+        ])
+        before = copy.deepcopy(state)
+
+        report = run_multi_batch_schedule(state, [], config=False)
+
+        self.assertFalse(report["schedule_valid"])
+        self.assertEqual(
+            report["failure_reason"],
+            "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+        )
+        self.assertTrue(report["source_state_unchanged"])
+        self.assertEqual(state.board, before.board)
+        self.assertEqual(state.shooters["R"].ammo, before.shooters["R"].ammo)
+        self.assertFalse(report["gameplay_actions_performed"])
+
     def test_multi_batch_adapter_rejects_unknown_ammo_instead_of_assuming_zero(self):
         visible = Shooter("V", "red", 2, "right", -1, 0, accessible=True)
         hidden = Shooter(
