@@ -49,6 +49,39 @@ class ColourLabelTemplateTests(unittest.TestCase):
         self.assertEqual(template["grid_size"], [2, 2])
         self.assertEqual(template["samples"][0]["rgb"], [10, 20, 30])
 
+    def test_rejects_missing_or_malformed_grid_dimensions(self):
+        for grid_size in (None, [], [2], [0, 2], [2, True], "2x2"):
+            with self.subTest(grid_size=grid_size):
+                observation = self.observation()
+                observation["grid_size"] = grid_size
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
+    def test_rejects_malformed_rgb_rows(self):
+        cases = (
+            [],
+            [[[1, 2, 3]]],
+            [[ [1, 2, 3], [4, 5, 6] ], [ [7, 8, 9] ]],
+        )
+        for raw_rgb in cases:
+            with self.subTest(raw_rgb=raw_rgb):
+                observation = self.observation()
+                observation["raw_rgb"] = raw_rgb
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
+    def test_normalizes_uppercase_source_digest(self):
+        observation = self.observation()
+        observation["source_sha256"] = "A" * 64
+        template = build_template(observation)
+        self.assertEqual(template["source_sha256"], "a" * 64)
+
+    def test_rejects_non_hex_source_digest(self):
+        observation = self.observation()
+        observation["source_sha256"] = "g" * 64
+        with self.assertRaises(ValueError):
+            build_template(observation)
+
     def test_rejects_grid_mismatch(self):
         observation = self.observation()
         observation["raw_rgb"] = [[[1, 2, 3]]]
