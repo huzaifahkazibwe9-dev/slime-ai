@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from conveyor_geometry import calculate_firing_geometry
+from conveyor_geometry import calculate_firing_geometry, load_verified_calibration
 
 ROOT = Path(__file__).resolve().parent
 CALIBRATION = ROOT / "data" / "conveyor_calibration.json"
@@ -166,7 +166,7 @@ def run_tests(report):
 
 
 def main():
-    data = json.loads(CALIBRATION.read_text())
+    data = load_verified_calibration(CALIBRATION)
     report = validate_calibration(data)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
