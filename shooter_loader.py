@@ -57,6 +57,12 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 or not isinstance(color.get("name"), str)
                 or not color["name"]):
             raise ValueError(f"Shooter entry {index} has an invalid colour")
+        ammo = item.get("ammo")
+        if type(ammo) is not int or ammo < 0:
+            raise ValueError(
+                f"Shooter entry {index} has invalid ammunition; "
+                "expected a non-negative integer"
+            )
     shooter_ids = [item["id"] for item in detected]
     if len(shooter_ids) != len(set(shooter_ids)):
         raise ValueError("Shooter IDs must be unique")

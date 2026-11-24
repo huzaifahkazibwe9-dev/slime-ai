@@ -244,6 +244,26 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         self.assertEqual(shooters["A"].bonded_ids, ["B"])
         self.assertEqual(shooters["B"].bonded_ids, ["A"])
 
+    def test_rejects_missing_or_invalid_ammunition(self):
+        base = {"id": "A", "color": {"name": "red"}}
+        for value in ("missing", None, True, 1.5, -1):
+            with self.subTest(value=value):
+                entry = dict(base)
+                if value != "missing":
+                    entry["ammo"] = value
+                with self.assertRaisesRegex(ValueError, "invalid ammunition"):
+                    self.load_payload({"visible_shooters": [entry]})
+
+    def test_accepts_zero_ammunition(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 0}
+            ],
+            "bonded_groups": [],
+        }
+        shooters = self.load_payload(payload)
+        self.assertEqual(shooters["A"].ammo, 0)
+
     def test_rejects_invalid_colour_record(self):
         for value in (None, {}, {"name": ""}, {"name": 4}):
             with self.subTest(value=value):
