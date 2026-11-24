@@ -162,6 +162,42 @@ class VisionCalibrationTests(unittest.TestCase):
             validate_dataset(malformed)
 
 
+    def test_flags_identical_rgb_values_with_conflicting_human_labels(self):
+        data = {
+            **self.dataset,
+            "samples": [
+                {"id": "same-red-a", "rgb": [230, 30, 30], "label": "red"},
+                {"id": "same-red-b", "rgb": [230, 30, 30], "label": "orange"},
+                {"id": "same-red-c", "rgb": [230, 30, 30], "label": "red"},
+                {"id": "unique-cyan", "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        coverage = evaluate_dataset(data)["coverage"]
+        self.assertEqual(coverage["unique_rgb_count"], 2)
+        self.assertEqual(coverage["repeated_rgb_group_count"], 1)
+        self.assertEqual(coverage["conflicting_rgb_group_count"], 1)
+        self.assertEqual(
+            coverage["conflicting_rgb_groups"],
+            [{
+                "rgb": [230, 30, 30],
+                "labels": ["orange", "red"],
+                "sample_ids": ["same-red-a", "same-red-b", "same-red-c"],
+            }],
+        )
+
+    def test_reports_repeated_rgb_without_false_conflict_when_labels_agree(self):
+        data = {
+            **self.dataset,
+            "samples": [
+                {"id": "cyan-a", "rgb": [104, 195, 233], "label": "cyan"},
+                {"id": "cyan-b", "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        coverage = evaluate_dataset(data)["coverage"]
+        self.assertEqual(coverage["repeated_rgb_group_count"], 1)
+        self.assertEqual(coverage["conflicting_rgb_group_count"], 0)
+        self.assertEqual(coverage["conflicting_rgb_groups"], [])
+
     def test_reports_missing_classes_and_quadrant_coverage(self):
         data = {
             **self.dataset,
