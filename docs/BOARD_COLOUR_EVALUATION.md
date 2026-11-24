@@ -4,9 +4,31 @@ Slime AI's board-colour classifier is a fixed HSV-threshold function. This tool
 measures how often it agrees with a reference set of RGB samples whose labels
 were supplied by a human reviewer.
 
+## Prepare a review template
+
+After running screenshot ingestion on a complete screenshot, create a template
+from its observation JSON:
+
+```sh
+python prepare_colour_labels.py data/board_observation_latest.json
+```
+
+The template contains each sampled RGB value and its zero-based board row and
+column. It deliberately leaves every label blank and sets
+`labelled_by_user` to `false`. Review the original screenshot, fill every
+sample's `label` with the human-identified colour, and only then change
+`labelled_by_user` to `true`. Do not use the classifier's predicted board
+labels as reference labels. Keep the original screenshot available for review.
+
+Run the evaluator only after completing that manual review:
+
+```sh
+python vision_calibration.py data/colour_labels_template.json
+```
+
 ## Dataset format
 
-Create a UTF-8 JSON file with this structure:
+The evaluator accepts a UTF-8 JSON file with this structure:
 
 ```json
 {
