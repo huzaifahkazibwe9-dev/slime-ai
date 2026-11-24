@@ -13,7 +13,7 @@ from pathlib import Path
 
 from game_state import GameState
 from shooter_loader import load_shooters
-from screenshot_ingestor import classify_rgb
+from screenshot_ingestor import classify_rgb, sample_centres_for_grid
 from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
@@ -56,6 +56,10 @@ def _require_grid(data):
     if (left < 1 or top < 1 or right <= left or bottom <= top
             or right > image_width - 1 or bottom > image_height - 1):
         raise ValueError("Board bounds are outside the screenshot")
+    if "sample_centres" in data:
+        expected_centres = sample_centres_for_grid(grid, bounds)
+        if data.get("sample_centres") != expected_centres:
+            raise ValueError("Sample centres do not match calibrated board geometry")
 
     if not isinstance(board, list) or len(board) != height:
         raise ValueError("Board row count does not match grid_size")
