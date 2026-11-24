@@ -2,9 +2,33 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from controller import SlimeController
+
+
+def write_capture_pair(directory, captured_at=None, shooter_hash=None):
+    captured_at = captured_at or datetime.now(timezone.utc).isoformat()
+    source_hash = "a" * 64
+    board = {
+        "source_sha256": source_hash,
+        "snapshot_id": "sha256:" + source_hash,
+        "board_snapshot_id": "sha256:" + source_hash,
+        "capture_session_id": "session-abc",
+        "captured_at": captured_at,
+    }
+    shooter = {
+        "capture_provenance": {
+            "verified": True,
+            "source_sha256": shooter_hash or source_hash,
+            "capture_session_id": "session-abc",
+            "captured_at": captured_at,
+        }
+    }
+    root = Path(directory)
+    (root / "board_observation_latest.json").write_text(json.dumps(board))
+    (root / "shooter_detection.json").write_text(json.dumps(shooter))
 
 
 class ControllerTests(unittest.TestCase):
@@ -46,6 +70,7 @@ class ControllerTests(unittest.TestCase):
             "actions_performed": False,
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -61,6 +86,36 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         run.assert_called_once()
 
+    def test_plan_blocks_when_capture_files_are_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("fresh screenshot capture is required", result["reason"])
+        run.assert_not_called()
+
+    def test_plan_blocks_stale_capture_before_orchestration(self):
+        stale = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory, captured_at=stale)
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("stale", result["reason"])
+        run.assert_not_called()
+
+    def test_plan_blocks_board_shooter_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory, shooter_hash="b" * 64)
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("screenshot hash", result["reason"])
+        run.assert_not_called()
+
     def test_controller_hides_candidate_when_evidence_gate_fails(self):
         fake_report = {
             "planner": {"recommended_group": ["A"]},
@@ -68,6 +123,7 @@ class ControllerTests(unittest.TestCase):
             "evidence": {"evidence_gate_passed": False},
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -85,6 +141,7 @@ class ControllerTests(unittest.TestCase):
             "evidence": {"evidence_gate_passed": False},
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",

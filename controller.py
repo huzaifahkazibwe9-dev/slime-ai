@@ -55,6 +55,55 @@ class SlimeController:
             "gameplay_actions_performed": False,
         }
 
+    def _capture_preflight(self, observation_path, shooter_path):
+        """Require a recent, explicitly ingested board/shooter capture pair."""
+        try:
+            board = json.loads(observation_path.read_text(encoding="utf-8"))
+            shooters = json.loads(shooter_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return False, f"Capture evidence is missing or invalid: {exc}"
+
+        if not isinstance(board, dict) or not isinstance(shooters, dict):
+            return False, "Capture evidence must contain JSON objects."
+
+        provenance = shooters.get("capture_provenance")
+        if not isinstance(provenance, dict):
+            return False, "Shooter capture provenance is missing."
+
+        if provenance.get("verified") is not True:
+            return False, "Shooter capture provenance is not verified."
+        if (
+            not isinstance(board.get("source_sha256"), str)
+            or board.get("source_sha256") != provenance.get("source_sha256")
+        ):
+            return False, "Board and shooter evidence do not share a screenshot hash."
+        if (
+            not board.get("capture_session_id")
+            or board.get("capture_session_id") != provenance.get("capture_session_id")
+        ):
+            return False, "Board and shooter evidence do not share a capture session."
+        if (
+            not board.get("captured_at")
+            or board.get("captured_at") != provenance.get("captured_at")
+        ):
+            return False, "Board and shooter evidence do not share a capture timestamp."
+
+        try:
+            from snapshot_sync import validate_capture_freshness
+            freshness = validate_capture_freshness(
+                board.get("captured_at"),
+                provenance.get("captured_at"),
+                max_age_seconds=300,
+                max_skew_seconds=120,
+            )
+        except (TypeError, ValueError) as exc:
+            return False, f"Capture freshness could not be verified: {exc}"
+
+        if freshness.get("fresh") is not True:
+            return False, "Screenshot capture is stale or timestamps are misaligned; run the capture pipeline again."
+
+        return True, None
+
     def plan(self):
         if self.paused:
             return {
@@ -69,6 +118,31 @@ class SlimeController:
 
             observation = self.data_dir / "board_observation_latest.json"
             shooters = self.data_dir / "shooter_detection.json"
+            if not observation.is_file() or not shooters.is_file():
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": (
+                        "A fresh screenshot capture is required. Run the capture "
+                        "pipeline to create both board_observation_latest.json "
+                        "and shooter_detection.json."
+                    ),
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
+            capture_ok, capture_error = self._capture_preflight(
+                observation, shooters
+            )
+            if not capture_ok:
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": capture_error,
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
             report = run_orchestration(
                 data_dir=str(self.data_dir),
                 observation_path=str(observation) if observation.is_file() else None,
