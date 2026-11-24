@@ -216,6 +216,36 @@ class MultiBatchTests(unittest.TestCase):
         self.assertEqual(r["storage_occupied"], 1)
         self.assertEqual(r["conveyor_occupied"], 0)
 
+    def test_non_string_group_ids_are_rejected(self):
+        cases = [
+            ({"groups": [1]}, "GROUP_IDS_MUST_BE_NONEMPTY_STRINGS"),
+            ({"groups": ["A"], "reactivate_groups": [1]},
+             "REACTIVATION_GROUP_IDS_MUST_BE_NONEMPTY_STRINGS"),
+            ({"groups": [""]}, "GROUP_IDS_MUST_BE_NONEMPTY_STRINGS"),
+        ]
+        for batch, reason in cases:
+            with self.subTest(batch=batch):
+                result = simulate_batch_schedule(
+                    [{"id": "A", "group_id": "A", "ammo": 1}],
+                    [batch],
+                )
+                self.assertFalse(result["schedule_valid"])
+                self.assertEqual(result["batch_reports"][-1]["reason"], reason)
+                self.assertEqual(result["conveyor_occupied"], 0)
+                self.assertEqual(result["tick_count"], 0)
+
+    def test_storage_reactivation_flag_must_be_boolean(self):
+        result = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 1}],
+            [],
+            allow_storage_reactivation="false",
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["failure_reason"],
+            "ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN",
+        )
+
     def test_live_actions_disabled(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 2}],
