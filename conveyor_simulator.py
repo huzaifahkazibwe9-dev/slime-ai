@@ -139,7 +139,7 @@ class ConveyorSimulator:
 
     def select_group(self, group_id):
         """Select every member of a bonded group atomically."""
-        if self.failed:
+        if (not isinstance(group_id, str) or not group_id or self.failed):
             return False
 
         members = [
@@ -168,7 +168,8 @@ class ConveyorSimulator:
 
     def record_shots(self, shooter_id, shots):
         """Record externally observed/simulated shots; never fires a tap."""
-        if (not isinstance(shots, int) or isinstance(shots, bool)
+        if (not isinstance(shooter_id, str) or not shooter_id
+                or not isinstance(shots, int) or isinstance(shots, bool)
                 or shots < 0 or self.failed):
             return False
         shooter = self._by_id.get(shooter_id)
@@ -237,7 +238,7 @@ class ConveyorSimulator:
 
     def reactivate_group(self, group_id):
         """Reactivate a fully returned group from storage, simulation only."""
-        if self.failed:
+        if (not isinstance(group_id, str) or not group_id or self.failed):
             return False
 
         members = [
