@@ -210,7 +210,8 @@ class SimulatorSnapshotTests(unittest.TestCase):
             event for event in snapshot["events"]
             if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
         ]
-        return_events[1]["tick"] = 0
+        return_events[1]["tick"] = 2
+        snapshot["tick_count"] = 2
         with self.assertRaisesRegex(ValueError, "must share a tick"):
             restore_simulator(snapshot)
 
