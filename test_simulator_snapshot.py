@@ -180,6 +180,40 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     restore_simulator(snapshot)
 
+    def _completed_bonded_snapshot(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0},
+            ],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        return snapshot_simulator(sim)
+
+    def test_rejects_partial_bonded_group_return_history(self):
+        snapshot = self._completed_bonded_snapshot()
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if not (
+                event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+                and event.get("shooter_id") == "a2"
+            )
+        ]
+        with self.assertRaisesRegex(ValueError, "return history is incomplete"):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_group_return_events_on_different_ticks(self):
+        snapshot = self._completed_bonded_snapshot()
+        return_events = [
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        return_events[1]["tick"] = 0
+        with self.assertRaisesRegex(ValueError, "must share a tick"):
+            restore_simulator(snapshot)
+
     def test_rejects_active_shooter_with_unreconciled_return_event(self):
         snapshot = snapshot_simulator(create_simulator([
             {"id": "a", "group_id": "A", "ammo": 0}
