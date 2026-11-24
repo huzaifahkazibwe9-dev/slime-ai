@@ -111,6 +111,38 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertTrue(audit["shooter_capture_provenance_verified"])
         self.assertTrue(audit["shooter_capture_source_matches_board"])
 
+    def test_matching_but_malformed_capture_timestamps_stay_unverified(self):
+        self.observation["captured_at"] = "not-a-timestamp"
+        self.shooters["capture_provenance"] = {
+            "verified": True,
+            "source_sha256": "a" * 64,
+            "capture_session_id": "session-test-1",
+            "captured_at": "not-a-timestamp",
+        }
+        self.write()
+        _, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertFalse(audit["board_capture_metadata_valid"])
+        self.assertFalse(audit["shooter_capture_metadata_valid"])
+        self.assertFalse(audit["shooter_capture_provenance_verified"])
+
+    def test_matching_but_malformed_session_ids_stay_unverified(self):
+        self.observation["capture_session_id"] = "invalid session id"
+        self.shooters["capture_provenance"] = {
+            "verified": True,
+            "source_sha256": "a" * 64,
+            "capture_session_id": "invalid session id",
+            "captured_at": "2026-11-23T12:30:00+03:00",
+        }
+        self.write()
+        _, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertFalse(audit["board_capture_metadata_valid"])
+        self.assertFalse(audit["shooter_capture_metadata_valid"])
+        self.assertFalse(audit["shooter_capture_provenance_verified"])
+
     def test_mismatched_shooter_capture_provenance_stays_unverified(self):
         self.shooters["capture_provenance"] = {
             "verified": True,
