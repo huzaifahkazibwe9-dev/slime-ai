@@ -44,6 +44,10 @@ class CapturePreflightTests(unittest.TestCase):
             "source_sha256": source_hash,
             "image_size": [1080, 2220],
             "grid_size": [35, 35],
+            "capture_session_id": board_session,
+            "captured_at": board_time,
+            "snapshot_id": "sha256:" + source_hash,
+            "board_snapshot_id": "sha256:" + source_hash,
             "pixel_samples_reproduced": True,
             "extraction_fingerprint_match": True,
             "label_mismatch_count": 0,
@@ -161,6 +165,40 @@ class CapturePreflightTests(unittest.TestCase):
             audit_path = Path(directory) / "source_pixel_audit_latest.json"
             audit = json.loads(audit_path.read_text())
             audit["grid_size"] = [34, 35]
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+
+    def test_rejects_audit_from_different_capture_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["capture_session_id"] = "older-session"
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_audit_from_different_capture_timestamp(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["captured_at"] = (now - timedelta(seconds=30)).isoformat()
+            audit_path.write_text(json.dumps(audit))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_audit_from_different_snapshot_identifier(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["snapshot_id"] = "sha256:" + "b" * 64
             audit_path.write_text(json.dumps(audit))
             result = validate_capture_pair(board, shooters, now=now)
         self.assertFalse(result["valid"])
