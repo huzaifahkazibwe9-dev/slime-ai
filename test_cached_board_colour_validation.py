@@ -77,6 +77,17 @@ class CachedBoardColourValidationTests(unittest.TestCase):
         self.cached["image_size"] = [100]
         self.assertFalse(self.is_valid())
 
+    def test_rejects_extremely_large_integer_geometry_without_overflow(self):
+        huge = 10 ** 10000
+        self.calibration["bounds"] = [huge, 1, 99, 99]
+        self.cached["bounds"] = [huge, 1, 99, 99]
+        self.assertFalse(self.is_valid())
+
+    def test_rejects_non_finite_cached_geometry(self):
+        self.calibration["bounds"] = [1, 1, float("inf"), 99]
+        self.cached["bounds"] = [1, 1, float("inf"), 99]
+        self.assertFalse(self.is_valid())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
