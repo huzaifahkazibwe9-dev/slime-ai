@@ -61,6 +61,9 @@ itself be bounded with `max_batches` to produce another checkpoint.
 - Resume validates the fingerprint, schema and safety flags, report ordering,
   scheduled-group bookkeeping, simulator configuration, shooter roster, and
   selected state for groups recorded as previously scheduled.
+- Simulator snapshot schema version 2 records the initial storage occupancy
+  and replays every return/reactivation event against it, checking each
+  occupancy transition and the final storage count.
 - Failed simulations cannot be resumed. A checkpoint is not a live-game save
   and cannot operate the game, tap controls, or purchase power-ups.
 - The conveyor timing and storage-reactivation assumptions remain abstract
