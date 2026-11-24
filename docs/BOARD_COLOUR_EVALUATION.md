@@ -101,3 +101,9 @@ coverage. Counts do not establish sample independence, shade diversity, level
 diversity, or label correctness. The report deliberately sets
 `coverage_adequacy_assessed` to `false`; reviewers must decide whether the dataset
 is broad enough for a meaningful evaluation.
+
+
+Grid metadata is also bounded to at most 1,000,000 total cells. This prevents
+malformed dimensions from causing excessive work or memory use during coverage
+reporting. The limit is a defensive input bound, not a statement about normal
+game board sizes.
