@@ -198,14 +198,14 @@ class ConveyorSimulatorTests(unittest.TestCase):
                  "selected": True, "position": 2, "completed_laps": 0},
             ])
 
-    def test_restore_rejects_bonded_group_with_different_lap_counts(self):
-        with self.assertRaisesRegex(ValueError, "position-synchronized"):
-            create_simulator([
-                {"id": "A1", "group_id": "PAIR", "ammo": 3,
-                 "selected": True, "position": 1, "completed_laps": 2},
-                {"id": "A2", "group_id": "PAIR", "ammo": 3,
-                 "selected": True, "position": 1, "completed_laps": 3},
-            ])
+    def test_restore_allows_bonded_group_with_different_lap_counts(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0,
+             "selected": True, "position": 1, "completed_laps": 2},
+            {"id": "A2", "group_id": "PAIR", "ammo": 3,
+             "selected": True, "position": 1, "completed_laps": 3},
+        ])
+        self.assertEqual(len(sim.active), 2)
 
     def test_restore_rejects_partial_bonded_conveyor_group(self):
         with self.assertRaises(ValueError):
@@ -214,14 +214,14 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 {"id": "A2", "group_id": "PAIR", "ammo": 4},
             ])
 
-    def test_restore_rejects_returned_bonded_group_with_different_positions(self):
-        with self.assertRaisesRegex(ValueError, "storage group is not position-synchronized"):
-            create_simulator([
-                {"id": "A1", "group_id": "PAIR", "ammo": 0,
-                 "returned": True, "position": 1, "completed_laps": 2},
-                {"id": "A2", "group_id": "PAIR", "ammo": 0,
-                 "returned": True, "position": 2, "completed_laps": 2},
-            ], storage_occupied=2)
+    def test_restore_allows_returned_bonded_group_with_different_lap_counts(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0,
+             "returned": True, "position": 1, "completed_laps": 2},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0,
+             "returned": True, "position": 1, "completed_laps": 3},
+        ], storage_occupied=2)
+        self.assertEqual(sim.returned_ids, ["A1", "A2"])
 
     def test_restore_rejects_partial_bonded_storage_group(self):
         with self.assertRaises(ValueError):
