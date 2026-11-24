@@ -143,8 +143,9 @@ def restore_simulator(snapshot):
         raise ValueError("returned_ids do not match returned shooter flags")
 
     known_shooter_ids = {shooter.shooter_id for shooter in sim.shooters}
-    event_return_ids = []
-    for event in events:
+    latest_return_index = {}
+    latest_reactivation_index = {}
+    for event_index, event in enumerate(events):
         shooter_id = event.get("shooter_id")
         if shooter_id is not None and (
             not isinstance(shooter_id, str)
@@ -154,7 +155,10 @@ def restore_simulator(snapshot):
         if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE":
             if not isinstance(shooter_id, str):
                 raise ValueError("return event must identify its shooter")
-            event_return_ids.append(shooter_id)
+            latest_return_index[shooter_id] = event_index
+        if event.get("event") == "GROUP_REACTIVATED_FROM_STORAGE":
+            for member in event.get("members", []):
+                latest_reactivation_index[member] = event_index
         members = event.get("members")
         if members is not None and (
             not isinstance(members, list)
@@ -164,15 +168,27 @@ def restore_simulator(snapshot):
             )
         ):
             raise ValueError("event contains unknown group members")
-    if (len(event_return_ids) != len(set(event_return_ids))
-            or any(
-                event_return_ids[index] not in returned_ids
-                for index in range(len(event_return_ids))
-            )
-            or [
-                shooter_id for shooter_id in returned_ids
-                if shooter_id in set(event_return_ids)
-            ] != event_return_ids):
+
+    current_return_events = {
+        shooter_id: event_index
+        for shooter_id, event_index in latest_return_index.items()
+        if shooter_id in returned_from_shooters
+    }
+    if any(
+        current_return_events[shooter_id]
+        <= latest_reactivation_index.get(shooter_id, -1)
+        for shooter_id in current_return_events
+    ):
+        raise ValueError("returned shooter has no return event after reactivation")
+    event_order = sorted(
+        current_return_events,
+        key=current_return_events.get,
+    )
+    expected_event_order = [
+        shooter_id for shooter_id in returned_ids
+        if shooter_id in current_return_events
+    ]
+    if event_order != expected_event_order:
         raise ValueError("return event order conflicts with returned_ids")
 
     if failed and (not events or events[-1].get("event") != "LEVEL_FAILURE"):
