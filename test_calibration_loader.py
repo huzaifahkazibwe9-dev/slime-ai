@@ -39,7 +39,18 @@ class VerifiedCalibrationLoaderTests(unittest.TestCase):
     def test_confirmed_object_is_loaded(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "calibration.json"
-            expected = {"verified_by_user": True, "shooters": []}
+            expected = {
+                "verified_by_user": True,
+                "image_size": [1080, 2220],
+                "board_grid": [35, 35],
+                "directions": {
+                    "bottom": "up", "right": "left",
+                    "top": "down", "left": "right",
+                },
+                "shooters": [
+                    {"id": "bottom_1", "segment": "bottom", "center": [300, 1000]}
+                ],
+            }
             path.write_text(json.dumps(expected))
             self.assertEqual(load_verified_calibration(path), expected)
 
