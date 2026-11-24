@@ -1,0 +1,115 @@
+import json
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from capture_preflight import validate_capture_pair
+
+
+class CapturePreflightTests(unittest.TestCase):
+    def write_pair(self, root, *, age_seconds=0, board_hash=None,
+                   shooter_hash=None, board_session="session-abc",
+                   shooter_session="session-abc", board_time=None,
+                   shooter_time=None, verified=True):
+        now = datetime.now(timezone.utc)
+        timestamp = (now - timedelta(seconds=age_seconds)).isoformat()
+        board_time = timestamp if board_time is None else board_time
+        shooter_time = timestamp if shooter_time is None else shooter_time
+        source_hash = board_hash or "a" * 64
+        shooter_hash = source_hash if shooter_hash is None else shooter_hash
+        board = {
+            "source_sha256": source_hash,
+            "snapshot_id": "sha256:" + source_hash,
+            "board_snapshot_id": "sha256:" + source_hash,
+            "capture_session_id": board_session,
+            "captured_at": board_time,
+        }
+        shooter = {
+            "capture_provenance": {
+                "verified": verified,
+                "source_sha256": shooter_hash,
+                "capture_session_id": shooter_session,
+                "captured_at": shooter_time,
+            }
+        }
+        board_path = Path(root) / "board.json"
+        shooter_path = Path(root) / "shooters.json"
+        board_path.write_text(json.dumps(board))
+        shooter_path.write_text(json.dumps(shooter))
+        return board_path, shooter_path, now
+
+    def test_accepts_recent_matching_capture_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertTrue(result["valid"])
+        self.assertTrue(result["freshness"]["fresh"])
+
+    def test_rejects_missing_capture_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = validate_capture_pair(
+                Path(directory) / "missing-board.json",
+                Path(directory) / "missing-shooters.json",
+            )
+        self.assertFalse(result["valid"])
+        self.assertIn("missing or invalid", result["reason"])
+
+    def test_rejects_unverified_shooter_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory, verified=False)
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("not verified", result["reason"])
+
+    def test_rejects_mismatched_screenshot_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(
+                directory, shooter_hash="b" * 64
+            )
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("screenshot hash", result["reason"])
+
+    def test_rejects_mismatched_capture_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(
+                directory, shooter_session="different-session"
+            )
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("capture session", result["reason"])
+
+    def test_rejects_stale_capture_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(
+                directory, age_seconds=600
+            )
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("stale", result["reason"])
+
+    def test_rejects_timestamp_without_timezone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(
+                directory,
+                board_time="2026-11-24T12:00:00",
+                shooter_time="2026-11-24T12:00:00",
+            )
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("UTC offset", result["reason"])
+
+    def test_rejects_inconsistent_board_snapshot_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            data = json.loads(board.read_text())
+            data["board_snapshot_id"] = "sha256:" + "b" * 64
+            board.write_text(json.dumps(data))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("snapshot identifiers", result["reason"])
+
+
+if __name__ == "__main__":
+    unittest.main()

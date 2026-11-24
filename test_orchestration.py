@@ -8,11 +8,16 @@ from orchestration import (
     evidence_status,
     resolve_candidate_report_path,
     run_multi_batch_diagnostic,
+    run_orchestration,
 )
 import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
+    def test_run_orchestration_requires_explicit_capture_paths(self):
+        with self.assertRaisesRegex(ValueError, "Explicit board observation"):
+            run_orchestration()
+
     def test_canonical_candidate_artifact_precedes_legacy_reports(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
