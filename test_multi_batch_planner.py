@@ -349,6 +349,29 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("does not match", resumed["failure_reason"])
 
+    def test_checkpoint_rejects_seen_group_missing_from_simulator_state(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 3}]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 0}},
+        ]
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+        )
+        checkpoint = partial["checkpoint"]
+        self.assertIsInstance(checkpoint, dict)
+        checkpoint["simulator_snapshot"]["shooters"][0]["selected"] = False
+
+        resumed = simulate_batch_schedule(
+            records, batches,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+            resume_from=checkpoint,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("not selected", resumed["failure_reason"])
+
     def test_checkpoint_mode_preserves_malformed_batch_rejection(self):
         result = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 1}],
