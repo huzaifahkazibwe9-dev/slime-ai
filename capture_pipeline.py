@@ -11,9 +11,11 @@ from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
 )
+from source_pixel_audit import audit_source_pixels
 
 BOARD_OUTPUT = Path("data/board_observation_latest.json")
 SHOOTER_OUTPUT = Path("data/shooter_detection.json")
+PIXEL_AUDIT_OUTPUT = Path("data/source_pixel_audit_latest.json")
 
 
 def load_capture_config(path):
@@ -74,12 +76,36 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
     return True
 
 
+def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT_OUTPUT):
+    """Require independently reproduced source pixels before accepting capture."""
+    try:
+        observation = json.loads(Path(board_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Board observation is missing or invalid for pixel audit") from exc
+    report = audit_source_pixels(observation, source_image_bytes)
+    if report.get("pixel_samples_reproduced") is not True:
+        raise ValueError("Independent source-pixel audit found RGB sample mismatches")
+    if report.get("extraction_fingerprint_match") is not True:
+        raise ValueError("Independent source-pixel audit found a missing or mismatched extraction fingerprint")
+    if report.get("label_mismatch_count") != 0:
+        raise ValueError("Board labels do not match labels derived from source RGB samples")
+    if report.get("colour_counts_match") is not True:
+        raise ValueError("Board colour counts do not match the extracted board labels")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    temporary.replace(output)
+    return report
+
+
 def run_capture_pipeline(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
-    # Pin the expected digest before either subprocess reads the path. If the
-    # file changes between stages, one or both outputs will fail this check.
-    expected_source_sha256 = hashlib.sha256(Path(screenshot).read_bytes()).hexdigest()
+    # Preserve one immutable byte snapshot for hashing and independent audit.
+    source_image_bytes = Path(screenshot).read_bytes()
+    expected_source_sha256 = hashlib.sha256(source_image_bytes).hexdigest()
     common = [
         "--capture-session-id", config["capture_session_id"],
         "--captured-at", config["captured_at"],
@@ -105,6 +131,7 @@ def run_capture_pipeline(screenshot, config_path):
         config["capture_session_id"],
         config["captured_at"],
     )
+    return audit_capture_pixels(BOARD_OUTPUT, source_image_bytes)
 
 
 def main():
@@ -116,7 +143,12 @@ def main():
         "--config", default="data/shooter_capture_config.json"
     )
     args = parser.parse_args()
-    run_capture_pipeline(args.screenshot, args.config)
+    report = run_capture_pipeline(args.screenshot, args.config)
+    print("Independent source-pixel audit passed:", report["pixel_samples_reproduced"])
+    print("Extraction fingerprint matched:", report["extraction_fingerprint_match"])
+    print("Calibration alignment verified: False")
+    print("Gameplay verified: False")
+    print("Game taps enabled: False")
 
 
 if __name__ == "__main__":
