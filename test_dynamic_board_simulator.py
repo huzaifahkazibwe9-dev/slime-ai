@@ -73,6 +73,17 @@ class DynamicBoardTests(unittest.TestCase):
         self.assertEqual(untouched.board, [["red", "red"]])
         self.assertEqual(untouched.shooters["S1"].ammo, 5)
 
+    def test_final_board_isolated_from_source_in_default_mode(self):
+        state = self.make_state([["red", "red"]])
+        report = simulate_dynamic_board(state, "S1")
+        self.assertIsNot(report["final_board"], state.board)
+        self.assertEqual(state.board, [["red", "red"]])
+
+    def test_consume_state_returns_disposable_board_without_another_copy(self):
+        disposable = self.make_state([["red", "red"]])
+        report = simulate_dynamic_board(disposable, "S1", consume_state=True)
+        self.assertIs(report["final_board"], disposable.board)
+
     def test_consume_state_skips_source_snapshot_and_reports_initial_metrics(self):
         disposable = self.make_state([["red", "red"]], ammo=5)
         report = simulate_dynamic_board(
