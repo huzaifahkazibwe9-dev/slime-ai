@@ -142,7 +142,14 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if cached.get("calibration_sha256") != calibration_digest:
         return False
-    if cached.get("image_size") != list(image_size):
+    cached_image_size = cached.get("image_size")
+    if (
+        not isinstance(cached_image_size, list)
+        or len(cached_image_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_image_size)
+        or cached_image_size != list(image_size)
+    ):
         return False
 
     grid_size = calibration.get("grid_size")
@@ -153,7 +160,20 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
             or any(type(value) not in (int, float) or not math.isfinite(value)
                    for value in bounds)):
         return False
-    if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
+    cached_grid_size = cached.get("grid_size")
+    cached_bounds = cached.get("bounds")
+    if (
+        not isinstance(cached_grid_size, list)
+        or len(cached_grid_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_grid_size)
+        or cached_grid_size != grid_size
+        or not isinstance(cached_bounds, list)
+        or len(cached_bounds) != 4
+        or any(type(value) not in (int, float) or not math.isfinite(value)
+               for value in cached_bounds)
+        or cached_bounds != bounds
+    ):
         return False
     left, top, right, bottom = bounds
     image_width, image_height = image_size
