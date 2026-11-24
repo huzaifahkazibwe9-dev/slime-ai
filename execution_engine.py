@@ -132,7 +132,7 @@ def _simulate_conveyor_batch(original, state, groups):
             records.append({
                 "id": str(shooter_id),
                 "group_id": str(canonical_group_id),
-                "ammo": int(original.shooters[shooter_id].ammo or 0),
+                "ammo": original.shooters[shooter_id].ammo,
             })
 
     sim = create_simulator(
