@@ -338,6 +338,20 @@ class ScreenshotIngestorTests(unittest.TestCase):
                 })
         finally:
             path.unlink(missing_ok=True)
+    def test_extraction_records_exact_sample_centres(self):
+        path = Path("data/test_ingestor_sample_centres.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30), (245, 245, 245)).save(path)
+        try:
+            result = extract_board(path, {
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            })
+            self.assertEqual(result["sample_centres"], {
+                "x": [7, 15, 23], "y": [7, 15, 23]
+            })
+        finally:
+            path.unlink(missing_ok=True)
+
     def test_rejects_bounds_without_sampling_margin(self):
         path = Path("data/test_ingestor_edge_bounds.png")
         path.parent.mkdir(exist_ok=True)
