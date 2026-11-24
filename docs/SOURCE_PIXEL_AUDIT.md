@@ -55,3 +55,16 @@ and colour counts match. A successful report is written to
 This integration strengthens source/payload consistency checks; it still does
 not establish calibration alignment with visible game tiles or true game
 colour semantics. It does not enable live game actions.
+
+
+## Planning preflight requirement
+
+The capture preflight now requires the latest pixel-audit report beside the board
+observation. Its source hash, image dimensions, and grid dimensions must match
+the current board capture; all samples must reproduce; the extraction
+fingerprint and colour counts must match; and there must be zero classifier
+label mismatches. A missing, stale, or incomplete report blocks planning and
+requires rerunning the capture pipeline.
+
+This is a consistency gate, not proof that the calibration bounds correspond to
+the visible puzzle tiles or that the classifier reflects game semantics.
