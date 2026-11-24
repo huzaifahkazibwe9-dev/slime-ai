@@ -33,13 +33,41 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     if len(all_ids) != len(set(all_ids)):
         raise ValueError("Shooter IDs must be unique")
 
-    # Validate bonded references before confidence filtering so a weak sample
-    # cannot hide malformed group metadata.
+    # Validate complete bonded metadata against the unfiltered inventory.
+    # Filtering a weak member must not hide an unknown ID, duplicate member,
+    # overlapping group, or malformed group size in the source observation.
+    known_observation_ids = set(all_ids)
+    grouped_observation_ids = set()
     for group_index, group in enumerate(groups):
         if any(not isinstance(member, str) or not member for member in group):
             raise ValueError(
                 f"Bonded group {group_index} contains an invalid shooter ID"
             )
+        if len(group) < 2:
+            raise ValueError(
+                f"Bonded group {group_index} must contain at least 2 shooters"
+            )
+        if len(group) > 3:
+            raise ValueError(
+                f"Bonded group {group_index} exceeds the maximum size of 3"
+            )
+        if len(group) != len(set(group)):
+            raise ValueError(
+                f"Bonded group {group_index} contains duplicate shooter IDs"
+            )
+        unknown = set(group) - known_observation_ids
+        if unknown:
+            raise ValueError(
+                f"Bonded group {group_index} references unknown shooters: "
+                + ", ".join(sorted(unknown))
+            )
+        overlap = grouped_observation_ids.intersection(group)
+        if overlap:
+            raise ValueError(
+                "A shooter cannot belong to multiple bonded groups: "
+                + ", ".join(sorted(overlap))
+            )
+        grouped_observation_ids.update(group)
 
     # New detector records include a sample-quality assessment. A weak sample
     # must not be converted into a Shooter colour. Older diagnostic files
