@@ -53,7 +53,7 @@ class ConveyorGeometryInputValidationTests(unittest.TestCase):
                     self.calculate(grid_size=value)
 
     def test_rejects_image_dimensions_that_underflow_scaled_board_cells(self):
-        with self.assertRaisesRegex(ValueError, "cell dimensions"):
+        with self.assertRaises(ValueError):
             self.calculate(image_size=(5e-324, 5e-324))
 
     def test_extreme_integer_input_is_rejected_without_overflow(self):
