@@ -118,6 +118,31 @@ class SlimeController:
 
             observation = self.data_dir / "board_observation_latest.json"
             shooters = self.data_dir / "shooter_detection.json"
+            if not observation.is_file() or not shooters.is_file():
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": (
+                        "A fresh screenshot capture is required. Run the capture "
+                        "pipeline to create both board_observation_latest.json "
+                        "and shooter_detection.json."
+                    ),
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
+            capture_ok, capture_error = self._capture_preflight(
+                observation, shooters
+            )
+            if not capture_ok:
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": capture_error,
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
             report = run_orchestration(
                 data_dir=str(self.data_dir),
                 observation_path=str(observation) if observation.is_file() else None,
