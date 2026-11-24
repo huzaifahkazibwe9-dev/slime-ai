@@ -170,7 +170,7 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if any(
         not isinstance(row, list) or len(row) != grid_size[0]
-        or any(not isinstance(label, str) for label in row)
+        or any(label not in COLOUR_LABELS for label in row)
         for row in board
     ):
         return False
