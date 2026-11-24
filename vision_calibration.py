@@ -111,9 +111,32 @@ def summarize_coverage(samples, data):
     for sample in samples:
         class_counts[sample["label"]] += 1
 
+    rgb_groups = {}
+    for sample in samples:
+        rgb_key = tuple(sample["rgb"])
+        rgb_groups.setdefault(rgb_key, []).append(sample)
+    conflicting_rgb_groups = [
+        {
+            "rgb": list(rgb),
+            "labels": sorted({sample["label"] for sample in group}),
+            "sample_ids": [sample["id"] for sample in group],
+        }
+        for rgb, group in sorted(rgb_groups.items())
+        if len({sample["label"] for sample in group}) > 1
+    ]
+    repeated_rgb_groups = [
+        {"rgb": list(rgb), "sample_ids": [sample["id"] for sample in group]}
+        for rgb, group in sorted(rgb_groups.items()) if len(group) > 1
+    ]
+
     has_grid = data.get("grid_size") is not None
     result = {
         "class_sample_counts": class_counts,
+        "unique_rgb_count": len(rgb_groups),
+        "repeated_rgb_group_count": len(repeated_rgb_groups),
+        "conflicting_rgb_group_count": len(conflicting_rgb_groups),
+        "conflicting_rgb_groups": conflicting_rgb_groups,
+        "repeated_rgb_groups": repeated_rgb_groups,
         "missing_classes": [label for label, count in class_counts.items() if count == 0],
         "spatial_coverage_available": has_grid,
         "spatial_regions": None,
