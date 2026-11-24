@@ -85,6 +85,22 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "disagrees with restored occupancy"):
             restore_simulator(snapshot)
 
+    def test_rejects_inconsistent_storage_free_in_return_event(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=3, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        return_event = next(
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        )
+        return_event["storage_free"] = 3
+        with self.assertRaisesRegex(ValueError, "storage_free is inconsistent"):
+            restore_simulator(snapshot)
+
     def test_rejects_forged_first_storage_event_from_initial_occupancy(self):
         sim = create_simulator(
             [{"id": "a", "ammo": 0}],
