@@ -303,6 +303,16 @@ def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40,
 
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
+    if observation_path is None or shooter_path is None:
+        raise ValueError(
+            "Explicit board observation and shooter capture paths are required; "
+            "legacy baseline fallback is disabled for orchestration."
+        )
+    from capture_preflight import validate_capture_pair
+    capture = validate_capture_pair(observation_path, shooter_path)
+    if capture.get("valid") is not True:
+        raise ValueError(capture.get("reason", "Capture preflight failed."))
+
     pipeline_started = time.perf_counter()
     timings = {}
     from level_loader import load_level
