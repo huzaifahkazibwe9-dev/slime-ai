@@ -28,30 +28,34 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
+        if not isinstance(item.get("id"), str) or not item["id"]:
+            raise ValueError(f"Shooter entry {index} has an invalid id")
         quality = item.get("sample_quality")
         if quality is not None:
             if not isinstance(quality, dict):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality")
             status = quality.get("status")
-            if status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}:
+            if (not isinstance(status, str)
+                    or status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality status")
             if status == "LOW_CONFIDENCE_SAMPLE":
-                low_confidence_ids.add(item.get("id"))
+                low_confidence_ids.add(item["id"])
                 continue
         eligible.append(item)
     # If any member of a declared bond has an unreliable visual sample,
     # withhold every member of that group. Otherwise the remaining members
     # could be loaded as independent shooters and lose the bond constraint.
-    withheld_group_ids = {
-        member
-        for group in groups
-        if any(member in low_confidence_ids for member in group)
-        for member in group
-    }
-    groups = [
+    for group_index, group in enumerate(groups):
+        if any(not isinstance(member, str) or not member for member in group):
+            raise ValueError(f"Bonded group {group_index} contains an invalid shooter ID")
+    affected_groups = [
         group for group in groups
-        if not any(member in low_confidence_ids for member in group)
+        if any(member in low_confidence_ids for member in group)
     ]
+    withheld_group_ids = {
+        member for group in affected_groups for member in group
+    }
+    groups = [group for group in groups if group not in affected_groups]
     detected = [
         item for item in eligible if item.get("id") not in withheld_group_ids
     ]
