@@ -430,7 +430,7 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
         records.append({
             "id": str(shooter_id),
             "group_id": group_id,
-            "ammo": int(shooter.ammo or 0),
+            "ammo": shooter.ammo,
             "position": position,
             "selected": str(shooter_id) in conveyor_ids,
             "returned": str(shooter_id) in storage_ids,
