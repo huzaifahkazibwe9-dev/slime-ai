@@ -1,4 +1,5 @@
 """Simulation-only event-driven multi-batch conveyor scheduler."""
+from collections.abc import Mapping
 from conveyor_simulator import create_simulator, SimulatorConfig
 
 
@@ -10,8 +11,61 @@ def simulate_batch_schedule(
     allow_storage_reactivation=False,
 ):
     config = config or SimulatorConfig()
-    records = [dict(item) for item in shooter_records]
-    sim = create_simulator(records, storage_occupied, config)
+
+    def invalid_input(reason):
+        return {
+            "simulation_only": True,
+            "live_actions_performed": False,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": reason,
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None, "valid": False, "reason": reason,
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": 0,
+            "storage_occupied": storage_occupied
+                if type(storage_occupied) is int and storage_occupied >= 0
+                else None,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "timing_calibrated_to_game": False,
+        }
+
+    if not isinstance(shooter_records, (list, tuple)):
+        return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
+    records = []
+    seen_ids = set()
+    for index, item in enumerate(shooter_records):
+        if not isinstance(item, Mapping):
+            return invalid_input("SHOOTER_RECORD_MUST_BE_A_MAPPING")
+        record = dict(item)
+        shooter_id = record.get("id")
+        group_id = record.get("group_id", shooter_id)
+        ammo = record.get("ammo")
+        if not isinstance(shooter_id, str) or not shooter_id.strip():
+            return invalid_input("SHOOTER_ID_MUST_BE_A_NONEMPTY_STRING")
+        if shooter_id in seen_ids:
+            return invalid_input("DUPLICATE_SHOOTER_ID")
+        seen_ids.add(shooter_id)
+        if not isinstance(group_id, str) or not group_id.strip():
+            return invalid_input("GROUP_ID_MUST_BE_A_NONEMPTY_STRING")
+        if type(ammo) is not int or ammo < 0:
+            return invalid_input("SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER")
+        for field in ("position", "completed_laps"):
+            value = record.get(field, 0)
+            if type(value) is not int or value < 0:
+                return invalid_input("SHOOTER_POSITION_STATE_MUST_BE_NONNEGATIVE_INTEGER")
+        for field in ("selected", "returned"):
+            if type(record.get(field, False)) is not bool:
+                return invalid_input("SHOOTER_STATE_FLAGS_MUST_BE_BOOLEAN")
+        records.append(record)
+
+    try:
+        sim = create_simulator(records, storage_occupied, config)
+    except (TypeError, ValueError, KeyError) as exc:
+        return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
 
     groups = {}
     by_id = {s.shooter_id: s for s in sim.shooters}
