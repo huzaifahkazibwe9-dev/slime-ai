@@ -1,35 +1,11 @@
 import json
-import colorsys
 from collections import Counter
 from pathlib import Path
 
+from screenshot_ingestor import classify_rgb
+
 VISION_FILE = Path("data/vision_level39.json")
 REPORT_FILE = Path("data/vision_validation_report.json")
-
-def classify_rgb(rgb):
-    r, g, b = [v / 255 for v in rgb]
-    hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
-    degrees = hue * 360
-
-    if value < 0.22:
-        return "dark"
-    if saturation < 0.18:
-        return "white" if value > 0.72 else "gray"
-    if degrees < 12 or degrees >= 345:
-        return "red"
-    elif degrees < 38:
-        return "orange"
-    elif degrees < 68:
-        return "yellow"
-    elif degrees < 165:
-        return "green"
-    elif degrees < 205:
-        return "cyan"
-    elif degrees < 260:
-        return "blue"
-    elif degrees < 300:
-        return "purple"
-    return "pink"
 
 def audit_data(data):
     errors = []
