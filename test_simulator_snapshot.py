@@ -84,12 +84,9 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
-    def test_rejects_shooter_both_selected_and_returned(self):
+    def test_rejects_non_boolean_shooter_state_flags(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
-        snapshot["shooters"][0]["selected"] = True
-        snapshot["shooters"][0]["returned"] = True
-        snapshot["storage_occupied"] = 1
-        snapshot["returned_ids"] = ["a"]
+        snapshot["shooters"][0]["selected"] = "true"
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
