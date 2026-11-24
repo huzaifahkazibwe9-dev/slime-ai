@@ -439,6 +439,7 @@ class MultiBatchTests(unittest.TestCase):
         checkpoint = partial["checkpoint"]
         self.assertIsInstance(checkpoint, dict)
         checkpoint["simulator_snapshot"]["shooters"][0]["selected"] = False
+        checkpoint["batch_reports"][0]["conveyor_occupied"] = 0
 
         resumed = simulate_batch_schedule(
             records, batches,
