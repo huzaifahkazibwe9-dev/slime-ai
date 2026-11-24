@@ -143,6 +143,14 @@ def restore_simulator(snapshot):
         raise ValueError("returned_ids do not match returned shooter flags")
 
     known_shooter_ids = {shooter.shooter_id for shooter in sim.shooters}
+    shooter_group_by_id = {
+        shooter.shooter_id: shooter.group_id for shooter in sim.shooters
+    }
+    group_members_by_id = {}
+    for shooter in sim.shooters:
+        group_members_by_id.setdefault(shooter.group_id, set()).add(
+            shooter.shooter_id
+        )
     latest_return_index = {}
     latest_reactivation_index = {}
     for event_index, event in enumerate(events):
@@ -166,7 +174,18 @@ def restore_simulator(snapshot):
                 raise ValueError("return event must identify its shooter")
             latest_return_index[shooter_id] = event_index
         if event.get("event") == "GROUP_REACTIVATED_FROM_STORAGE":
-            for member in members or []:
+            group_id = event.get("group_id")
+            if not isinstance(group_id, str) or not group_id:
+                raise ValueError("reactivation event must identify its group")
+            if not isinstance(members, list) or not members:
+                raise ValueError("reactivation event must list its group members")
+            if len(members) != len(set(members)):
+                raise ValueError("reactivation event contains duplicate members")
+            if set(members) != group_members_by_id.get(group_id, set()):
+                raise ValueError("reactivation event must contain the complete group")
+            if any(shooter_group_by_id[member] != group_id for member in members):
+                raise ValueError("reactivation event group membership is inconsistent")
+            for member in members:
                 latest_reactivation_index[member] = event_index
 
     current_return_events = {
