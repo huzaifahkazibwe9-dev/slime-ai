@@ -21,6 +21,9 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.returned_ids, sim.returned_ids)
         self.assertEqual(restored.storage_occupied, sim.storage_occupied)
         self.assertEqual(
+            restored.initial_storage_occupied, sim.initial_storage_occupied
+        )
+        self.assertEqual(
             [(s.shooter_id, s.ammo, s.position, s.completed_laps,
               s.selected, s.returned) for s in restored.shooters],
             [(s.shooter_id, s.ammo, s.position, s.completed_laps,
@@ -79,6 +82,28 @@ class SimulatorSnapshotTests(unittest.TestCase):
         )
         return_event["storage_occupied"] = 0
         with self.assertRaisesRegex(ValueError, "disagrees with restored occupancy"):
+            restore_simulator(snapshot)
+
+    def test_rejects_forged_first_storage_event_from_initial_occupancy(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=3, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        self.assertEqual(snapshot["initial_storage_occupied"], 1)
+        self.assertEqual(snapshot["storage_occupied"], 2)
+        return_event = next(
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        )
+        # Keep the final state and event mutually consistent, but forge the
+        # first transition so it fails to account for the initial occupancy.
+        return_event["storage_occupied"] = 1
+        snapshot["storage_occupied"] = 1
+        with self.assertRaisesRegex(ValueError, "occupancy event delta"):
             restore_simulator(snapshot)
 
     def test_rejects_invalid_storage_occupancy_in_event(self):
