@@ -39,7 +39,35 @@ def simulate_batch_schedule(
     reports = []
     valid = True
 
-    for index, batch in enumerate(batches):
+    try:
+        batch_iterator = iter(batches)
+    except TypeError:
+        result = sim.report()
+        result.update({
+            "engine": "event_driven_multi_batch_scheduler_build11t",
+            "schedule_valid": False,
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "BATCHES_MUST_BE_ITERABLE",
+            }],
+            "groups_scheduled": [],
+            "storage_reactivation_enabled": allow_storage_reactivation,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "timing_calibrated_to_game": False,
+            "limitations": [
+                "Shot counts are supplied inputs, not live observations.",
+                "Conveyor timing is abstract and uncalibrated.",
+                "Storage reactivation is an optional unverified game assumption.",
+                "Only fully returned bonded groups can be reactivated.",
+                "Board geometry and pixel removal are not simulated.",
+            ],
+        })
+        return result
+
+    for index, batch in enumerate(batch_iterator):
         def reject(reason, **extra):
             nonlocal valid
             valid = False
