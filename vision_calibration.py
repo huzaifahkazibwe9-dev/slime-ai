@@ -86,8 +86,55 @@ def validate_dataset(data):
         if label not in COLOUR_LABELS:
             allowed = ", ".join(COLOUR_LABELS)
             raise ValueError(f"Sample {sample_id} label must be one of: {allowed}")
-        validated.append({"id": sample_id, "rgb": rgb[:], "label": label})
+        validated_sample = {"id": sample_id, "rgb": rgb[:], "label": label}
+        if image_size is not None:
+            validated_sample["row"] = row
+            validated_sample["column"] = column
+        validated.append(validated_sample)
     return validated
+
+
+def summarize_coverage(samples, data):
+    """Summarize observed class and board-quadrant coverage; never infer adequacy."""
+    class_counts = {label: 0 for label in COLOUR_LABELS}
+    for sample in samples:
+        class_counts[sample["label"]] += 1
+
+    has_grid = data.get("grid_size") is not None
+    result = {
+        "class_sample_counts": class_counts,
+        "missing_classes": [label for label, count in class_counts.items() if count == 0],
+        "spatial_coverage_available": has_grid,
+        "spatial_regions": None,
+        "coverage_adequacy_assessed": False,
+    }
+    if not has_grid:
+        return result
+
+    columns, rows = data["grid_size"]
+    regions = {
+        "top_left": [], "top_right": [],
+        "bottom_left": [], "bottom_right": [],
+    }
+    for sample in samples:
+        vertical = "top" if sample["row"] < rows / 2 else "bottom"
+        horizontal = "left" if sample["column"] < columns / 2 else "right"
+        regions[f"{vertical}_{horizontal}"].append(sample["label"])
+
+    result["spatial_regions"] = {
+        name: {
+            "sample_count": len(region_labels),
+            "class_sample_counts": {
+                label: region_labels.count(label) for label in COLOUR_LABELS
+            },
+        }
+        for name, region_labels in regions.items()
+    }
+    result["empty_spatial_regions"] = [
+        name for name, region in result["spatial_regions"].items()
+        if region["sample_count"] == 0
+    ]
+    return result
 
 
 def evaluate_dataset(data):
@@ -146,6 +193,7 @@ def evaluate_dataset(data):
         "schema_version": SCHEMA_VERSION,
         "classifier": "screenshot_ingestor.classify_rgb",
         "sample_count": total,
+        "coverage": summarize_coverage(samples, data),
         "source_provenance": {
             "source_sha256": data.get("source_sha256"),
             "image_size": data.get("image_size"),
