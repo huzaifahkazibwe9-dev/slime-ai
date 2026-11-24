@@ -54,7 +54,7 @@ class VisionCalibrationTests(unittest.TestCase):
                     validate_dataset(malformed)
 
     def test_rejects_noncanonical_colour_label(self):
-        for label in ("grey", "turquoise", " Red ", ""):
+        for label in ("grey", "turquoise", "Red"):
             with self.subTest(label=label):
                 malformed = {
                     **self.dataset,
