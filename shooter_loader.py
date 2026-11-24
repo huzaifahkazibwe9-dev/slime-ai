@@ -240,7 +240,7 @@ def load_panel_slots(path=DETECTION_FILE):
         if (not isinstance(center, list) or len(center) != 2
                 or any(type(value) is not int or value < 0 for value in center)):
             raise ValueError(f"Panel slot {slot_id} has an invalid center")
-        if status not in allowed_statuses:
+        if not isinstance(status, str) or status not in allowed_statuses:
             raise ValueError(f"Panel slot {slot_id} has an invalid status")
         if image_width is not None and not (
                 center[0] < image_width and center[1] < image_height):
