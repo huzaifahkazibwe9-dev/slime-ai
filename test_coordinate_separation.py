@@ -69,7 +69,7 @@ class CoordinateSeparationTests(unittest.TestCase):
 
         apply_geometry(
             shooter=shooter,
-            screen_center=(610, 190),
+            screen_center=(600, 190),
             segment="top",
             image_size=(747, 1536),
             position_verified=True,
