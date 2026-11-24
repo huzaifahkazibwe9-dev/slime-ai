@@ -65,6 +65,7 @@ class ConveyorSimulator:
     failure_reason: str = ""
     events: List[dict] = field(default_factory=list)
     returned_ids: List[str] = field(default_factory=list)
+    initial_storage_occupied: int = None
 
     def __post_init__(self):
         if not isinstance(self.config, SimulatorConfig):
@@ -74,6 +75,11 @@ class ConveyorSimulator:
             raise ValueError("Initial storage occupancy must be an integer")
         if not 0 <= self.storage_occupied <= self.config.storage_capacity:
             raise ValueError("Initial storage occupancy is out of range")
+        if self.initial_storage_occupied is None:
+            self.initial_storage_occupied = self.storage_occupied
+        if (type(self.initial_storage_occupied) is not int
+                or not 0 <= self.initial_storage_occupied <= self.config.storage_capacity):
+            raise ValueError("Initial storage occupancy history is out of range")
         if not isinstance(self.tick_count, int) or isinstance(self.tick_count, bool) or self.tick_count < 0:
             raise ValueError("tick_count must be a non-negative integer")
         if not isinstance(self.failed, bool):
