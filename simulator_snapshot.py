@@ -146,7 +146,10 @@ def restore_simulator(snapshot):
     event_return_ids = []
     for event in events:
         shooter_id = event.get("shooter_id")
-        if shooter_id is not None and shooter_id not in known_shooter_ids:
+        if shooter_id is not None and (
+            not isinstance(shooter_id, str)
+            or shooter_id not in known_shooter_ids
+        ):
             raise ValueError("event references an unknown shooter")
         if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE":
             if not isinstance(shooter_id, str):
@@ -155,7 +158,10 @@ def restore_simulator(snapshot):
         members = event.get("members")
         if members is not None and (
             not isinstance(members, list)
-            or any(member not in known_shooter_ids for member in members)
+            or any(
+                not isinstance(member, str) or member not in known_shooter_ids
+                for member in members
+            )
         ):
             raise ValueError("event contains unknown group members")
     if (len(event_return_ids) != len(set(event_return_ids))
