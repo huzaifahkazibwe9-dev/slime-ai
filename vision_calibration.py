@@ -119,6 +119,26 @@ def summarize_coverage(samples, data):
         return result
 
     columns, rows = data["grid_size"]
+    sampled_coordinates = {
+        (sample["row"], sample["column"]) for sample in samples
+    }
+    sampled_rows = {row for row, _ in sampled_coordinates}
+    sampled_columns = {column for _, column in sampled_coordinates}
+    total_cells = columns * rows
+    result["board_cell_coverage"] = {
+        "sampled_cell_count": len(sampled_coordinates),
+        "total_board_cell_count": total_cells,
+        "unsampled_cell_count": total_cells - len(sampled_coordinates),
+        "sample_coverage_fraction": round(len(sampled_coordinates) / total_cells, 6),
+        "rows_with_samples": len(sampled_rows),
+        "rows_without_samples": [
+            row for row in range(rows) if row not in sampled_rows
+        ],
+        "columns_with_samples": len(sampled_columns),
+        "columns_without_samples": [
+            column for column in range(columns) if column not in sampled_columns
+        ],
+    }
     regions = {
         "top_left": [], "top_right": [],
         "bottom_left": [], "bottom_right": [],
