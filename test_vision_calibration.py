@@ -157,6 +157,12 @@ class VisionCalibrationTests(unittest.TestCase):
         self.assertEqual(coverage["spatial_regions"]["bottom_right"]["sample_count"], 1)
         self.assertEqual(coverage["empty_spatial_regions"], ["top_right", "bottom_left"])
         self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertEqual(coverage["board_cell_coverage"]["sampled_cell_count"], 2)
+        self.assertEqual(coverage["board_cell_coverage"]["total_board_cell_count"], 16)
+        self.assertEqual(coverage["board_cell_coverage"]["unsampled_cell_count"], 14)
+        self.assertEqual(coverage["board_cell_coverage"]["sample_coverage_fraction"], 0.125)
+        self.assertEqual(coverage["board_cell_coverage"]["rows_without_samples"], [1, 2])
+        self.assertEqual(coverage["board_cell_coverage"]["columns_without_samples"], [1, 2])
 
     def test_reports_class_counts_without_claiming_spatial_coverage(self):
         coverage = evaluate_dataset(self.dataset)["coverage"]
