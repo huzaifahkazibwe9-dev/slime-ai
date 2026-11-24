@@ -5,6 +5,21 @@ from conveyor_simulator import SimulatorConfig
 
 
 class MultiBatchTests(unittest.TestCase):
+    def test_invalid_config_type_is_rejected(self):
+        for config in (False, "not-a-config"):
+            with self.subTest(config=config):
+                result = simulate_batch_schedule(
+                    [{"id": "A", "group_id": "A", "ammo": 1}],
+                    [],
+                    config=config,
+                )
+                self.assertFalse(result["schedule_valid"])
+                self.assertEqual(
+                    result["failure_reason"],
+                    "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+                )
+                self.assertFalse(result["live_execution_allowed"])
+
     def test_next_batch_after_return(self):
         records = [
             {"id": "A", "group_id": "A", "ammo": 1},
