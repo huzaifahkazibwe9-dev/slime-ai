@@ -152,13 +152,6 @@ def restore_simulator(snapshot):
             or shooter_id not in known_shooter_ids
         ):
             raise ValueError("event references an unknown shooter")
-        if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE":
-            if not isinstance(shooter_id, str):
-                raise ValueError("return event must identify its shooter")
-            latest_return_index[shooter_id] = event_index
-        if event.get("event") == "GROUP_REACTIVATED_FROM_STORAGE":
-            for member in event.get("members", []):
-                latest_reactivation_index[member] = event_index
         members = event.get("members")
         if members is not None and (
             not isinstance(members, list)
@@ -168,6 +161,13 @@ def restore_simulator(snapshot):
             )
         ):
             raise ValueError("event contains unknown group members")
+        if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE":
+            if not isinstance(shooter_id, str):
+                raise ValueError("return event must identify its shooter")
+            latest_return_index[shooter_id] = event_index
+        if event.get("event") == "GROUP_REACTIVATED_FROM_STORAGE":
+            for member in members or []:
+                latest_reactivation_index[member] = event_index
 
     current_return_events = {
         shooter_id: event_index
