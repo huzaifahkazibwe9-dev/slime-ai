@@ -129,10 +129,30 @@ def _simulate_conveyor_batch(original, state, groups):
                     "batch_selection_valid": False,
                     "failure_reason": "INCONSISTENT_BONDED_GROUP_MEMBERSHIP",
                 }
+            source_shooter = original.shooters[shooter_id]
+            simulated_shooter = state.shooters[shooter_id]
+            if type(source_shooter.ammo) is not int or source_shooter.ammo < 0:
+                return {
+                    "failed": True,
+                    "batch_selection_valid": False,
+                    "failure_reason": "UNKNOWN_OR_INVALID_AMMO_ON_CANDIDATE_SHOOTER",
+                    "shooter_id": str(shooter_id),
+                }
+            if (
+                type(simulated_shooter.ammo) is not int
+                or simulated_shooter.ammo < 0
+                or simulated_shooter.ammo > source_shooter.ammo
+            ):
+                return {
+                    "failed": True,
+                    "batch_selection_valid": False,
+                    "failure_reason": "INVALID_SIMULATED_AMMO_STATE",
+                    "shooter_id": str(shooter_id),
+                }
             records.append({
                 "id": str(shooter_id),
                 "group_id": str(canonical_group_id),
-                "ammo": original.shooters[shooter_id].ammo,
+                "ammo": source_shooter.ammo,
             })
 
     sim = create_simulator(
@@ -151,9 +171,9 @@ def _simulate_conveyor_batch(original, state, groups):
     if selected:
         for group in groups:
             for shooter_id in group:
-                initial = int(original.shooters[shooter_id].ammo or 0)
-                remaining = int(state.shooters[shooter_id].ammo or 0)
-                consumed = max(0, initial - remaining)
+                initial = original.shooters[shooter_id].ammo
+                remaining = state.shooters[shooter_id].ammo
+                consumed = initial - remaining
 
                 if not sim.record_shots(str(shooter_id), consumed):
                     selected = False
