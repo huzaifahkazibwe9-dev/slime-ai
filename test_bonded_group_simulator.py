@@ -73,6 +73,7 @@ class BondedGroupSimulatorTests(unittest.TestCase):
         self.assertEqual(disposable.board, report["final_board"])
         self.assertEqual(disposable.shooters["A"].ammo, report["remaining_ammo"]["A"])
         self.assertFalse(report["source_state_unchanged"])
+        self.assertFalse(report["source_state_integrity_checked"])
 
     def test_consume_state_requires_boolean(self):
         with self.assertRaises(TypeError):
