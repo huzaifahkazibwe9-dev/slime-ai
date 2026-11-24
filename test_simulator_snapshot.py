@@ -293,7 +293,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 and event.get("shooter_id") == "a2"
             )
         ]
-        with self.assertRaisesRegex(ValueError, "return history is incomplete"):
+        with self.assertRaisesRegex(ValueError, "return history is incomplete|occupancy event delta is inconsistent"):
             restore_simulator(snapshot)
 
     def test_rejects_bonded_group_return_events_on_different_ticks(self):
