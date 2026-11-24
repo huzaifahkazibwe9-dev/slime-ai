@@ -307,9 +307,11 @@ class MultiBatchTests(unittest.TestCase):
         original = ConveyorSimulator.select_group
         calls = {"count": 0}
 
-        def fail_second_group(sim, group_id):
+        def fail_second_group_in_third_batch(sim, group_id):
             calls["count"] += 1
-            if calls["count"] == 2:
+            # The first two calls complete batches one and two. Fail
+            # selecting the second group after batch three reactivates A.
+            if calls["count"] == 4:
                 return False
             return original(sim, group_id)
 
@@ -328,7 +330,7 @@ class MultiBatchTests(unittest.TestCase):
             },
         ]
         with patch.object(
-            ConveyorSimulator, "select_group", fail_second_group
+            ConveyorSimulator, "select_group", fail_second_group_in_third_batch
         ):
             result = simulate_batch_schedule(
                 records,
