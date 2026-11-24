@@ -75,6 +75,17 @@ class BondedGroupSimulatorTests(unittest.TestCase):
         self.assertFalse(report["source_state_unchanged"])
         self.assertFalse(report["source_state_integrity_checked"])
 
+    def test_final_board_isolated_from_source_in_default_mode(self):
+        state = self.make_state()
+        report = simulate_bonded_group(state, "A")
+        self.assertIsNot(report["final_board"], state.board)
+        self.assertEqual(state.board, [["red", "blue"], ["red", "red"]])
+
+    def test_consume_state_returns_disposable_board_without_another_copy(self):
+        disposable = self.make_state()
+        report = simulate_bonded_group(disposable, "A", consume_state=True)
+        self.assertIs(report["final_board"], disposable.board)
+
     def test_consume_state_requires_boolean(self):
         with self.assertRaises(TypeError):
             simulate_bonded_group(self.make_state(), "A", consume_state=1)
