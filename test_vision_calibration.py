@@ -115,10 +115,88 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "row/column"):
             validate_dataset(malformed_grid)
 
+    def test_rejects_grid_axis_above_dimension_limit(self):
+        malformed = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [10001, 1],
+            "samples": [
+                {"id": "cell-1", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "dimensions must not exceed 10,000"):
+            validate_dataset(malformed)
+
+    def test_rejects_unreasonably_large_grid_dimensions(self):
+        malformed = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [1001, 1000],
+            "samples": [
+                {"id": "cell-1", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "1,000,000 total cells"):
+            validate_dataset(malformed)
+
+    def test_rejects_duplicate_board_coordinates(self):
+        data = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [4, 4],
+            "samples": [
+                {"id": "first", "row": 1, "column": 2,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+                {"id": "duplicate-cell", "row": 1, "column": 2,
+                 "rgb": [245, 245, 245], "label": "white"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "Duplicate board coordinate"):
+            validate_dataset(data)
+
     def test_requires_image_and_grid_dimensions_together(self):
         malformed = {**self.dataset, "image_size": [1080, 2220]}
         with self.assertRaisesRegex(ValueError, "supplied together"):
             validate_dataset(malformed)
+
+
+    def test_reports_missing_classes_and_quadrant_coverage(self):
+        data = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [4, 4],
+            "samples": [
+                {"id": "a", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+                {"id": "b", "row": 3, "column": 3,
+                 "rgb": [245, 245, 245], "label": "white"},
+            ],
+        }
+        coverage = evaluate_dataset(data)["coverage"]
+        self.assertEqual(coverage["class_sample_counts"]["cyan"], 1)
+        self.assertEqual(coverage["class_sample_counts"]["white"], 1)
+        self.assertIn("red", coverage["missing_classes"])
+        self.assertTrue(coverage["spatial_coverage_available"])
+        self.assertEqual(coverage["spatial_regions"]["top_left"]["sample_count"], 1)
+        self.assertEqual(coverage["spatial_regions"]["bottom_right"]["sample_count"], 1)
+        self.assertEqual(coverage["empty_spatial_regions"], ["top_right", "bottom_left"])
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertEqual(coverage["board_cell_coverage"]["sampled_cell_count"], 2)
+        self.assertEqual(coverage["board_cell_coverage"]["total_board_cell_count"], 16)
+        self.assertEqual(coverage["board_cell_coverage"]["unsampled_cell_count"], 14)
+        self.assertEqual(coverage["board_cell_coverage"]["sample_coverage_fraction"], 0.125)
+        self.assertEqual(coverage["board_cell_coverage"]["rows_without_samples"], [1, 2])
+        self.assertEqual(coverage["board_cell_coverage"]["columns_without_samples"], [1, 2])
+        self.assertEqual(coverage["board_cell_coverage"]["row_sample_counts"], {"0": 1, "3": 1})
+        self.assertEqual(coverage["board_cell_coverage"]["column_sample_counts"], {"0": 1, "3": 1})
+
+    def test_reports_class_counts_without_claiming_spatial_coverage(self):
+        coverage = evaluate_dataset(self.dataset)["coverage"]
+        self.assertFalse(coverage["spatial_coverage_available"])
+        self.assertIsNone(coverage["spatial_regions"])
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
 
     def test_rejects_empty_or_malformed_datasets(self):
         for malformed in (None, [], {}, {

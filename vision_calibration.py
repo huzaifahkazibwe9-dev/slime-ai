@@ -48,12 +48,17 @@ def validate_dataset(data):
         if (not isinstance(grid_size, list) or len(grid_size) != 2
                 or any(type(value) is not int or value < 1 for value in grid_size)):
             raise ValueError("grid_size must contain positive integer columns and rows")
+        if any(value > 10_000 for value in grid_size):
+            raise ValueError("grid_size dimensions must not exceed 10,000")
+        if grid_size[0] * grid_size[1] > 1_000_000:
+            raise ValueError("grid_size must not exceed 1,000,000 total cells")
 
     samples = data.get("samples")
     if not isinstance(samples, list) or not samples:
         raise ValueError("samples must be a non-empty list")
 
     seen_ids = set()
+    seen_coordinates = set()
     validated = []
     for index, sample in enumerate(samples):
         if not isinstance(sample, dict):
@@ -79,6 +84,12 @@ def validate_dataset(data):
                 raise ValueError(
                     f"Sample {sample_id} row/column must be valid zero-based grid coordinates"
                 )
+            coordinate = (row, column)
+            if coordinate in seen_coordinates:
+                raise ValueError(
+                    f"Duplicate board coordinate for sample {sample_id}: row={row}, column={column}"
+                )
+            seen_coordinates.add(coordinate)
         label = sample.get("label")
         if not isinstance(label, str) or not label.strip():
             raise ValueError(f"Sample {sample_id} label must be a non-empty string")
@@ -86,8 +97,87 @@ def validate_dataset(data):
         if label not in COLOUR_LABELS:
             allowed = ", ".join(COLOUR_LABELS)
             raise ValueError(f"Sample {sample_id} label must be one of: {allowed}")
-        validated.append({"id": sample_id, "rgb": rgb[:], "label": label})
+        validated_sample = {"id": sample_id, "rgb": rgb[:], "label": label}
+        if image_size is not None:
+            validated_sample["row"] = row
+            validated_sample["column"] = column
+        validated.append(validated_sample)
     return validated
+
+
+def summarize_coverage(samples, data):
+    """Summarize observed class and board-quadrant coverage; never infer adequacy."""
+    class_counts = {label: 0 for label in COLOUR_LABELS}
+    for sample in samples:
+        class_counts[sample["label"]] += 1
+
+    has_grid = data.get("grid_size") is not None
+    result = {
+        "class_sample_counts": class_counts,
+        "missing_classes": [label for label, count in class_counts.items() if count == 0],
+        "spatial_coverage_available": has_grid,
+        "spatial_regions": None,
+        "coverage_adequacy_assessed": False,
+    }
+    if not has_grid:
+        return result
+
+    columns, rows = data["grid_size"]
+    sampled_coordinates = {
+        (sample["row"], sample["column"]) for sample in samples
+    }
+    sampled_rows = {row for row, _ in sampled_coordinates}
+    sampled_columns = {column for _, column in sampled_coordinates}
+    row_sample_counts = {row: 0 for row in sampled_rows}
+    column_sample_counts = {column: 0 for column in sampled_columns}
+    for row, column in sampled_coordinates:
+        row_sample_counts[row] += 1
+        column_sample_counts[column] += 1
+    total_cells = columns * rows
+    result["board_cell_coverage"] = {
+        "sampled_cell_count": len(sampled_coordinates),
+        "total_board_cell_count": total_cells,
+        "unsampled_cell_count": total_cells - len(sampled_coordinates),
+        "sample_coverage_fraction": round(len(sampled_coordinates) / total_cells, 6),
+        "row_sample_counts": {
+            str(row): row_sample_counts[row] for row in sorted(row_sample_counts)
+        },
+        "column_sample_counts": {
+            str(column): column_sample_counts[column]
+            for column in sorted(column_sample_counts)
+        },
+        "rows_with_samples": len(sampled_rows),
+        "rows_without_samples": [
+            row for row in range(rows) if row not in sampled_rows
+        ],
+        "columns_with_samples": len(sampled_columns),
+        "columns_without_samples": [
+            column for column in range(columns) if column not in sampled_columns
+        ],
+    }
+    regions = {
+        "top_left": [], "top_right": [],
+        "bottom_left": [], "bottom_right": [],
+    }
+    for sample in samples:
+        vertical = "top" if sample["row"] < rows / 2 else "bottom"
+        horizontal = "left" if sample["column"] < columns / 2 else "right"
+        regions[f"{vertical}_{horizontal}"].append(sample["label"])
+
+    result["spatial_regions"] = {
+        name: {
+            "sample_count": len(region_labels),
+            "class_sample_counts": {
+                label: region_labels.count(label) for label in COLOUR_LABELS
+            },
+        }
+        for name, region_labels in regions.items()
+    }
+    result["empty_spatial_regions"] = [
+        name for name, region in result["spatial_regions"].items()
+        if region["sample_count"] == 0
+    ]
+    return result
 
 
 def evaluate_dataset(data):
@@ -146,6 +236,7 @@ def evaluate_dataset(data):
         "schema_version": SCHEMA_VERSION,
         "classifier": "screenshot_ingestor.classify_rgb",
         "sample_count": total,
+        "coverage": summarize_coverage(samples, data),
         "source_provenance": {
             "source_sha256": data.get("source_sha256"),
             "image_size": data.get("image_size"),
@@ -205,6 +296,15 @@ def main():
     print("Accuracy:", report["accuracy"])
     print("Macro recall:", report["macro_recall"])
     print("Labels:", ", ".join(report["labels"]))
+    coverage = report["coverage"]
+    print("Missing labelled colour classes:",
+          ", ".join(coverage["missing_classes"]) or "none")
+    if coverage["spatial_coverage_available"]:
+        print("Empty board regions:",
+              ", ".join(coverage["empty_spatial_regions"]) or "none")
+    else:
+        print("Spatial coverage: unavailable (no grid metadata)")
+    print("Coverage adequacy assessed: False")
     print("Independent label verification: False")
     print("Gameplay verified: False")
     print("Game taps enabled: False")

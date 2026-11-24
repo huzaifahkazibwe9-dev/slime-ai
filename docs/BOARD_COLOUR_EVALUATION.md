@@ -82,3 +82,34 @@ A useful calibration decision requires a sufficiently broad, carefully
 reviewed dataset and human inspection of confusion cases.
 
 All gameplay verification and live game actions remain disabled.
+
+ 
+## Coverage audit
+
+Every evaluation report also includes a descriptive `coverage` section:
+
+- `class_sample_counts` counts human-assigned examples for every canonical colour.
+- `missing_classes` lists colours with no labelled examples.
+- When template grid coordinates are present, `spatial_regions` reports sample and
+  per-colour counts in the four board quadrants; `empty_spatial_regions` identifies
+  quadrants with no samples.
+- For hand-authored datasets without grid metadata, class counts remain available
+  and spatial coverage is explicitly marked unavailable.
+
+Quadrants are a coarse sampling diagnostic, not a guarantee of representative
+coverage. Counts do not establish sample independence, shade diversity, level
+diversity, or label correctness. The report deliberately sets
+`coverage_adequacy_assessed` to `false`; reviewers must decide whether the dataset
+is broad enough for a meaningful evaluation.
+
+
+Grid metadata is also bounded to at most 1,000,000 total cells. This prevents
+malformed dimensions from causing excessive work or memory use during coverage
+reporting. The limit is a defensive input bound, not a statement about normal
+game board sizes.
+
+The board-cell coverage details also include sample counts for each row and
+column that contains reviewed cells, making uneven sampling visible without
+assuming that any particular distribution is statistically adequate. Each grid
+axis is capped at 10,000 cells and the complete grid at 1,000,000 cells to bound
+reporting cost on malformed inputs.
