@@ -133,7 +133,7 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
         shooter = Shooter(
             id=shooter_id,
             color=color_data["name"],
-            ammo=ammo,
+            ammo=item["ammo"],
             accessible=False,
             # Derive bonds from the validated group list, not duplicated JSON fields.
             bonded_ids=bonded_lookup.get(shooter_id, []),
