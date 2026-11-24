@@ -61,5 +61,12 @@ class ConveyorGeometryInputValidationTests(unittest.TestCase):
             self.calculate(screen_center=(10 ** 1000, 1))
 
 
+    def test_rejects_centers_outside_screenshot_bounds(self):
+        for center in ((-1, 1200), (1080, 1200), (540, -1), (540, 2220)):
+            with self.subTest(center=center):
+                with self.assertRaisesRegex(ValueError, "outside screenshot bounds"):
+                    self.calculate(screen_center=center)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
