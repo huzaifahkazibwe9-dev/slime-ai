@@ -149,6 +149,20 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertIn("SCREENSHOT OBSERVATION INTEGRATION PASSED", output.getvalue())
         self.assertIn("Game taps enabled: False", output.getvalue())
 
+    def test_rejects_non_finite_and_extreme_board_bounds_without_overflow(self):
+        for invalid_bound in (float("nan"), float("inf"), float("-inf"), 10**1000, True):
+            with self.subTest(bound_type=type(invalid_bound).__name__):
+                self.observation["bounds"] = [
+                    10, 10, invalid_bound, 190
+                ]
+                self.write()
+                with self.assertRaises(ValueError):
+                    load_observed_level(
+                        self.observation_path, self.shooter_path
+                    )
+        self.observation["bounds"] = [10, 10, 290, 190]
+        self.write()
+
     def test_rejects_board_dimensions_that_do_not_match_grid(self):
         self.observation["board"] = [["cyan"]]
         self.write()
