@@ -349,6 +349,32 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("does not match", resumed["failure_reason"])
 
+    def test_checkpoint_rejects_final_report_state_mismatch(self):
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 1},
+            {"id": "B", "group_id": "B", "ammo": 1},
+        ]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+        )
+        checkpoint = partial["checkpoint"]
+        self.assertIsInstance(checkpoint, dict)
+        checkpoint["batch_reports"][0]["storage_occupied"] += 1
+
+        resumed = simulate_batch_schedule(
+            records, batches,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+            resume_from=checkpoint,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("final batch report", resumed["failure_reason"])
+
     def test_checkpoint_rejects_boolean_schema_version(self):
         records = [{"id": "A", "group_id": "A", "ammo": 3}]
         batches = [
