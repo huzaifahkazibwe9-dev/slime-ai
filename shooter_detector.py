@@ -8,6 +8,7 @@ import json
 import argparse
 import hashlib
 import time
+import math
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -24,6 +25,9 @@ SHOOTERS = [
 def validate_panel_image_size(width, height, tolerance=0.02):
     if type(width) is not int or type(height) is not int or width < 1 or height < 1:
         raise ValueError("Shooter panel image dimensions must be positive integers")
+    if (type(tolerance) not in (int, float) or not math.isfinite(tolerance)
+            or not 0 < tolerance <= 1):
+        raise ValueError("Aspect-ratio tolerance must be finite and in (0, 1]")
     expected_ratio = REF_W / REF_H
     actual_ratio = width / height
     if abs(actual_ratio - expected_ratio) / expected_ratio > tolerance:
@@ -50,6 +54,14 @@ def assess_color_sample(image, x, y, patch_radius=4, context_radius=8,
         raise ValueError("Sample coordinates and radii must be integers")
     if patch_radius < 1 or context_radius <= patch_radius:
         raise ValueError("Sample radii are invalid")
+    if (type(minimum_contrast) not in (int, float)
+            or not math.isfinite(minimum_contrast)
+            or not 0 <= minimum_contrast <= 441.673):
+        raise ValueError("Minimum contrast must be finite and within RGB distance bounds")
+    if (type(maximum_mad) not in (int, float)
+            or not math.isfinite(maximum_mad)
+            or not 0 <= maximum_mad <= 255):
+        raise ValueError("Maximum MAD must be finite and within channel bounds")
     if not (context_radius <= x < image.width - context_radius
             and context_radius <= y < image.height - context_radius):
         raise ValueError("Sample context is outside the panel image")
