@@ -163,6 +163,18 @@ class ConveyorSimulatorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ConveyorSimulator([shooter], config=SimulatorConfig())
 
+    def test_factory_rejects_falsy_or_wrong_config_types(self):
+        for config in (False, 0, "", [], {}):
+            with self.subTest(config=config):
+                with self.assertRaisesRegex(ValueError, "config must be a SimulatorConfig"):
+                    create_simulator([{"id": "s", "ammo": 1}], config=config)
+
+    def test_factory_uses_default_config_only_when_omitted_or_none(self):
+        for config in (None,):
+            with self.subTest(config=config):
+                sim = create_simulator([{"id": "s", "ammo": 1}], config=config)
+                self.assertEqual(sim.config, SimulatorConfig())
+
     def test_factory_does_not_coerce_malformed_state_records(self):
         malformed = [
             {"id": "s", "ammo": True},
