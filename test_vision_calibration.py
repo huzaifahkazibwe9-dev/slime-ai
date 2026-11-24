@@ -53,6 +53,30 @@ class VisionCalibrationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "rgb must be"):
                     validate_dataset(malformed)
 
+    def test_rejects_noncanonical_colour_label(self):
+        for label in ("grey", "turquoise", " Red ", ""):
+            with self.subTest(label=label):
+                malformed = {
+                    **self.dataset,
+                    "samples": [{"id": "bad-label", "rgb": [10, 20, 30], "label": label}],
+                }
+                with self.assertRaisesRegex(ValueError, "label must be one of"):
+                    validate_dataset(malformed)
+
+    def test_accepts_every_canonical_classifier_label(self):
+        from screenshot_ingestor import COLOUR_LABELS
+
+        samples = [
+            {"id": f"label-{index}", "rgb": [20, 30, 40], "label": label}
+            for index, label in enumerate(COLOUR_LABELS)
+        ]
+        validated = validate_dataset({
+            "schema_version": 1,
+            "labelled_by_user": True,
+            "samples": samples,
+        })
+        self.assertEqual([sample["label"] for sample in validated], list(COLOUR_LABELS))
+
     def test_rejects_empty_or_malformed_datasets(self):
         for malformed in (None, [], {}, {
             "schema_version": 1, "labelled_by_user": True, "samples": []
