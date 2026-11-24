@@ -232,7 +232,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
             with patch("shooter_detector.subprocess.run") as run:
-                run.return_value = SimpleNamespace(stdout="40\\n", returncode=0)
+                run.return_value = SimpleNamespace(stdout="40\n", returncode=0)
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertEqual(result, 40)
 
