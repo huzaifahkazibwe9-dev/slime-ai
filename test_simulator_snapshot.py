@@ -80,7 +80,8 @@ class SimulatorSnapshotTests(unittest.TestCase):
             event for event in snapshot["events"]
             if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
         )
-        return_event["storage_occupied"] = 0
+        snapshot["initial_storage_occupied"] = 1
+        return_event["storage_occupied"] = 2
         with self.assertRaisesRegex(ValueError, "disagrees with restored occupancy"):
             restore_simulator(snapshot)
 
@@ -320,7 +321,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(
             ValueError,
-            "return history is incomplete|storage occupancy event delta is inconsistent",
+            "return history is incomplete|storage occupancy event delta is inconsistent|storage occupancy event delta is out of range",
         ):
             restore_simulator(snapshot)
 
