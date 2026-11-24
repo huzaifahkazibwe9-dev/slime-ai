@@ -201,6 +201,8 @@ def simulate_batch_schedule(
                 expected_seen.update(requested)
             if set(saved_seen) != expected_seen:
                 raise ValueError("checkpoint seen-group state is inconsistent")
+            seen = set(saved_seen)
+            reports = [dict(r) for r in saved_reports]
             sim = restore_simulator(resume_from.get("simulator_snapshot"))
             if sim.failed:
                 raise ValueError("failed simulations cannot be resumed")
@@ -214,8 +216,19 @@ def simulate_batch_schedule(
                 r.get("group_id", r["id"]) for r in records
             ]:
                 raise ValueError("checkpoint shooter groups do not match")
-            seen = set(saved_seen)
-            reports = [dict(r) for r in saved_reports]
+            final_report = reports[-1] if reports else None
+            if (
+                final_report is None
+                or final_report.get("returned_shooters") != sim.returned_ids
+                or type(final_report.get("conveyor_occupied")) is not int
+                or final_report.get("conveyor_occupied") != len(sim.active)
+                or type(final_report.get("storage_occupied")) is not int
+                or final_report.get("storage_occupied") != sim.storage_occupied
+                or final_report.get("failed") is not False
+            ):
+                raise ValueError(
+                    "checkpoint final batch report does not match simulator state"
+                )
         except (TypeError, ValueError, KeyError) as exc:
             return invalid_input("INVALID_CHECKPOINT: " + str(exc))
 
