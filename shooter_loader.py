@@ -39,14 +39,22 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 low_confidence_ids.add(item.get("id"))
                 continue
         eligible.append(item)
-    # If a member of a confirmed bond has an unreliable visual sample, do not
-    # load the remaining members as an incomplete bonded group. Preserve
-    # malformed/unknown group references so the normal validator rejects them.
+    # If any member of a declared bond has an unreliable visual sample,
+    # withhold every member of that group. Otherwise the remaining members
+    # could be loaded as independent shooters and lose the bond constraint.
+    withheld_group_ids = {
+        member
+        for group in groups
+        if any(member in low_confidence_ids for member in group)
+        for member in group
+    }
     groups = [
         group for group in groups
         if not any(member in low_confidence_ids for member in group)
     ]
-    detected = eligible
+    detected = [
+        item for item in eligible if item.get("id") not in withheld_group_ids
+    ]
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
