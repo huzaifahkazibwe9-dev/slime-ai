@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from screenshot_observation_loader import load_observed_level
+from screenshot_observation_loader import load_observed_level, verify_source_samples
 from level_loader import load_level
 
 
@@ -90,6 +90,68 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.write()
         _, audit = load_observed_level(self.observation_path, self.shooter_path)
         self.assertEqual(audit["grid_size"], [3, 2])
+
+
+    def test_independently_recomputes_all_source_rgb_samples(self):
+        from PIL import Image
+        import hashlib
+        from io import BytesIO
+
+        image = Image.new("RGB", (30, 30), (0, 0, 0))
+        centres = {"x": [7, 15, 23], "y": [7, 15]}
+        colours = [
+            [(230, 30, 30), (10, 180, 230), (245, 245, 245)],
+            [(200, 120, 60), (240, 80, 220), (20, 180, 70)],
+        ]
+        for row, y in enumerate(centres["y"]):
+            for col, x in enumerate(centres["x"]):
+                for py in range(y - 1, y + 2):
+                    for px in range(x - 1, x + 2):
+                        image.putpixel((px, py), colours[row][col])
+        stream = BytesIO()
+        image.save(stream, format="PNG")
+        image_bytes = stream.getvalue()
+        observation = {
+            "source_sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "image_size": [30, 30],
+            "grid_size": [3, 2],
+            "bounds": [3, 3, 27, 27],
+            "sample_centres": centres,
+            "raw_rgb": [[list(c) for c in row] for row in colours],
+        }
+        result = verify_source_samples(observation, image_bytes)
+        self.assertEqual(result["source_rgb_samples_recomputed"], 6)
+        self.assertTrue(result["source_rgb_samples_match"])
+
+    def test_rejects_source_rgb_sample_that_differs_from_image(self):
+        from PIL import Image
+        import hashlib
+        from io import BytesIO
+
+        image = Image.new("RGB", (30, 30), (245, 245, 245))
+        stream = BytesIO()
+        image.save(stream, format="PNG")
+        image_bytes = stream.getvalue()
+        observation = {
+            "source_sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "image_size": [30, 30],
+            "grid_size": [1, 1],
+            "bounds": [3, 3, 27, 27],
+            "sample_centres": {"x": [15], "y": [15]},
+            "raw_rgb": [[[230, 30, 30]]],
+        }
+        with self.assertRaisesRegex(ValueError, "Source RGB sample mismatch"):
+            verify_source_samples(observation, image_bytes)
+
+    def test_rejects_source_image_hash_mismatch_before_sampling(self):
+        from PIL import Image
+        from io import BytesIO
+
+        stream = BytesIO()
+        Image.new("RGB", (30, 30), (245, 245, 245)).save(stream, format="PNG")
+        observation = {"source_sha256": "0" * 64}
+        with self.assertRaisesRegex(ValueError, "SHA-256 does not match"):
+            verify_source_samples(observation, stream.getvalue())
 
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
