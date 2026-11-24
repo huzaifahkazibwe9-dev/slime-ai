@@ -83,7 +83,10 @@ def _simulate_conveyor_batch(original, state, groups):
                 "conveyor_shooter_ids": sorted(conveyor_ids),
             }
 
-    # Restore shooters already on the conveyor.
+    # Restore shooters already on the conveyor. Bonded members must map
+    # to the same abstract tick; GameState validates each progress value
+    # independently, so verify group synchronization before simulator creation.
+    existing_group_positions = {}
     for shooter_id in original.conveyor:
         shooter = original.shooters[shooter_id]
         if shooter.ammo is None:
@@ -103,6 +106,7 @@ def _simulate_conveyor_batch(original, state, groups):
         progress = float(shooter.rotation_progress or 0.0)
         position = int(round(progress * config.ticks_per_lap))
         position %= config.ticks_per_lap
+        existing_group_positions.setdefault(group_id, set()).add(position)
 
         records.append({
             "id": str(shooter_id),
@@ -111,6 +115,16 @@ def _simulate_conveyor_batch(original, state, groups):
             "position": position,
             "selected": True,
         })
+
+    for group_id, positions in existing_group_positions.items():
+        if len(positions) > 1:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "UNSYNCHRONIZED_BONDED_GROUP_ON_CONVEYOR",
+                "group_id": group_id,
+                "abstract_positions": sorted(positions),
+            }
 
     # Add candidate shooters as not-yet-selected.
     for group in groups:
