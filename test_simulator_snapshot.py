@@ -180,6 +180,32 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     restore_simulator(snapshot)
 
+    def test_rejects_active_shooter_with_unreconciled_return_event(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "group_id": "A", "ammo": 0}
+        ]))
+        snapshot["tick_count"] = 1
+        snapshot["events"] = [
+            {"tick": 1, "event": "SHOOTER_RETURNED_TO_STORAGE",
+             "shooter_id": "a"}
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_round_trip_allows_active_shooter_after_reactivation(self):
+        sim = create_simulator(
+            [{"id": "a", "group_id": "A", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("A"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("A"))
+        snapshot = snapshot_simulator(sim)
+
+        restored = restore_simulator(snapshot)
+        self.assertFalse(restored.shooters[0].returned)
+        self.assertEqual(restored.events, sim.events)
+
     def test_rejects_return_event_that_precedes_latest_reactivation(self):
         snapshot = snapshot_simulator(create_simulator([
             {"id": "a", "group_id": "A", "ammo": 0, "selected": True, "returned": True}
