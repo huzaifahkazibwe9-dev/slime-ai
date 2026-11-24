@@ -120,6 +120,35 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "supplied together"):
             validate_dataset(malformed)
 
+
+    def test_reports_missing_classes_and_quadrant_coverage(self):
+        data = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [4, 4],
+            "samples": [
+                {"id": "a", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+                {"id": "b", "row": 3, "column": 3,
+                 "rgb": [245, 245, 245], "label": "white"},
+            ],
+        }
+        coverage = evaluate_dataset(data)["coverage"]
+        self.assertEqual(coverage["class_sample_counts"]["cyan"], 1)
+        self.assertEqual(coverage["class_sample_counts"]["white"], 1)
+        self.assertIn("red", coverage["missing_classes"])
+        self.assertTrue(coverage["spatial_coverage_available"])
+        self.assertEqual(coverage["spatial_regions"]["top_left"]["sample_count"], 1)
+        self.assertEqual(coverage["spatial_regions"]["bottom_right"]["sample_count"], 1)
+        self.assertEqual(coverage["empty_spatial_regions"], ["top_right", "bottom_left"])
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+
+    def test_reports_class_counts_without_claiming_spatial_coverage(self):
+        coverage = evaluate_dataset(self.dataset)["coverage"]
+        self.assertFalse(coverage["spatial_coverage_available"])
+        self.assertIsNone(coverage["spatial_regions"])
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+
     def test_rejects_empty_or_malformed_datasets(self):
         for malformed in (None, [], {}, {
             "schema_version": 1, "labelled_by_user": True, "samples": []
