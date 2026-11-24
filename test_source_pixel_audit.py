@@ -1,12 +1,13 @@
 import hashlib
 import io
+import json
 import unittest
 from collections import Counter
 
 from PIL import Image
 
 from screenshot_ingestor import classify_rgb, sample_centres_for_grid
-from source_pixel_audit import audit_source_pixels
+from source_pixel_audit import audit_source_pixels, EXTRACTION_FINGERPRINT_FIELDS
 
 
 class SourcePixelAuditTests(unittest.TestCase):
@@ -47,21 +48,34 @@ class SourcePixelAuditTests(unittest.TestCase):
             "board": board,
             "counts": dict(counts),
         }
+        self._refresh_extraction_fingerprint()
 
-    def test_reproduces_all_source_pixel_samples(self):
+    def _refresh_extraction_fingerprint(self):
+        payload = {
+            key: self.observation[key]
+            for key in EXTRACTION_FINGERPRINT_FIELDS
+        }
+        encoded = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+        self.observation["extraction_sha256"] = hashlib.sha256(encoded).hexdigest()
+
+    def test_reproduces_all_source_pixel_samples_and_payload_fingerprint(self):
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertTrue(report["pixel_samples_reproduced"])
         self.assertEqual(report["reproduced_sample_count"], 9)
         self.assertTrue(report["colour_counts_match"])
+        self.assertTrue(report["extraction_fingerprint_match"])
         self.assertFalse(report["calibration_alignment_verified"])
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
 
-    def test_reports_corrupted_rgb_sample(self):
+    def test_reports_corrupted_rgb_sample_and_fingerprint_mismatch(self):
         self.observation["raw_rgb"][1][1][0] ^= 1
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertFalse(report["pixel_samples_reproduced"])
         self.assertEqual(report["pixel_sample_mismatch_count"], 1)
+        self.assertFalse(report["extraction_fingerprint_match"])
 
     def test_rejects_source_hash_mismatch(self):
         with self.assertRaisesRegex(ValueError, "SHA-256"):
@@ -95,11 +109,20 @@ class SourcePixelAuditTests(unittest.TestCase):
         self.observation["counts"] = {"white": 9}
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertFalse(report["colour_counts_match"])
+        self.assertFalse(report["extraction_fingerprint_match"])
 
     def test_rejects_boolean_colour_count(self):
         self.observation["counts"] = {"white": True}
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertFalse(report["colour_counts_match"])
+
+    def test_missing_or_malformed_extraction_fingerprint_fails_closed(self):
+        self.observation.pop("extraction_sha256")
+        report = audit_source_pixels(self.observation, self.image_bytes)
+        self.assertFalse(report["extraction_fingerprint_match"])
+        self.observation["extraction_sha256"] = "not-a-digest"
+        report = audit_source_pixels(self.observation, self.image_bytes)
+        self.assertFalse(report["extraction_fingerprint_match"])
 
 
 if __name__ == "__main__":
