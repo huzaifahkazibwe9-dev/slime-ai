@@ -94,6 +94,30 @@ class ExecutionEngineTests(unittest.TestCase):
             report["failure_reason"], "PARTIAL_BONDED_GROUP_ON_CONVEYOR"
         )
 
+    def test_unsynchronized_bonded_conveyor_positions_fail_closed(self):
+        a = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            group_id="pair", bonded_ids=["B"], rotation_progress=0.1
+        )
+        b = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            group_id="pair", bonded_ids=["A"], rotation_progress=0.4
+        )
+        original = self.make_state(
+            [["red", None, "blue"]], [a, b], conveyor=["A", "B"]
+        )
+        simulated = copy.deepcopy(original)
+
+        report = _simulate_conveyor_batch(original, simulated, [])
+
+        self.assertFalse(report["batch_selection_valid"])
+        self.assertEqual(
+            report["failure_reason"],
+            "UNSYNCHRONIZED_BONDED_GROUP_ON_CONVEYOR",
+        )
+        self.assertEqual(report["group_id"], "pair")
+        self.assertEqual(report["abstract_positions"], [1, 2])
+
     def test_unknown_ammo_on_existing_conveyor_is_rejected(self):
         hidden = Shooter(
             "H", None, None, "right", -1, 0, revealed=False
