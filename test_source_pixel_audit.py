@@ -19,9 +19,8 @@ class SourcePixelAuditTests(unittest.TestCase):
         image.save(buffer, format="PNG")
         self.image_bytes = buffer.getvalue()
         centres = sample_centres_for_grid([3, 3], [3, 3, 27, 27])
-        rgb_rows = []
-        board = []
-        counts = Counter()
+        rgb_rows, board, counts = [], [], Counter()
+        import statistics
         for y in centres["y"]:
             rgb_row, labels = [], []
             for x in centres["x"]:
@@ -30,7 +29,6 @@ class SourcePixelAuditTests(unittest.TestCase):
                     for py in range(y - 1, y + 2)
                     for px in range(x - 1, x + 2)
                 ]
-                import statistics
                 rgb = [int(statistics.median(p[channel] for p in pixels)) for channel in range(3)]
                 label = classify_rgb(rgb)
                 rgb_row.append(rgb)
@@ -95,6 +93,11 @@ class SourcePixelAuditTests(unittest.TestCase):
 
     def test_reports_colour_count_mismatch(self):
         self.observation["counts"] = {"white": 9}
+        report = audit_source_pixels(self.observation, self.image_bytes)
+        self.assertFalse(report["colour_counts_match"])
+
+    def test_rejects_boolean_colour_count(self):
+        self.observation["counts"] = {"white": True}
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertFalse(report["colour_counts_match"])
 
