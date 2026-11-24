@@ -106,6 +106,24 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
+    def test_rejects_non_string_event_shooter_reference(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "CUSTOM", "shooter_id": ["a"]}
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
+    def test_rejects_non_string_event_group_member(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "ammo": 3}
+        ]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "CUSTOM", "members": [["a"]]}
+        ]
+        with self.assertRaises(ValueError):
+            restore_simulator(snapshot)
+
     def test_rejects_duplicate_return_events(self):
         snapshot = snapshot_simulator(create_simulator([
             {"id": "a", "ammo": 0, "selected": True, "returned": True}
