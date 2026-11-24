@@ -425,6 +425,14 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
+    def test_rejects_unknown_event_type(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "UNRECOGNIZED_FUTURE_EVENT"}
+        ]
+        with self.assertRaisesRegex(ValueError, "unsupported event type"):
+            restore_simulator(snapshot)
+
     def test_rejects_unknown_schema_and_live_action_flags(self):
         original = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
         for key, value in (("schema_version", 99), ("schema_version", True), ("live_taps_enabled", True),
