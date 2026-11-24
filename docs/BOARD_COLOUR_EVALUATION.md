@@ -107,3 +107,9 @@ Grid metadata is also bounded to at most 1,000,000 total cells. This prevents
 malformed dimensions from causing excessive work or memory use during coverage
 reporting. The limit is a defensive input bound, not a statement about normal
 game board sizes.
+
+The board-cell coverage details also include sample counts for each row and
+column that contains reviewed cells, making uneven sampling visible without
+assuming that any particular distribution is statistically adequate. Each grid
+axis is capped at 10,000 cells and the complete grid at 1,000,000 cells to bound
+reporting cost on malformed inputs.
