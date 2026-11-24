@@ -199,6 +199,16 @@ def restore_simulator(snapshot):
         for shooter_id in current_return_events
     ):
         raise ValueError("returned shooter has no return event after reactivation")
+
+    # If a return event exists for a shooter that is currently not in storage,
+    # its latest lifecycle transition must be a later group reactivation.
+    # Otherwise the event history contradicts the restored shooter flags.
+    for shooter_id, return_index in latest_return_index.items():
+        if shooter_id not in returned_from_shooters:
+            if latest_reactivation_index.get(shooter_id, -1) <= return_index:
+                raise ValueError(
+                    "active shooter has a return event without later reactivation"
+                )
     event_order = sorted(
         current_return_events,
         key=current_return_events.get,
