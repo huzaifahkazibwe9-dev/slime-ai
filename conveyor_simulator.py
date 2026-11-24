@@ -102,6 +102,12 @@ class ConveyorSimulator:
                         if shooter.group_id == group_id)
             if len(members) != total:
                 raise ValueError("Restored conveyor contains a partial bonded group")
+            positions = {shooter.position for shooter in members}
+            laps = {shooter.completed_laps for shooter in members}
+            if len(positions) != 1 or len(laps) != 1:
+                raise ValueError(
+                    "Restored bonded conveyor group is not position-synchronized"
+                )
         for group_id, members in returned_by_group.items():
             total = sum(1 for shooter in self.shooters
                         if shooter.group_id == group_id)
