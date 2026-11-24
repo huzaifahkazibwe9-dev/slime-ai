@@ -115,6 +115,19 @@ class MultiBatchTests(unittest.TestCase):
         self.assertEqual(r["returned_shooters"], ["A"])
 
 
+    def test_non_iterable_batches_are_rejected_without_crashing(self):
+        r = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 1}],
+            None,
+        )
+        self.assertFalse(r["schedule_valid"])
+        self.assertEqual(
+            r["batch_reports"][0]["reason"],
+            "BATCHES_MUST_BE_ITERABLE",
+        )
+        self.assertEqual(r["batches_completed"], 0)
+        self.assertEqual(r["conveyor_occupied"], 0)
+
     def test_non_mapping_batch_is_rejected_without_crashing(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 1}],
