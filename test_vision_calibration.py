@@ -1,6 +1,12 @@
 import unittest
+import io
+from hashlib import sha256
 
-from vision_calibration import evaluate_dataset, validate_dataset
+from PIL import Image
+
+from vision_calibration import (
+    evaluate_dataset, validate_dataset, verify_source_image,
+)
 
 
 class VisionCalibrationTests(unittest.TestCase):
@@ -77,8 +83,45 @@ class VisionCalibrationTests(unittest.TestCase):
         })
         self.assertEqual([sample["label"] for sample in validated], list(COLOUR_LABELS))
 
-    def test_reports_source_image_provenance_from_template(self):
-        from hashlib import sha256
+    def test_verifies_source_image_hash_and_dimensions_from_same_bytes(self):
+        buffer = io.BytesIO()
+        Image.new("RGB", (12, 8), (20, 30, 40)).save(buffer, format="PNG")
+        image_bytes = buffer.getvalue()
+        data = {
+            **self.dataset,
+            "source_sha256": sha256(image_bytes).hexdigest(),
+            "image_size": [12, 8],
+            "grid_size": [2, 2],
+        }
+        result = verify_source_image(data, image_bytes)
+        self.assertEqual(result["sha256"], data["source_sha256"])
+        self.assertTrue(result["dimensions_checked"])
+
+    def test_rejects_source_image_with_matching_hash_but_wrong_recorded_dimensions(self):
+        buffer = io.BytesIO()
+        Image.new("RGB", (12, 8), (20, 30, 40)).save(buffer, format="PNG")
+        image_bytes = buffer.getvalue()
+        data = {
+            **self.dataset,
+            "source_sha256": sha256(image_bytes).hexdigest(),
+            "image_size": [8, 12],
+            "grid_size": [2, 2],
+        }
+        with self.assertRaisesRegex(ValueError, "dimensions do not match"):
+            verify_source_image(data, image_bytes)
+
+    def test_rejects_unreadable_source_image_after_hash_matches(self):
+        image_bytes = b"not-an-image"
+        data = {
+            **self.dataset,
+            "source_sha256": sha256(image_bytes).hexdigest(),
+            "image_size": [12, 8],
+            "grid_size": [2, 2],
+        }
+        with self.assertRaisesRegex(ValueError, "not a readable image"):
+            verify_source_image(data, image_bytes)
+
+    def test_reports_source_image_provenance_from_template(self):        from hashlib import sha256
 
         data = {
             **self.dataset,
@@ -97,6 +140,7 @@ class VisionCalibrationTests(unittest.TestCase):
         )
         self.assertEqual(report["source_provenance"]["image_size"], [1080, 2220])
         self.assertFalse(report["source_provenance"]["source_image_hash_checked"])
+        self.assertFalse(report["source_provenance"]["source_image_dimensions_checked"])
 
     def test_rejects_malformed_source_hash_and_grid_coordinates(self):
         malformed_hash = {**self.dataset, "source_sha256": "z" * 64}
