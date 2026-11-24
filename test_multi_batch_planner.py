@@ -426,6 +426,27 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("original schedule", resumed["failure_reason"])
 
+    def test_checkpoint_rejects_forged_batch_metrics(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 3}]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        config = SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3)
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1, config=config,
+        )
+        checkpoint = partial["checkpoint"]
+        self.assertIsInstance(checkpoint, dict)
+        checkpoint["batch_reports"][0]["ticks_used"] += 1
+
+        resumed = simulate_batch_schedule(
+            records, batches, config=config, resume_from=checkpoint,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("deterministic prefix replay", resumed["failure_reason"])
+
     def test_checkpoint_rejects_seen_group_missing_from_simulator_state(self):
         records = [{"id": "A", "group_id": "A", "ammo": 3}]
         batches = [
