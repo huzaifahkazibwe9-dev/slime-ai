@@ -1,6 +1,34 @@
 """Simulation-only event-driven multi-batch conveyor scheduler."""
 from collections.abc import Mapping
+import hashlib
+import json
+
 from conveyor_simulator import create_simulator, SimulatorConfig
+from simulator_snapshot import snapshot_simulator, restore_simulator
+
+CHECKPOINT_SCHEMA_VERSION = 1
+
+
+def _schedule_fingerprint(records, batches, storage_occupied, config,
+                          allow_storage_reactivation):
+    payload = {
+        "records": records,
+        "batches": [dict(batch) for batch in batches],
+        "storage_occupied": storage_occupied,
+        "config": {
+            "conveyor_capacity": config.conveyor_capacity,
+            "storage_capacity": config.storage_capacity,
+            "ticks_per_lap": config.ticks_per_lap,
+        },
+        "allow_storage_reactivation": allow_storage_reactivation,
+    }
+    try:
+        encoded = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("checkpoint schedule must be JSON-compatible") from exc
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def simulate_batch_schedule(
@@ -9,6 +37,8 @@ def simulate_batch_schedule(
     storage_occupied=0,
     config=None,
     allow_storage_reactivation=False,
+    max_batches=None,
+    resume_from=None,
 ):
     if config is None:
         config = SimulatorConfig()
@@ -44,6 +74,16 @@ def simulate_batch_schedule(
 
     if type(allow_storage_reactivation) is not bool:
         return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
+    if max_batches is not None and (
+        type(max_batches) is not int or max_batches < 1
+    ):
+        return invalid_input("MAX_BATCHES_MUST_BE_A_POSITIVE_INTEGER")
+    if resume_from is not None and not isinstance(resume_from, dict):
+        return invalid_input("CHECKPOINT_MUST_BE_AN_OBJECT")
+    if (max_batches is not None or resume_from is not None) and not isinstance(
+        batches, (list, tuple)
+    ):
+        return invalid_input("CHECKPOINT_REQUIRES_A_FINITE_BATCH_SEQUENCE")
 
     if not isinstance(shooter_records, (list, tuple)):
         return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
@@ -75,9 +115,87 @@ def simulate_batch_schedule(
         records.append(record)
 
     try:
-        sim = create_simulator(records, storage_occupied, config)
-    except (TypeError, ValueError, KeyError) as exc:
-        return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
+        fingerprint = (
+            _schedule_fingerprint(
+                records, batches, storage_occupied, config,
+                allow_storage_reactivation,
+            )
+            if max_batches is not None or resume_from is not None
+            else None
+        )
+    except ValueError as exc:
+        return invalid_input(str(exc))
+
+    if resume_from is None:
+        try:
+            sim = create_simulator(records, storage_occupied, config)
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
+        seen = set()
+        reports = []
+        start_index = 0
+    else:
+        try:
+            if resume_from.get("schema_version") != CHECKPOINT_SCHEMA_VERSION:
+                raise ValueError("unsupported checkpoint schema version")
+            if resume_from.get("simulation_only") is not True:
+                raise ValueError("checkpoint must be simulation-only")
+            if resume_from.get("live_actions_performed") is not False:
+                raise ValueError("checkpoint cannot claim live actions")
+            if resume_from.get("live_taps_enabled") is not False:
+                raise ValueError("checkpoint cannot enable live taps")
+            if resume_from.get("schedule_sha256") != fingerprint:
+                raise ValueError("checkpoint does not match this schedule")
+            start_index = resume_from.get("next_batch_index")
+            if type(start_index) is not int or not 0 <= start_index <= len(batches):
+                raise ValueError("checkpoint batch index is invalid")
+            saved_seen = resume_from.get("seen_groups")
+            saved_reports = resume_from.get("batch_reports")
+            if (
+                not isinstance(saved_seen, list)
+                or any(not isinstance(g, str) or not g for g in saved_seen)
+                or len(saved_seen) != len(set(saved_seen))
+                or not isinstance(saved_reports, list)
+                or len(saved_reports) != start_index
+                or any(
+                    not isinstance(r, dict)
+                    or r.get("batch") != i
+                    or r.get("valid") is not True
+                    for i, r in enumerate(saved_reports)
+                )
+            ):
+                raise ValueError("checkpoint scheduler history is invalid")
+            expected_seen = set()
+            for report in saved_reports:
+                reactivated = report.get("reactivated_groups", [])
+                requested = report.get("groups", [])
+                if (
+                    not isinstance(reactivated, list)
+                    or not isinstance(requested, list)
+                    or any(not isinstance(g, str) for g in reactivated + requested)
+                ):
+                    raise ValueError("checkpoint group history is invalid")
+                expected_seen.difference_update(reactivated)
+                expected_seen.update(requested)
+            if set(saved_seen) != expected_seen:
+                raise ValueError("checkpoint seen-group state is inconsistent")
+            sim = restore_simulator(resume_from.get("simulator_snapshot"))
+            if sim.failed:
+                raise ValueError("failed simulations cannot be resumed")
+            if sim.config != config:
+                raise ValueError("checkpoint simulator config does not match")
+            if [s.shooter_id for s in sim.shooters] != [
+                r["id"] for r in records
+            ]:
+                raise ValueError("checkpoint shooter roster does not match")
+            if [s.group_id for s in sim.shooters] != [
+                r.get("group_id", r["id"]) for r in records
+            ]:
+                raise ValueError("checkpoint shooter groups do not match")
+            seen = set(saved_seen)
+            reports = [dict(r) for r in saved_reports]
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_CHECKPOINT: " + str(exc))
 
     groups = {}
     by_id = {s.shooter_id: s for s in sim.shooters}
@@ -101,8 +219,6 @@ def simulate_batch_schedule(
             })
             return result
 
-    seen = set()
-    reports = []
     valid = True
 
     def snapshot_transition():
@@ -155,8 +271,13 @@ def simulate_batch_schedule(
         })
         return result
 
-    index = 0
+    index = start_index
+    processed_this_call = 0
+    stopped_at_limit = False
     while True:
+        if max_batches is not None and processed_this_call >= max_batches:
+            stopped_at_limit = index < len(batches)
+            break
         try:
             batch = next(batch_iterator)
         except StopIteration:
@@ -414,11 +535,36 @@ def simulate_batch_schedule(
             break
 
         index += 1
+        processed_this_call += 1
+
+    checkpoint = None
+    if (
+        stopped_at_limit and valid and not sim.failed
+        and index < len(batches)
+    ):
+        checkpoint = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "live_actions_performed": False,
+            "schedule_sha256": fingerprint,
+            "next_batch_index": index,
+            "seen_groups": sorted(seen),
+            "batch_reports": [dict(report) for report in reports],
+            "simulator_snapshot": snapshot_simulator(sim),
+        }
 
     result = sim.report()
     result.update({
         "engine": "event_driven_multi_batch_scheduler_build11t",
         "schedule_valid": valid and not sim.failed,
+        "schedule_complete": (
+            valid and not sim.failed and index >= len(batches)
+            if isinstance(batches, (list, tuple))
+            else valid and not sim.failed
+        ),
+        "next_batch_index": index,
+        "checkpoint": checkpoint,
         "batches_completed": sum(
             r.get("valid", False) for r in reports
         ),
