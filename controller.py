@@ -37,6 +37,7 @@ class SlimeController:
             and evidence.get("evidence_gate_passed") is True
         )
         capture_evidence_valid = False
+        capture_report_matches = False
         observation = self.data_dir / "board_observation_latest.json"
         shooters = self.data_dir / "shooter_detection.json"
         if observation.is_file() and shooters.is_file():
@@ -45,10 +46,27 @@ class SlimeController:
                 capture_evidence_valid = (
                     validate_capture_pair(observation, shooters).get("valid") is True
                 )
+                if capture_evidence_valid:
+                    board = json.loads(observation.read_text(encoding="utf-8"))
+                    provenance = report.get("capture_provenance")
+                    capture_fields = (
+                        "source_sha256", "capture_session_id", "captured_at",
+                        "snapshot_id", "board_snapshot_id",
+                    )
+                    capture_report_matches = (
+                        isinstance(board, dict)
+                        and isinstance(provenance, dict)
+                        and all(
+                            isinstance(board.get(key), str)
+                            and provenance.get(key) == board.get(key)
+                            for key in capture_fields
+                        )
+                    )
             except Exception:
                 capture_evidence_valid = False
         verified_plan = (
             capture_evidence_valid
+            and capture_report_matches
             and evidence_gate_passed
             and report.get("decision")
             == "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
@@ -64,6 +82,7 @@ class SlimeController:
             "decision": report.get("decision", "NO_REPORT"),
             "evidence_gate_passed": evidence_gate_passed,
             "capture_evidence_valid": capture_evidence_valid,
+            "capture_report_matches_current_capture": capture_report_matches,
             "touch_injection": False,
             "gameplay_actions_performed": False,
         }
