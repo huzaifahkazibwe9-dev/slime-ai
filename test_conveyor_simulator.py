@@ -214,6 +214,15 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 {"id": "A2", "group_id": "PAIR", "ammo": 4},
             ])
 
+    def test_restore_rejects_returned_bonded_group_with_different_positions(self):
+        with self.assertRaisesRegex(ValueError, "storage group is not position-synchronized"):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 0,
+                 "returned": True, "position": 1, "completed_laps": 2},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0,
+                 "returned": True, "position": 2, "completed_laps": 2},
+            ], storage_occupied=2)
+
     def test_restore_rejects_partial_bonded_storage_group(self):
         with self.assertRaises(ValueError):
             create_simulator([
