@@ -66,10 +66,10 @@ These checks establish internal consistency of stored samples against source byt
 
 ## Known overlap and cleanup candidates
 
-- #9 and #10 were superseded by the combined multi-batch preflight in #11; close as superseded after confirming no unique changes remain.
-- #14 and #25 both address malformed geometry observation containers; compare their diffs and retain one authoritative implementation/test path.
-- #15 and #29 both address CI on PRs targeting feature branches. #37 is already merged into `main`; verify whether #15/#29 add anything beyond the merged workflow before closing them.
-- #52/#53/#54 are sibling PRs with related source-image verification changes; consolidate rather than merge as unrelated siblings.
+- #9 and #10 both modify `multi_batch_planner.py` and `test_multi_batch_planner.py`; #11 contains the combined iterable/batch-shape and shot-input preflight changes. The distinct changes visible in the PR patches are represented in #11, so #9 and #10 are strong supersession candidates. Confirm commit ancestry and full diffs before closing them.
+- #14 and #25 make the same four-line production change in `shooter_loader.py` to reject non-object geometry observations. Their tests differ: #25 additionally checks the `None` compatibility case. Retain one implementation and combine the stronger test coverage rather than merging both PRs independently.
+- #15 and #29 have identical one-line workflow diffs removing the `pull_request.branches: [main]` restriction. #37, already merged into `main`, implements that same workflow change. Both #15 and #29 are superseded by #37 unless a fresh diff reveals additional changes.
+- #52, #53 and #54 are sibling PRs. All three carry the same source-image verification implementation and shared test additions; #53 adds the test-matrix document, while #54 adds two compatibility tests. Consolidate the implementation once, then retain the unique documentation and compatibility tests in a single follow-up branch.
 - #1–#8 and #10 may contain changes already incorporated into later integrated PRs. Audit commit ancestry and file-level diffs before closing or merging; PR titles alone are not sufficient evidence of duplication.
 
 ## Release-candidate exit criteria
