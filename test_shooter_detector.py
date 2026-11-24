@@ -79,7 +79,9 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             {"minimum_contrast": float("nan")},
             {"minimum_contrast": -1},
             {"minimum_contrast": 442},
+            {"minimum_contrast": 10**1000},
             {"maximum_mad": float("inf")},
+            {"maximum_mad": 10**1000},
             {"maximum_mad": -1},
             {"maximum_mad": 256},
         ]
@@ -89,7 +91,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                     assess_color_sample(image, 20, 20, **options)
 
     def test_panel_aspect_tolerance_must_be_finite_and_bounded(self):
-        invalid = [0, -0.1, 1.1, float("nan"), float("inf"), True]
+        invalid = [0, -0.1, 1.1, float("nan"), float("inf"), 10**1000, True]
         for tolerance in invalid:
             with self.subTest(tolerance=tolerance):
                 with self.assertRaisesRegex(ValueError, "tolerance"):
@@ -218,7 +220,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(len(digest), 64)
 
     def test_panel_crop_rejects_invalid_pixel_difference_tolerances(self):
-        invalid = [float("nan"), float("inf"), -1, 256, True]
+        invalid = [float("nan"), float("inf"), -1, 256, 10**1000, True]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             Image.new("RGB", (100, 80), (10, 20, 30)).save(root / "source.png")
