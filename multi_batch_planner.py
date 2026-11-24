@@ -9,15 +9,8 @@ def simulate_batch_schedule(
     storage_occupied=0,
     config=None,
     allow_storage_reactivation=False,
+    checkpoint=None,
 ):
-    if config is None:
-        config = SimulatorConfig()
-        config_error = False
-    elif not isinstance(config, SimulatorConfig):
-        config_error = True
-    else:
-        config_error = False
-
     def invalid_input(reason):
         return {
             "simulation_only": True,
@@ -26,9 +19,7 @@ def simulate_batch_schedule(
             "schedule_valid": False,
             "failure_reason": reason,
             "batches_completed": 0,
-            "batch_reports": [{
-                "batch": None, "valid": False, "reason": reason,
-            }],
+            "batch_reports": [{"batch": None, "valid": False, "reason": reason}],
             "groups_scheduled": [],
             "conveyor_occupied": 0,
             "storage_occupied": storage_occupied
@@ -39,70 +30,94 @@ def simulate_batch_schedule(
             "timing_calibrated_to_game": False,
         }
 
-    if config_error:
-        return invalid_input("CONFIG_MUST_BE_SIMULATOR_CONFIG")
+    if checkpoint is not None:
+        from scheduler_checkpoint import restore_scheduler_checkpoint
+        try:
+            restored = restore_scheduler_checkpoint(checkpoint)
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_SCHEDULER_CHECKPOINT: " + str(exc))
+        sim = restored["simulator"]
+        if config is not None and config != sim.config:
+            return invalid_input("CHECKPOINT_CONFIG_MISMATCH")
+        allow_storage_reactivation = restored["allow_storage_reactivation"]
+        groups = {}
+        by_id = {s.shooter_id: s for s in sim.shooters}
+        for shooter in sim.shooters:
+            groups.setdefault(shooter.group_id, []).append(shooter.shooter_id)
+        seen = set(restored["groups_scheduled"])
+        reports = restored["completed_batch_reports"]
+        index = restored["next_batch_index"]
+    else:
+        if config is None:
+            config = SimulatorConfig()
+            config_error = False
+        elif not isinstance(config, SimulatorConfig):
+            config_error = True
+        else:
+            config_error = False
 
-    if type(allow_storage_reactivation) is not bool:
-        return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
+        if config_error:
+            return invalid_input("CONFIG_MUST_BE_SIMULATOR_CONFIG")
+        if type(allow_storage_reactivation) is not bool:
+            return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
+        if not isinstance(shooter_records, (list, tuple)):
+            return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
 
-    if not isinstance(shooter_records, (list, tuple)):
-        return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
-    records = []
-    seen_ids = set()
-    for index, item in enumerate(shooter_records):
-        if not isinstance(item, Mapping):
-            return invalid_input("SHOOTER_RECORD_MUST_BE_A_MAPPING")
-        record = dict(item)
-        shooter_id = record.get("id")
-        group_id = record.get("group_id", shooter_id)
-        ammo = record.get("ammo")
-        if not isinstance(shooter_id, str) or not shooter_id.strip():
-            return invalid_input("SHOOTER_ID_MUST_BE_A_NONEMPTY_STRING")
-        if shooter_id in seen_ids:
-            return invalid_input("DUPLICATE_SHOOTER_ID")
-        seen_ids.add(shooter_id)
-        if not isinstance(group_id, str) or not group_id.strip():
-            return invalid_input("GROUP_ID_MUST_BE_A_NONEMPTY_STRING")
-        if type(ammo) is not int or ammo < 0:
-            return invalid_input("SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER")
-        for field in ("position", "completed_laps"):
-            value = record.get(field, 0)
-            if type(value) is not int or value < 0:
-                return invalid_input("SHOOTER_POSITION_STATE_MUST_BE_NONNEGATIVE_INTEGER")
-        for field in ("selected", "returned"):
-            if type(record.get(field, False)) is not bool:
-                return invalid_input("SHOOTER_STATE_FLAGS_MUST_BE_BOOLEAN")
-        records.append(record)
+        records = []
+        seen_ids = set()
+        for item in shooter_records:
+            if not isinstance(item, Mapping):
+                return invalid_input("SHOOTER_RECORD_MUST_BE_A_MAPPING")
+            record = dict(item)
+            shooter_id = record.get("id")
+            group_id = record.get("group_id", shooter_id)
+            ammo = record.get("ammo")
+            if not isinstance(shooter_id, str) or not shooter_id.strip():
+                return invalid_input("SHOOTER_ID_MUST_BE_A_NONEMPTY_STRING")
+            if shooter_id in seen_ids:
+                return invalid_input("DUPLICATE_SHOOTER_ID")
+            seen_ids.add(shooter_id)
+            if not isinstance(group_id, str) or not group_id.strip():
+                return invalid_input("GROUP_ID_MUST_BE_A_NONEMPTY_STRING")
+            if type(ammo) is not int or ammo < 0:
+                return invalid_input("SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER")
+            for field in ("position", "completed_laps"):
+                value = record.get(field, 0)
+                if type(value) is not int or value < 0:
+                    return invalid_input("SHOOTER_POSITION_STATE_MUST_BE_NONNEGATIVE_INTEGER")
+            for field in ("selected", "returned"):
+                if type(record.get(field, False)) is not bool:
+                    return invalid_input("SHOOTER_STATE_FLAGS_MUST_BE_BOOLEAN")
+            records.append(record)
 
-    try:
-        sim = create_simulator(records, storage_occupied, config)
-    except (TypeError, ValueError, KeyError) as exc:
-        return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
+        try:
+            sim = create_simulator(records, storage_occupied, config)
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
 
-    groups = {}
-    by_id = {s.shooter_id: s for s in sim.shooters}
-    for item in records:
-        groups.setdefault(
-            str(item.get("group_id", item["id"])), []
-        ).append(str(item["id"]))
+        groups = {}
+        by_id = {s.shooter_id: s for s in sim.shooters}
+        for item in records:
+            groups.setdefault(item.get("group_id", item["id"]), []).append(item["id"])
 
-    for group_id, members in groups.items():
-        flags = [by_id[mid].selected for mid in members]
-        if any(flags) and not all(flags):
-            result = sim.report()
-            result.update({
-                "schedule_valid": False,
-                "failure_reason": "PARTIALLY_RESTORED_BONDED_GROUP",
-                "failed_group_id": group_id,
-                "batches_completed": 0,
-                "batch_reports": [],
-                "live_execution_allowed": False,
-                "gameplay_actions_performed": False,
-            })
-            return result
+        for group_id, members in groups.items():
+            flags = [by_id[mid].selected for mid in members]
+            if any(flags) and not all(flags):
+                result = sim.report()
+                result.update({
+                    "schedule_valid": False,
+                    "failure_reason": "PARTIALLY_RESTORED_BONDED_GROUP",
+                    "failed_group_id": group_id,
+                    "batches_completed": 0,
+                    "batch_reports": [],
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                })
+                return result
+        seen = set()
+        reports = []
+        index = 0
 
-    seen = set()
-    reports = []
     valid = True
 
     def snapshot_transition():
@@ -416,6 +431,18 @@ def simulate_batch_schedule(
         index += 1
 
     result = sim.report()
+    scheduler_checkpoint = None
+    if not sim.failed:
+        from scheduler_checkpoint import create_scheduler_checkpoint
+        successful_reports = [r for r in reports if r.get("valid") is True]
+        if len(successful_reports) == index:
+            try:
+                scheduler_checkpoint = create_scheduler_checkpoint(
+                    sim, index, successful_reports, sorted(seen),
+                    allow_storage_reactivation=allow_storage_reactivation,
+                )
+            except (TypeError, ValueError):
+                scheduler_checkpoint = None
     result.update({
         "engine": "event_driven_multi_batch_scheduler_build11t",
         "schedule_valid": valid and not sim.failed,
@@ -424,6 +451,7 @@ def simulate_batch_schedule(
         ),
         "batch_reports": reports,
         "groups_scheduled": sorted(seen),
+        "scheduler_checkpoint": scheduler_checkpoint,
         "storage_reactivation_enabled": allow_storage_reactivation,
         "live_execution_allowed": False,
         "gameplay_actions_performed": False,
