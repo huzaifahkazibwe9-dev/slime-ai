@@ -189,6 +189,24 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 config=SimulatorConfig(ticks_per_lap=5),
             )
 
+    def test_restore_rejects_bonded_group_with_different_positions(self):
+        with self.assertRaisesRegex(ValueError, "position-synchronized"):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 1, "completed_laps": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 2, "completed_laps": 0},
+            ])
+
+    def test_restore_rejects_bonded_group_with_different_lap_counts(self):
+        with self.assertRaisesRegex(ValueError, "position-synchronized"):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 1, "completed_laps": 2},
+                {"id": "A2", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 1, "completed_laps": 3},
+            ])
+
     def test_restore_rejects_partial_bonded_conveyor_group(self):
         with self.assertRaises(ValueError):
             create_simulator([
