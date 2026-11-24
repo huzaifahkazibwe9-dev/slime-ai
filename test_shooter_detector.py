@@ -244,6 +244,18 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertIsNone(result)
 
+    def test_ammunition_ocr_rejects_excessively_long_numeric_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(
+                    stdout="9" * 5000, returncode=0
+                )
+                result = read_ammunition(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result)
+
     def test_ammunition_ocr_rejects_failed_tesseract_even_with_digits(self):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
