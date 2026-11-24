@@ -4,6 +4,7 @@ Snapshots preserve simulator state and event ordering. They do not represent
 observations from the live game and never enable gameplay actions.
 """
 import copy
+import json
 
 from conveyor_simulator import (
     ConveyorSimulator, SimulatorConfig, create_simulator,
@@ -12,11 +13,22 @@ from conveyor_simulator import (
 SNAPSHOT_SCHEMA_VERSION = 1
 
 
+def _require_json_compatible(value):
+    """Reject values that JSON cannot preserve without changing their shape."""
+    try:
+        encoded = json.dumps(value, allow_nan=False)
+        decoded = json.loads(encoded)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("snapshot contains non-JSON-compatible data") from exc
+    if decoded != value:
+        raise ValueError("snapshot data would change during JSON serialization")
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
         raise ValueError("sim must be a ConveyorSimulator")
-    return {
+    snapshot = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "simulation_only": True,
         "config": {
@@ -45,12 +57,15 @@ def snapshot_simulator(sim):
         "live_taps_enabled": False,
         "live_actions_performed": False,
     }
+    _require_json_compatible(snapshot)
+    return snapshot
 
 
 def restore_simulator(snapshot):
     """Restore a snapshot, rejecting malformed or internally inconsistent data."""
     if not isinstance(snapshot, dict):
         raise ValueError("snapshot must be an object")
+    _require_json_compatible(snapshot)
     if snapshot.get("schema_version") != SNAPSHOT_SCHEMA_VERSION:
         raise ValueError("unsupported snapshot schema version")
     if snapshot.get("simulation_only") is not True:
