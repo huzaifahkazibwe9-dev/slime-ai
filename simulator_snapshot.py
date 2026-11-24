@@ -151,6 +151,19 @@ def restore_simulator(snapshot):
         group_members_by_id.setdefault(shooter.group_id, set()).add(
             shooter.shooter_id
         )
+    occupancy_events = [
+        event for event in events if "storage_occupied" in event
+    ]
+    for event in occupancy_events:
+        occupancy = event["storage_occupied"]
+        if (type(occupancy) is not int
+                or not 0 <= occupancy <= config.storage_capacity):
+            raise ValueError("event has invalid storage occupancy")
+    if (occupancy_events
+            and occupancy_events[-1]["storage_occupied"]
+                != sim.storage_occupied):
+        raise ValueError("latest storage event disagrees with restored occupancy")
+
     latest_return_index = {}
     latest_reactivation_index = {}
     for event_index, event in enumerate(events):
