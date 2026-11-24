@@ -252,7 +252,12 @@ class MultiBatchTests(unittest.TestCase):
 
     def test_malformed_initial_state_is_reported_without_exception(self):
         result = simulate_batch_schedule(
-            [{"id": "A", "ammo": 1, "selected": True}],
+            [
+                {"id": "A1", "group_id": "PAIR", "ammo": 1,
+                 "selected": True},
+                {"id": "A2", "group_id": "PAIR", "ammo": 1,
+                 "selected": False},
+            ],
             [],
             storage_occupied=0,
         )
