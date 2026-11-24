@@ -16,6 +16,11 @@ from PIL import Image
 BASELINE = Path("data/vision_level39.json")
 OUTPUT = Path("data/board_observation_latest.json")
 
+COLOUR_LABELS = (
+    "dark", "white", "gray", "red", "orange", "yellow",
+    "green", "cyan", "blue", "purple", "pink",
+)
+
 
 def classify_rgb(rgb):
     r, g, b = [v / 255 for v in rgb]
