@@ -360,7 +360,8 @@ def simulate_batch_schedule(
 
         reports.append({
             "batch": index,
-            "valid": True,
+            "valid": not sim.failed,
+            "reason": sim.failure_reason if sim.failed else None,
             "groups": requested,
             "reactivated_groups": reactivate,
             "ticks_used": ticks,
