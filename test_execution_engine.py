@@ -116,7 +116,7 @@ class ExecutionEngineTests(unittest.TestCase):
             "UNSYNCHRONIZED_BONDED_GROUP_ON_CONVEYOR",
         )
         self.assertEqual(report["group_id"], "pair")
-        self.assertEqual(report["abstract_positions"], [1, 2])
+        self.assertEqual(report["abstract_positions"], [0, 2])
 
     def test_unknown_ammo_on_existing_conveyor_is_rejected(self):
         hidden = Shooter(
