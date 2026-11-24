@@ -11,18 +11,21 @@ CHECKPOINT_SCHEMA_VERSION = 1
 
 def _schedule_fingerprint(records, batches, storage_occupied, config,
                           allow_storage_reactivation):
-    payload = {
-        "records": records,
-        "batches": [dict(batch) for batch in batches],
-        "storage_occupied": storage_occupied,
-        "config": {
-            "conveyor_capacity": config.conveyor_capacity,
-            "storage_capacity": config.storage_capacity,
-            "ticks_per_lap": config.ticks_per_lap,
-        },
-        "allow_storage_reactivation": allow_storage_reactivation,
-    }
     try:
+        payload = {
+            "records": records,
+            "batches": [
+                dict(batch) if isinstance(batch, Mapping) else batch
+                for batch in batches
+            ],
+            "storage_occupied": storage_occupied,
+            "config": {
+                "conveyor_capacity": config.conveyor_capacity,
+                "storage_capacity": config.storage_capacity,
+                "ticks_per_lap": config.ticks_per_lap,
+            },
+            "allow_storage_reactivation": allow_storage_reactivation,
+        }
         encoded = json.dumps(
             payload, sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
