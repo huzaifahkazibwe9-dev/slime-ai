@@ -73,9 +73,9 @@ def restore_simulator(snapshot):
         raise ValueError("shooters must be a non-empty list")
     if any(not isinstance(item, dict) for item in shooters):
         raise ValueError("each shooter record must be an object")
-    if any(item.get("selected") is True and item.get("returned") is True
-           for item in shooters):
-        raise ValueError("a shooter cannot be both selected and returned")
+    # The simulator retains selected=True as historical state after return.
+    # Active conveyor membership is selected and not returned, so both flags
+    # may legitimately be true in a completed shooter record.
     try:
         sim = create_simulator(
             shooters,
