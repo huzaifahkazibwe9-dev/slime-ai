@@ -54,6 +54,7 @@ def validate_dataset(data):
         raise ValueError("samples must be a non-empty list")
 
     seen_ids = set()
+    seen_coordinates = set()
     validated = []
     for index, sample in enumerate(samples):
         if not isinstance(sample, dict):
@@ -79,6 +80,12 @@ def validate_dataset(data):
                 raise ValueError(
                     f"Sample {sample_id} row/column must be valid zero-based grid coordinates"
                 )
+            coordinate = (row, column)
+            if coordinate in seen_coordinates:
+                raise ValueError(
+                    f"Duplicate board coordinate for sample {sample_id}: row={row}, column={column}"
+                )
+            seen_coordinates.add(coordinate)
         label = sample.get("label")
         if not isinstance(label, str) or not label.strip():
             raise ValueError(f"Sample {sample_id} label must be a non-empty string")
