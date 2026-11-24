@@ -152,7 +152,7 @@ def read_ammunition(image, box, temp):
     if result.returncode != 0 or not isinstance(result.stdout, str):
         return None
 
-    match = re.fullmatch(r"\\s*(\\d+)\\s*", result.stdout)
+    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
     if match is None:
         return None
     try:
