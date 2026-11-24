@@ -107,6 +107,10 @@ def validate_capture_pair(
         pixel_audit.get("source_sha256") == source_hash
         and pixel_audit.get("image_size") == board.get("image_size")
         and pixel_audit.get("grid_size") == board.get("grid_size")
+        and pixel_audit.get("capture_session_id") == board_session
+        and pixel_audit.get("captured_at") == board.get("captured_at")
+        and pixel_audit.get("snapshot_id") == board.get("snapshot_id")
+        and pixel_audit.get("board_snapshot_id") == board.get("board_snapshot_id")
         and pixel_audit.get("pixel_samples_reproduced") is True
         and pixel_audit.get("extraction_fingerprint_match") is True
         and pixel_audit.get("label_mismatch_count") == 0
