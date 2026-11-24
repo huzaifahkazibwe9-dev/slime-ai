@@ -1,7 +1,9 @@
 import copy
 import unittest
 
-from execution_engine import (\n    run_dry_simulation, _simulate_conveyor_batch, run_multi_batch_schedule\n)
+from execution_engine import (
+    run_dry_simulation, _simulate_conveyor_batch, run_multi_batch_schedule
+)
 from game_state import GameState, Shooter
 
 
