@@ -236,6 +236,28 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "return history is incomplete"):
             restore_simulator(snapshot)
 
+    def test_rejects_partial_historical_return_before_reactivation(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0},
+            ],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if not (
+                event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+                and event.get("shooter_id") == "a2"
+            )
+        ]
+        with self.assertRaisesRegex(ValueError, "return history is incomplete"):
+            restore_simulator(snapshot)
+
     def test_rejects_bonded_group_return_events_on_different_ticks(self):
         snapshot = self._completed_bonded_snapshot()
         return_events = [
