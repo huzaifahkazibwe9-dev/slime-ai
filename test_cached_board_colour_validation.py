@@ -65,6 +65,18 @@ class CachedBoardColourValidationTests(unittest.TestCase):
         self.cached["raw_rgb"] = [[[230, 30, 30]]]
         self.assertTrue(self.is_valid())
 
+    def test_rejects_boolean_cached_grid_dimension(self):
+        self.cached["grid_size"] = [True, 1]
+        self.assertFalse(self.is_valid())
+
+    def test_rejects_boolean_cached_geometry_coordinate(self):
+        self.cached["bounds"] = [True, 1, 99, 99]
+        self.assertFalse(self.is_valid())
+
+    def test_rejects_malformed_cached_image_dimensions(self):
+        self.cached["image_size"] = [100]
+        self.assertFalse(self.is_valid())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
