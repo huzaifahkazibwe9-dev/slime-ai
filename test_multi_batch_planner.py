@@ -349,6 +349,19 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("does not match", resumed["failure_reason"])
 
+    def test_checkpoint_mode_preserves_malformed_batch_rejection(self):
+        result = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 1}],
+            [None],
+            max_batches=1,
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["batch_reports"][-1]["reason"],
+            "BATCH_MUST_BE_A_MAPPING",
+        )
+        self.assertIsNone(result["checkpoint"])
+
     def test_checkpoint_requires_finite_batch_sequence(self):
         result = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 1}],
