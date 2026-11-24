@@ -298,32 +298,40 @@ class GameState:
                         f"Asymmetric bond: {shooter_id} and {member}"
                     )
 
-        # A bonded component is one atomic selectable unit. Validate the
-        # whole connected component, not just each shooter's direct links.
+        # Validate complete connected components independently of
+        # bonded_group(), which intentionally refuses components over 3.
         checked_groups = set()
         for shooter_id in self.shooters:
             if shooter_id in checked_groups:
                 continue
-            group = self.bonded_group(shooter_id)
-            if not group:
-                # Missing references and oversized components are already
-                # reported by the per-edge checks below / above.
-                continue
-            checked_groups.update(group)
-            if len(group) > 3:
+            pending = [shooter_id]
+            component = set()
+            while pending:
+                current = pending.pop()
+                if current in component or current not in self.shooters:
+                    continue
+                component.add(current)
+                for member in getattr(
+                    self.shooters[current], "bonded_ids", ()
+                ):
+                    if member in self.shooters and member not in component:
+                        pending.append(member)
+            checked_groups.update(component)
+            ordered_component = sorted(component)
+            if len(component) > 3:
                 errors.append(
                     "Bonded group exceeds maximum size of 3: "
-                    + ", ".join(group)
+                    + ", ".join(ordered_component)
                 )
             explicit_ids = {
                 str(self.shooters[member].group_id)
-                for member in group
+                for member in component
                 if self.shooters[member].group_id is not None
             }
             if len(explicit_ids) > 1:
                 errors.append(
                     "Inconsistent group_id values in bonded component: "
-                    + ", ".join(group)
+                    + ", ".join(ordered_component)
                 )
 
         occupied = self.conveyor + self.storage
