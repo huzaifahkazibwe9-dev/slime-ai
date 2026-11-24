@@ -418,7 +418,25 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
     if state.validate():
         raise ValueError("GameState validation failed")
 
-    config = config or SimulatorConfig()
+    if config is None:
+        config = SimulatorConfig()
+    elif not isinstance(config, SimulatorConfig):
+        return {
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": len(state.conveyor),
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+        }
 
     conveyor_ids = set(state.conveyor)
     storage = getattr(state, "storage", [])
