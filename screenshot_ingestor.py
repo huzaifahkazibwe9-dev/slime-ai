@@ -325,7 +325,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         extracted = {
             key: cached[key]
             for key in (
-                "image_size", "grid_size", "bounds", "board", "raw_rgb",
+                "image_size", "grid_size", "bounds", "sample_centres", "board", "raw_rgb",
                 "counts", "sampling_method"
             )
         }
