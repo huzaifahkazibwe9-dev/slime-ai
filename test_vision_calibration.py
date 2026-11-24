@@ -115,6 +115,19 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "row/column"):
             validate_dataset(malformed_grid)
 
+    def test_rejects_grid_axis_above_dimension_limit(self):
+        malformed = {
+            **self.dataset,
+            "image_size": [100, 100],
+            "grid_size": [10001, 1],
+            "samples": [
+                {"id": "cell-1", "row": 0, "column": 0,
+                 "rgb": [104, 195, 233], "label": "cyan"},
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "dimensions must not exceed 10,000"):
+            validate_dataset(malformed)
+
     def test_rejects_unreasonably_large_grid_dimensions(self):
         malformed = {
             **self.dataset,
@@ -176,6 +189,8 @@ class VisionCalibrationTests(unittest.TestCase):
         self.assertEqual(coverage["board_cell_coverage"]["sample_coverage_fraction"], 0.125)
         self.assertEqual(coverage["board_cell_coverage"]["rows_without_samples"], [1, 2])
         self.assertEqual(coverage["board_cell_coverage"]["columns_without_samples"], [1, 2])
+        self.assertEqual(coverage["board_cell_coverage"]["row_sample_counts"], {"0": 1, "3": 1})
+        self.assertEqual(coverage["board_cell_coverage"]["column_sample_counts"], {"0": 1, "3": 1})
 
     def test_reports_class_counts_without_claiming_spatial_coverage(self):
         coverage = evaluate_dataset(self.dataset)["coverage"]
