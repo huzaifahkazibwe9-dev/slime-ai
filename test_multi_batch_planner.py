@@ -352,5 +352,34 @@ class MultiBatchTests(unittest.TestCase):
         self.assertEqual(result["active_shooters"], [])
 
 
+    def test_storage_full_mid_tick_marks_batch_failed_and_preserves_partial_events(self):
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 0},
+            {"id": "B", "group_id": "B", "ammo": 0},
+        ]
+        result = simulate_batch_schedule(
+            records,
+            [{"groups": ["A", "B"], "shots": {"A": 0, "B": 0}}],
+            storage_occupied=4,
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+        )
+
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(result["batches_completed"], 0)
+        self.assertFalse(result["batch_reports"][0]["valid"])
+        self.assertTrue(result["batch_reports"][0]["failed"])
+        self.assertIn("STORAGE_IS_FULL", result["batch_reports"][0]["reason"])
+        self.assertEqual(result["storage_occupied"], 5)
+        self.assertEqual(result["returned_shooters"], ["A"])
+        self.assertEqual(
+            [s["id"] for s in result["active_shooters"]], ["B"]
+        )
+        event_names = [event["event"] for event in result["events"]]
+        self.assertIn("SHOOTER_RETURNED_TO_STORAGE", event_names)
+        self.assertIn("LEVEL_FAILURE", event_names)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
