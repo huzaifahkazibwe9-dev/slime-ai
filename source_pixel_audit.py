@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Independently reproduce board RGB samples from the original screenshot.
-
-This audit uses Pillow pixel reads and statistics.median rather than the
-NumPy vectorized extractor. It verifies file/payload consistency, not
-calibration alignment, human label truth, or gameplay correctness.
-"""
+"""Independently reproduce board RGB samples from the original screenshot."""
 import argparse
 import hashlib
 import io
@@ -20,6 +15,10 @@ from PIL import Image
 from screenshot_ingestor import COLOUR_LABELS, classify_rgb, sample_centres_for_grid
 
 SAMPLING_METHOD = "numpy_vectorized_3x3_median"
+EXTRACTION_FINGERPRINT_FIELDS = (
+    "image_size", "grid_size", "bounds", "sample_centres", "board",
+    "raw_rgb", "counts", "sampling_method",
+)
 
 
 def _positive_int_pair(value, name):
@@ -41,11 +40,27 @@ def _median_rgb(image, x, y):
     ]
 
 
+def _extraction_fingerprint_matches(observation):
+    """Check the ingestion payload digest using the repository's canonical encoding."""
+    digest = observation.get("extraction_sha256")
+    if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        return False
+    if any(field not in observation for field in EXTRACTION_FINGERPRINT_FIELDS):
+        return False
+    payload = {field: observation[field] for field in EXTRACTION_FINGERPRINT_FIELDS}
+    try:
+        encoded = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return False
+    return hashlib.sha256(encoded).hexdigest() == digest
+
+
 def audit_source_pixels(observation, source_image_bytes):
-    """Compare every stored RGB sample with an independent source-pixel median."""
+    """Compare stored RGB samples with independent source-pixel medians."""
     if not isinstance(observation, dict):
         raise ValueError("Observation must be a JSON object")
-
     expected_hash = observation.get("source_sha256")
     if (not isinstance(expected_hash, str)
             or re.fullmatch(r"[0-9a-f]{64}", expected_hash) is None):
@@ -65,7 +80,6 @@ def audit_source_pixels(observation, source_image_bytes):
         image_size = _positive_int_pair(observation.get("image_size"), "image_size")
         if list(image.size) != image_size:
             raise ValueError("Source screenshot dimensions do not match observation")
-
         grid_size = _positive_int_pair(observation.get("grid_size"), "grid_size")
         columns, rows = grid_size
         if columns > 10_000 or rows > 10_000 or columns * rows > 1_000_000:
@@ -80,7 +94,6 @@ def audit_source_pixels(observation, source_image_bytes):
         if (left < 1 or top < 1 or right <= left or bottom <= top
                 or right > image.width - 1 or bottom > image.height - 1):
             raise ValueError("bounds are outside screenshot sampling limits")
-
         if observation.get("sampling_method") != SAMPLING_METHOD:
             raise ValueError("Unsupported or missing sampling_method")
 
@@ -115,7 +128,6 @@ def audit_source_pixels(observation, source_image_bytes):
                     raise ValueError(f"Malformed RGB sample at ({column},{row})")
                 if not isinstance(label, str) or label not in COLOUR_LABELS:
                     raise ValueError(f"Invalid board label at ({column},{row})")
-
                 expected = _median_rgb(image, xs[column], ys[row])
                 if stored == expected:
                     reproduced += 1
@@ -156,6 +168,7 @@ def audit_source_pixels(observation, source_image_bytes):
             "label_mismatch_count": len(label_mismatches),
             "label_mismatches": label_mismatches,
             "colour_counts_match": counts_match,
+            "extraction_fingerprint_match": _extraction_fingerprint_matches(observation),
             "source_image_hash_checked": True,
             "source_image_dimensions_checked": True,
             "label_truth_independently_verified": False,
@@ -164,10 +177,10 @@ def audit_source_pixels(observation, source_image_bytes):
             "game_taps_enabled": False,
             "interpretation": (
                 "This audit independently reproduces stored RGB medians from the "
-                "supplied screenshot and checks internal labels/counts. It does not "
-                "prove that calibration bounds align with game tiles, that the "
-                "screenshot depicts the intended game state, or that labels match "
-                "gameplay truth."
+                "supplied screenshot and checks internal labels/counts. The optional "
+                "extraction fingerprint detects accidental payload edits when the "
+                "digest is not also recomputed. Neither check proves calibration "
+                "alignment, game colour truth, or gameplay correctness."
             ),
         }
 
@@ -180,7 +193,6 @@ def main():
     parser.add_argument("--source-image", required=True, help="Original screenshot")
     parser.add_argument("--output", default="data/source_pixel_audit.json")
     args = parser.parse_args()
-
     observation = json.loads(Path(args.observation).read_text(encoding="utf-8"))
     report = audit_source_pixels(observation, Path(args.source_image).read_bytes())
     output = Path(args.output)
@@ -195,6 +207,7 @@ def main():
     print("Pixel samples reproduced:", report["pixel_samples_reproduced"])
     print("Label mismatches:", report["label_mismatch_count"])
     print("Colour counts match:", report["colour_counts_match"])
+    print("Extraction fingerprint matches:", report["extraction_fingerprint_match"])
     print("Calibration alignment verified: False")
     print("Gameplay verified: False")
     print("Game taps enabled: False")
