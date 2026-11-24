@@ -128,6 +128,23 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "positive integers"):
                 load_panel_slots(path)
 
+    def test_rejects_non_object_geometry_observations(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        for observations in ([], "invalid", 7):
+            with self.subTest(observations=observations):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "shooters.json"
+                    path.write_text(json.dumps(payload))
+                    with self.assertRaisesRegex(
+                        ValueError, "geometry_observations must be an object"
+                    ):
+                        load_shooters(path, geometry_observations=observations)
+
     def test_rejects_non_object_root(self):
         for payload in ([], None, "invalid"):
             with self.subTest(payload=payload):
