@@ -93,6 +93,28 @@ def simulate_batch_schedule(
     reports = []
     valid = True
 
+    def snapshot_transition():
+        return {
+            "shooters": [
+                (s.ammo, s.position, s.completed_laps, s.selected, s.returned)
+                for s in sim.shooters
+            ],
+            "storage_occupied": sim.storage_occupied,
+            "returned_ids": list(sim.returned_ids),
+            "events_length": len(sim.events),
+            "seen": set(seen),
+        }
+
+    def rollback_transition(snapshot):
+        for shooter, values in zip(sim.shooters, snapshot["shooters"]):
+            (shooter.ammo, shooter.position, shooter.completed_laps,
+             shooter.selected, shooter.returned) = values
+        sim.storage_occupied = snapshot["storage_occupied"]
+        sim.returned_ids[:] = snapshot["returned_ids"]
+        del sim.events[snapshot["events_length"]:]
+        seen.clear()
+        seen.update(snapshot["seen"])
+
     try:
         batch_iterator = iter(batches)
     except TypeError:
@@ -269,8 +291,10 @@ def simulate_batch_schedule(
             )
             break
 
+        transition_snapshot = snapshot_transition()
         for group_id in reactivate:
             if not sim.reactivate_group(group_id):
+                rollback_transition(transition_snapshot)
                 reject(
                     "SIMULATOR_REJECTED_STORAGE_REACTIVATION",
                     group_id=group_id,
@@ -282,6 +306,7 @@ def simulate_batch_schedule(
 
         needed = sum(len(groups[g]) for g in requested)
         if needed > sim.conveyor_free:
+            rollback_transition(transition_snapshot)
             reject(
                 "INSUFFICIENT_CONVEYOR_SPACE",
                 required_slots=needed,
@@ -289,8 +314,14 @@ def simulate_batch_schedule(
             )
             break
 
-        # Validate all groups before selecting any.
-        if not all(sim.select_group(g) for g in requested):
+        # Treat the entire multi-group selection as one transaction.
+        selection_ok = True
+        for group_id in requested:
+            if not sim.select_group(group_id):
+                selection_ok = False
+                break
+        if not selection_ok:
+            rollback_transition(transition_snapshot)
             reject("SIMULATOR_REJECTED_GROUP_SELECTION")
             break
 
@@ -311,6 +342,7 @@ def simulate_batch_schedule(
                 break
 
         if shot_error:
+            rollback_transition(transition_snapshot)
             reject("INVALID_OR_EXCESSIVE_SHOT_COUNT")
             break
 
