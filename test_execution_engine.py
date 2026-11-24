@@ -1,7 +1,9 @@
 import copy
 import unittest
 
-from execution_engine import run_dry_simulation, _simulate_conveyor_batch
+from execution_engine import (
+    run_dry_simulation, _simulate_conveyor_batch, run_multi_batch_schedule
+)
 from game_state import GameState, Shooter
 
 
@@ -103,6 +105,65 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(
             report["failure_reason"], "UNKNOWN_AMMO_ON_EXISTING_CONVEYOR"
         )
+
+    def test_candidate_conveyor_simulation_rejects_unknown_ammo(self):
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0, revealed=False
+        )
+        original = self.make_state([[None]], [hidden])
+        simulated = copy.deepcopy(original)
+
+        report = _simulate_conveyor_batch(
+            original, simulated, [("H",)]
+        )
+
+        self.assertFalse(report["batch_selection_valid"])
+        self.assertEqual(
+            report["failure_reason"],
+            "UNKNOWN_OR_INVALID_AMMO_ON_CANDIDATE_SHOOTER",
+        )
+        self.assertEqual(report["shooter_id"], "H")
+        self.assertEqual(original.shooters["H"].ammo, None)
+        self.assertEqual(simulated.shooters["H"].ammo, None)
+
+    def test_multi_batch_adapter_rejects_invalid_config_without_exception(self):
+        state = self.make_state([["red"]], [
+            Shooter("R", "red", 2, "right", -1, 0, accessible=True)
+        ])
+        before = copy.deepcopy(state)
+
+        report = run_multi_batch_schedule(state, [], config=False)
+
+        self.assertFalse(report["schedule_valid"])
+        self.assertEqual(
+            report["failure_reason"],
+            "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+        )
+        self.assertTrue(report["source_state_unchanged"])
+        self.assertEqual(state.board, before.board)
+        self.assertEqual(state.shooters["R"].ammo, before.shooters["R"].ammo)
+        self.assertFalse(report["gameplay_actions_performed"])
+
+    def test_multi_batch_adapter_rejects_unknown_ammo_instead_of_assuming_zero(self):
+        visible = Shooter("V", "red", 2, "right", -1, 0, accessible=True)
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0, revealed=False
+        )
+        cases = [
+            ([hidden], [{"groups": ["H"], "shots": {"H": 0}}]),
+            ([visible, hidden], [{"groups": ["V"], "shots": {"V": 1}}]),
+        ]
+        for shooters, batches in cases:
+            with self.subTest(shooters=[item.id for item in shooters]):
+                state = self.make_state([[None]], shooters)
+                report = run_multi_batch_schedule(state, batches)
+                self.assertFalse(report["schedule_valid"])
+                self.assertIn(
+                    "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER",
+                    report["failure_reason"],
+                )
+                self.assertTrue(report["source_state_unchanged"])
+                self.assertFalse(report["gameplay_actions_performed"])
 
     def test_three_bond_group_rejected_with_one_slot(self):
         shooters = [

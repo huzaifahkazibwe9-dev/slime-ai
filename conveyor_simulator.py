@@ -102,11 +102,21 @@ class ConveyorSimulator:
                         if shooter.group_id == group_id)
             if len(members) != total:
                 raise ValueError("Restored conveyor contains a partial bonded group")
+            positions = {shooter.position for shooter in members}
+            if len(positions) != 1:
+                raise ValueError(
+                    "Restored bonded conveyor group is not position-synchronized"
+                )
         for group_id, members in returned_by_group.items():
             total = sum(1 for shooter in self.shooters
                         if shooter.group_id == group_id)
             if len(members) != total:
                 raise ValueError("Restored storage contains a partial bonded group")
+            positions = {shooter.position for shooter in members}
+            if len(positions) != 1:
+                raise ValueError(
+                    "Restored bonded storage group is not position-synchronized"
+                )
         if active_count > self.config.conveyor_capacity:
             raise ValueError("Restored conveyor exceeds configured capacity")
         if len(returned_by_group) and sum(len(v) for v in returned_by_group.values()) > self.storage_occupied:
@@ -139,7 +149,7 @@ class ConveyorSimulator:
 
     def select_group(self, group_id):
         """Select every member of a bonded group atomically."""
-        if self.failed:
+        if (not isinstance(group_id, str) or not group_id or self.failed):
             return False
 
         members = [
@@ -168,7 +178,8 @@ class ConveyorSimulator:
 
     def record_shots(self, shooter_id, shots):
         """Record externally observed/simulated shots; never fires a tap."""
-        if (not isinstance(shots, int) or isinstance(shots, bool)
+        if (not isinstance(shooter_id, str) or not shooter_id
+                or not isinstance(shots, int) or isinstance(shots, bool)
                 or shots < 0 or self.failed):
             return False
         shooter = self._by_id.get(shooter_id)
@@ -187,7 +198,11 @@ class ConveyorSimulator:
         return True
 
     def tick(self, count=1):
-        """Advance the abstract conveyor by a number of rotation steps."""
+        """Advance the abstract conveyor by a number of rotation steps.
+
+        Bonded groups are indivisible in this model: members reach the return
+        point together and enter storage only when every member has completed.
+        """
         if not isinstance(count, int) or isinstance(count, bool) or count < 0:
             raise ValueError("Tick count must be a non-negative integer")
         if self.failed:
@@ -195,27 +210,39 @@ class ConveyorSimulator:
 
         for _ in range(count):
             self.tick_count += 1
+            active = list(self.active)
 
-            # The model processes same-tick arrivals in original shooter input
-            # order. This is an explicit simulation policy, not a claim about
-            # the live game's internal scheduling order.
-            for shooter in list(self.active):
+            # Rotate all active shooters before resolving any same-tick
+            # arrivals. This keeps bonded members synchronized.
+            for shooter in active:
                 shooter.position = (
                     shooter.position + 1
                 ) % self.config.ticks_per_lap
-
                 self._event("SHOOTER_ROTATED",
                             shooter_id=shooter.shooter_id,
                             position=shooter.position)
 
-                # Reaching position zero represents one complete lap.
+            arriving_groups = {}
+            for shooter in active:
                 if shooter.position == 0:
-                    if shooter.ammo == 0:
-                        if self.storage_free <= 0:
-                            return self._fail(
-                                "COMPLETED_SHOOTER_REACHED_RETURN_POINT "
-                                "BUT_STORAGE_IS_FULL"
-                            )
+                    arriving_groups.setdefault(shooter.group_id, []).append(shooter)
+
+            for group_id, arriving in arriving_groups.items():
+                members = [
+                    shooter for shooter in self.shooters
+                    if shooter.group_id == group_id and shooter.selected
+                    and not shooter.returned
+                ]
+                # A group only returns when every active member is complete
+                # and reaches the return point on this tick.
+                if (len(arriving) == len(members)
+                        and all(member.ammo == 0 for member in members)):
+                    if len(members) > self.storage_free:
+                        return self._fail(
+                            "COMPLETED_SHOOTER_REACHED_RETURN_POINT "
+                            "BUT_STORAGE_IS_FULL"
+                        )
+                    for shooter in members:
                         shooter.returned = True
                         self.storage_occupied += 1
                         self.returned_ids.append(shooter.shooter_id)
@@ -225,19 +252,27 @@ class ConveyorSimulator:
                             storage_occupied=self.storage_occupied,
                             storage_free=self.storage_free,
                         )
-                    else:
-                        shooter.completed_laps += 1
-                        self._event(
-                            "SHOOTER_CONTINUES_ROTATING",
-                            shooter_id=shooter.shooter_id,
-                            laps=shooter.completed_laps,
-                            ammo_remaining=shooter.ammo,
-                        )
+                else:
+                    for shooter in arriving:
+                        if shooter.ammo > 0:
+                            shooter.completed_laps += 1
+                            self._event(
+                                "SHOOTER_CONTINUES_ROTATING",
+                                shooter_id=shooter.shooter_id,
+                                laps=shooter.completed_laps,
+                                ammo_remaining=shooter.ammo,
+                            )
+                        else:
+                            self._event(
+                                "SHOOTER_WAITING_FOR_BONDED_GROUP",
+                                shooter_id=shooter.shooter_id,
+                                group_id=group_id,
+                            )
         return not self.failed
 
     def reactivate_group(self, group_id):
         """Reactivate a fully returned group from storage, simulation only."""
-        if self.failed:
+        if (not isinstance(group_id, str) or not group_id or self.failed):
             return False
 
         members = [

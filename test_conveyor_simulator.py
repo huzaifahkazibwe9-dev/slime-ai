@@ -60,6 +60,26 @@ class ConveyorSimulatorTests(unittest.TestCase):
         self.assertFalse(sim.record_shots("single", 4))
         self.assertEqual(sim.active[0].ammo, 3)
 
+    def test_bonded_group_waits_until_all_members_complete_before_storage(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 1},
+        ], config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1))
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, [])
+        self.assertEqual(sim.storage_occupied, 0)
+        self.assertEqual(len(sim.active), 2)
+
+        self.assertTrue(sim.record_shots("A2", 1))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["A1", "A2"])
+        self.assertEqual(sim.storage_occupied, 2)
+
+        from simulator_snapshot import restore_simulator, snapshot_simulator
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.returned_ids, ["A1", "A2"])
+
     def test_reactivation_preserves_zero_ammo_and_group_identity(self):
         sim = create_simulator([
             {"id": "A1", "group_id": "PAIR", "ammo": 0},
@@ -104,6 +124,22 @@ class ConveyorSimulatorTests(unittest.TestCase):
             for x in sim.shooters
         ])
         self.assertEqual(after, before)
+
+    def test_public_actions_reject_malformed_identifiers_without_mutation(self):
+        sim = create_simulator([
+            {"id": "a", "group_id": "A", "ammo": 3}
+        ])
+        self.assertFalse(sim.select_group(["A"]))
+        self.assertTrue(sim.select_group("A"))
+        before_ammo = sim.shooters[0].ammo
+        before_events = list(sim.events)
+
+        self.assertFalse(sim.record_shots(["a"], 1))
+        self.assertEqual(sim.shooters[0].ammo, before_ammo)
+        self.assertEqual(sim.events, before_events)
+        self.assertFalse(sim.reactivate_group(["A"]))
+        self.assertEqual(sim.shooters[0].ammo, before_ammo)
+        self.assertEqual(sim.events, before_events)
 
     def test_config_rejects_boolean_or_fractional_tick_counts(self):
         for value in (True, 2.5, 0, -1):
@@ -153,12 +189,39 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 config=SimulatorConfig(ticks_per_lap=5),
             )
 
+    def test_restore_rejects_bonded_group_with_different_positions(self):
+        with self.assertRaisesRegex(ValueError, "position-synchronized"):
+            create_simulator([
+                {"id": "A1", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 1, "completed_laps": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 3,
+                 "selected": True, "position": 2, "completed_laps": 0},
+            ])
+
+    def test_restore_allows_bonded_group_with_different_lap_counts(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0,
+             "selected": True, "position": 1, "completed_laps": 2},
+            {"id": "A2", "group_id": "PAIR", "ammo": 3,
+             "selected": True, "position": 1, "completed_laps": 3},
+        ])
+        self.assertEqual(len(sim.active), 2)
+
     def test_restore_rejects_partial_bonded_conveyor_group(self):
         with self.assertRaises(ValueError):
             create_simulator([
                 {"id": "A1", "group_id": "PAIR", "ammo": 4, "selected": True},
                 {"id": "A2", "group_id": "PAIR", "ammo": 4},
             ])
+
+    def test_restore_allows_returned_bonded_group_with_different_lap_counts(self):
+        sim = create_simulator([
+            {"id": "A1", "group_id": "PAIR", "ammo": 0,
+             "returned": True, "position": 1, "completed_laps": 2},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0,
+             "returned": True, "position": 1, "completed_laps": 3},
+        ], storage_occupied=2)
+        self.assertEqual(sim.returned_ids, ["A1", "A2"])
 
     def test_restore_rejects_partial_bonded_storage_group(self):
         with self.assertRaises(ValueError):
