@@ -368,6 +368,8 @@ class MultiBatchTests(unittest.TestCase):
 
         self.assertFalse(result["schedule_valid"])
         self.assertEqual(result["batches_completed"], 0)
+        self.assertEqual(result["batch_reports"][0]["ticks_used"], 1)
+        self.assertEqual(result["tick_count"], 1)
         self.assertFalse(result["batch_reports"][0]["valid"])
         self.assertTrue(result["batch_reports"][0]["failed"])
         self.assertIn("STORAGE_IS_FULL", result["batch_reports"][0]["reason"])
