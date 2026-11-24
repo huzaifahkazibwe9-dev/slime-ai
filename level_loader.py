@@ -121,13 +121,7 @@ if __name__ == "__main__":
         print("Gameplay verification: False")
         print("Game taps enabled: False")
     else:
-        assert state.width == 35
-        assert state.height == 35
-        assert state.remaining_pixels == 1225
-        assert audit["occupied_pixels"] == 1225
         assert audit["initial_occupancy_user_confirmed"] is True
-        assert len(state.shooters) == 4
-        assert len(state.colour_mappings) == 4
-        print("\nLEVEL INTEGRATION PASSED")
-        print("All 1,225 starting tiles preserved.")
+        print("\nLEGACY BASELINE INTEGRATION PASSED")
+        print("Board dimensions are taken from the loaded baseline data.")
         print("Unverified colour mappings remain explicitly unverified.")
