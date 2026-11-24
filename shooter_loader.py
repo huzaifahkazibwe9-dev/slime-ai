@@ -69,6 +69,11 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 or not isinstance(color.get("name"), str)
                 or not color["name"]):
             raise ValueError(f"Shooter entry {index} has an invalid colour")
+        ammo = item.get("ammo")
+        if type(ammo) is not int or ammo < 0:
+            raise ValueError(
+                f"Shooter entry {index} must have a non-negative integer ammunition count"
+            )
     shooter_ids = [item["id"] for item in detected]
     if len(shooter_ids) != len(set(shooter_ids)):
         raise ValueError("Shooter IDs must be unique")
@@ -128,7 +133,7 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
         shooter = Shooter(
             id=shooter_id,
             color=color_data["name"],
-            ammo=item["ammo"],
+            ammo=ammo,
             accessible=False,
             # Derive bonds from the validated group list, not duplicated JSON fields.
             bonded_ids=bonded_lookup.get(shooter_id, []),
