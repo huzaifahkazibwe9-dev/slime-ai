@@ -384,7 +384,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
 
     def test_rejects_unknown_schema_and_live_action_flags(self):
         original = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
-        for key, value in (("schema_version", 99), ("live_taps_enabled", True),
+        for key, value in (("schema_version", 99), ("schema_version", True), ("live_taps_enabled", True),
                            ("live_actions_performed", True)):
             snapshot = copy.deepcopy(original)
             snapshot[key] = value
