@@ -121,7 +121,7 @@ class VisionCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not a readable image"):
             verify_source_image(data, image_bytes)
 
-    def test_reports_source_image_provenance_from_template(self):        from hashlib import sha256
+    def test_reports_source_image_provenance_from_template(self):
 
         data = {
             **self.dataset,
