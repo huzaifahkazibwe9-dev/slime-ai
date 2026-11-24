@@ -165,7 +165,13 @@ class CapturePipelineConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             board_path = Path(directory) / "board.json"
             output_path = Path(directory) / "audit.json"
-            board_path.write_text(json.dumps({"fixture": True}))
+            board_path.write_text(json.dumps({
+                "fixture": True,
+                "capture_session_id": "session-abc",
+                "captured_at": "2026-11-25T12:00:00+00:00",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            }))
             report = {
                 "pixel_samples_reproduced": True,
                 "extraction_fingerprint_match": True,
@@ -174,8 +180,11 @@ class CapturePipelineConfigTests(unittest.TestCase):
             }
             with patch("capture_pipeline.audit_source_pixels", return_value=report):
                 result = audit_capture_pixels(board_path, b"source", output_path)
-            self.assertEqual(result, report)
-            self.assertEqual(json.loads(output_path.read_text()), report)
+            self.assertEqual(result["pixel_samples_reproduced"], True)
+            self.assertEqual(result["capture_session_id"], "session-abc")
+            self.assertEqual(result["captured_at"], "2026-11-25T12:00:00+00:00")
+            self.assertEqual(result["snapshot_id"], "sha256:" + "a" * 64)
+            self.assertEqual(json.loads(output_path.read_text()), result)
 
     def test_audit_capture_pixels_rejects_sample_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
