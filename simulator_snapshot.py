@@ -188,6 +188,29 @@ def restore_simulator(snapshot):
             for member in members:
                 latest_reactivation_index[member] = event_index
 
+    # A bonded group enters storage atomically. If the event history
+    # records a return for any currently stored member, it must record the
+    # complete group at the same tick after its latest reactivation.
+    for group_id, member_ids in group_members_by_id.items():
+        currently_returned = member_ids & returned_from_shooters
+        if not currently_returned:
+            continue
+        recorded = {
+            member_id for member_id in member_ids
+            if member_id in latest_return_index
+            and latest_return_index[member_id]
+                > latest_reactivation_index.get(member_id, -1)
+        }
+        if recorded and recorded != currently_returned:
+            raise ValueError("bonded group return history is incomplete")
+        if recorded:
+            return_ticks = {
+                events[latest_return_index[member_id]]["tick"]
+                for member_id in recorded
+            }
+            if len(return_ticks) != 1:
+                raise ValueError("bonded group return events must share a tick")
+
     current_return_events = {
         shooter_id: event_index
         for shooter_id, event_index in latest_return_index.items()
