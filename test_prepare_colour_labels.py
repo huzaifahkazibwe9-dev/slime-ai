@@ -25,6 +25,18 @@ class ColourLabelTemplateTests(unittest.TestCase):
         self.assertEqual([sample["label"] for sample in template["samples"]], [""] * 4)
         self.assertIs(template["labelled_by_user"], False)
 
+    def test_preserves_valid_image_dimensions(self):
+        template = build_template(self.observation())
+        self.assertEqual(template["image_size"], [1080, 2220])
+
+    def test_rejects_missing_or_malformed_image_dimensions(self):
+        for image_size in (None, [], [1080], [1080, 0], [1080, True], "1080x2220"):
+            with self.subTest(image_size=image_size):
+                observation = self.observation()
+                observation["image_size"] = image_size
+                with self.assertRaises(ValueError):
+                    build_template(observation)
+
     def test_rejects_grid_mismatch(self):
         observation = self.observation()
         observation["raw_rgb"] = [[[1, 2, 3]]]
