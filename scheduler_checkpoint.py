@@ -25,10 +25,13 @@ def create_scheduler_checkpoint(
     next_batch_index,
     completed_batch_reports,
     groups_scheduled,
+    allow_storage_reactivation=False,
 ):
     """Create a detached checkpoint at a successful batch boundary."""
     if type(next_batch_index) is not int or next_batch_index < 0:
         raise ValueError("next_batch_index must be a non-negative integer")
+    if type(allow_storage_reactivation) is not bool:
+        raise ValueError("allow_storage_reactivation must be a boolean")
     if not isinstance(completed_batch_reports, list):
         raise ValueError("completed_batch_reports must be a list")
     if next_batch_index != len(completed_batch_reports):
@@ -53,6 +56,7 @@ def create_scheduler_checkpoint(
         "next_batch_index": next_batch_index,
         "completed_batch_reports": reports,
         "groups_scheduled": list(groups_scheduled),
+        "allow_storage_reactivation": allow_storage_reactivation,
         "simulator": snapshot_simulator(simulator),
         "live_execution_allowed": False,
         "gameplay_actions_performed": False,
@@ -77,6 +81,9 @@ def restore_scheduler_checkpoint(checkpoint):
     next_index = data.get("next_batch_index")
     reports = data.get("completed_batch_reports")
     groups = data.get("groups_scheduled")
+    allow_reactivation = data.get("allow_storage_reactivation")
+    if type(allow_reactivation) is not bool:
+        raise ValueError("allow_storage_reactivation must be a boolean")
     if type(next_index) is not int or next_index < 0:
         raise ValueError("next_batch_index must be a non-negative integer")
     if not isinstance(reports, list) or next_index != len(reports):
@@ -100,6 +107,7 @@ def restore_scheduler_checkpoint(checkpoint):
         "next_batch_index": next_index,
         "completed_batch_reports": copy.deepcopy(reports),
         "groups_scheduled": list(groups),
+        "allow_storage_reactivation": allow_reactivation,
         "simulation_only": True,
         "live_execution_allowed": False,
         "gameplay_actions_performed": False,
