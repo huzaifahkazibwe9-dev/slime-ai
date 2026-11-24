@@ -66,7 +66,8 @@ def restore_simulator(snapshot):
     if not isinstance(snapshot, dict):
         raise ValueError("snapshot must be an object")
     _require_json_compatible(snapshot)
-    if snapshot.get("schema_version") != SNAPSHOT_SCHEMA_VERSION:
+    if (type(snapshot.get("schema_version")) is not int
+            or snapshot.get("schema_version") != SNAPSHOT_SCHEMA_VERSION):
         raise ValueError("unsupported snapshot schema version")
     if snapshot.get("simulation_only") is not True:
         raise ValueError("snapshot must be explicitly simulation-only")
