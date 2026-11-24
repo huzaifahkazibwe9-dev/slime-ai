@@ -261,6 +261,35 @@ class MultiBatchTests(unittest.TestCase):
             "ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN",
         )
 
+    def test_batch_iterator_interruption_preserves_completed_reports(self):
+        def interrupted_batches():
+            yield {"groups": ["A"], "shots": {"A": 1}}
+            raise RuntimeError("input stream interrupted")
+
+        result = simulate_batch_schedule(
+            [{"id": "A", "group_id": "A", "ammo": 1}],
+            interrupted_batches(),
+            config=SimulatorConfig(
+                conveyor_capacity=1, storage_capacity=2, ticks_per_lap=2
+            ),
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(result["batches_completed"], 1)
+        self.assertEqual(len(result["batch_reports"]), 2)
+        self.assertTrue(result["batch_reports"][0]["valid"])
+        self.assertEqual(result["batch_reports"][1]["batch"], 1)
+        self.assertEqual(
+            result["batch_reports"][1]["reason"],
+            "BATCH_ITERATION_FAILED",
+        )
+        self.assertEqual(
+            result["batch_reports"][1]["exception_type"],
+            "RuntimeError",
+        )
+        self.assertEqual(result["groups_scheduled"], ["A"])
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["gameplay_actions_performed"])
+
     def test_live_actions_disabled(self):
         r = simulate_batch_schedule(
             [{"id": "A", "group_id": "A", "ammo": 2}],
