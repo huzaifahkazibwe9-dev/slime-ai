@@ -82,6 +82,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
         )
         snapshot["initial_storage_occupied"] = 1
         return_event["storage_occupied"] = 2
+        return_event["storage_free"] = 0
         with self.assertRaisesRegex(ValueError, "disagrees with restored occupancy"):
             restore_simulator(snapshot)
 
