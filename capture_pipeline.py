@@ -83,6 +83,14 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError("Board observation is missing or invalid for pixel audit") from exc
     report = audit_source_pixels(observation, source_image_bytes)
+    # Bind the audit to this exact capture, not only its image hash. Identical
+    # screenshot bytes can recur across separate capture sessions.
+    report.update({
+        "capture_session_id": observation.get("capture_session_id"),
+        "captured_at": observation.get("captured_at"),
+        "snapshot_id": observation.get("snapshot_id"),
+        "board_snapshot_id": observation.get("board_snapshot_id"),
+    })
     if report.get("pixel_samples_reproduced") is not True:
         raise ValueError("Independent source-pixel audit found RGB sample mismatches")
     if report.get("extraction_fingerprint_match") is not True:
