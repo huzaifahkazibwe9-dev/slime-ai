@@ -207,6 +207,15 @@ def simulate_batch_schedule(
             str(item.get("group_id", item["id"])), []
         ).append(str(item["id"]))
 
+    if resume_from is not None:
+        for group_id in seen:
+            if group_id not in groups or any(
+                not by_id[mid].selected for mid in groups[group_id]
+            ):
+                return invalid_input(
+                    "INVALID_CHECKPOINT: seen group is not selected in simulator state"
+                )
+
     for group_id, members in groups.items():
         flags = [by_id[mid].selected for mid in members]
         if any(flags) and not all(flags):
