@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run board ingestion and shooter detection from one explicitly calibrated capture."""
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -10,6 +11,9 @@ from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
 )
+
+BOARD_OUTPUT = Path("data/board_observation_latest.json")
+SHOOTER_OUTPUT = Path("data/shooter_detection.json")
 
 
 def load_capture_config(path):
@@ -34,9 +38,48 @@ def load_capture_config(path):
     }
 
 
+def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
+                             expected_session_id, expected_captured_at):
+    """Fail closed unless both stages prove they processed the same source bytes."""
+    try:
+        board = json.loads(Path(board_path).read_text())
+        shooter = json.loads(Path(shooter_path).read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Capture pipeline outputs are missing or invalid JSON") from exc
+
+    if not isinstance(board, dict) or not isinstance(shooter, dict):
+        raise ValueError("Capture pipeline outputs must be JSON objects")
+    provenance = shooter.get("capture_provenance")
+    if not isinstance(provenance, dict):
+        raise ValueError("Shooter output is missing capture provenance")
+
+    if board.get("source_sha256") != expected_source_sha256:
+        raise ValueError("Board observation does not match the input screenshot snapshot")
+    if provenance.get("source_sha256") != expected_source_sha256:
+        raise ValueError("Shooter observation does not match the input screenshot snapshot")
+    if board.get("snapshot_id") != "sha256:" + expected_source_sha256:
+        raise ValueError("Board snapshot identifier does not match its source hash")
+    if board.get("board_snapshot_id") != "sha256:" + expected_source_sha256:
+        raise ValueError("Board snapshot identifier is inconsistent")
+    if board.get("capture_session_id") != expected_session_id:
+        raise ValueError("Board capture session does not match the requested session")
+    if provenance.get("capture_session_id") != expected_session_id:
+        raise ValueError("Shooter capture session does not match the requested session")
+    if board.get("captured_at") != expected_captured_at:
+        raise ValueError("Board capture timestamp does not match the requested timestamp")
+    if provenance.get("captured_at") != expected_captured_at:
+        raise ValueError("Shooter capture timestamp does not match the requested timestamp")
+    if provenance.get("verified") is not True:
+        raise ValueError("Shooter capture provenance is not verified")
+    return True
+
+
 def run_capture_pipeline(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
+    # Pin the expected digest before either subprocess reads the path. If the
+    # file changes between stages, one or both outputs will fail this check.
+    expected_source_sha256 = hashlib.sha256(Path(screenshot).read_bytes()).hexdigest()
     common = [
         "--capture-session-id", config["capture_session_id"],
         "--captured-at", config["captured_at"],
@@ -54,6 +97,13 @@ def run_capture_pipeline(screenshot, config_path):
             *common,
         ],
         check=True,
+    )
+    validate_capture_outputs(
+        BOARD_OUTPUT,
+        SHOOTER_OUTPUT,
+        expected_source_sha256,
+        config["capture_session_id"],
+        config["captured_at"],
     )
 
 
