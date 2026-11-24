@@ -103,8 +103,7 @@ class ConveyorSimulator:
             if len(members) != total:
                 raise ValueError("Restored conveyor contains a partial bonded group")
             positions = {shooter.position for shooter in members}
-            laps = {shooter.completed_laps for shooter in members}
-            if len(positions) != 1 or len(laps) != 1:
+            if len(positions) != 1:
                 raise ValueError(
                     "Restored bonded conveyor group is not position-synchronized"
                 )
@@ -114,8 +113,7 @@ class ConveyorSimulator:
             if len(members) != total:
                 raise ValueError("Restored storage contains a partial bonded group")
             positions = {shooter.position for shooter in members}
-            laps = {shooter.completed_laps for shooter in members}
-            if len(positions) != 1 or len(laps) != 1:
+            if len(positions) != 1:
                 raise ValueError(
                     "Restored bonded storage group is not position-synchronized"
                 )
