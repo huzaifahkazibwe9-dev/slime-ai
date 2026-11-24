@@ -109,6 +109,18 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("fresh screenshot capture is required", result["reason"])
         run.assert_not_called()
 
+
+    def test_plan_blocks_when_source_pixel_audit_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            (Path(directory) / "source_pixel_audit_latest.json").unlink()
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("pixel audit is missing", result["reason"])
+        run.assert_not_called()
+
     def test_plan_blocks_stale_capture_before_orchestration(self):
         stale = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
         with tempfile.TemporaryDirectory() as directory:
