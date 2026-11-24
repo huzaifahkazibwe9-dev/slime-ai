@@ -116,6 +116,21 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
             self.assertEqual(len(load_panel_slots(path)), 1)
 
+    def test_panel_inventory_rejects_unhashable_status(self):
+        from shooter_loader import load_panel_slots
+        payload = {
+            "panel_layout": {"rows": 1, "columns": 1, "slot_count": 1},
+            "panel_slots": [{
+                "id": "A", "row": 1, "column": 1, "center": [10, 10],
+                "status": ["readable"], "selectable_candidate": False,
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "invalid status"):
+                load_panel_slots(path)
+
     def test_panel_inventory_rejects_boolean_dimensions(self):
         from shooter_loader import load_panel_slots
         payload = {
