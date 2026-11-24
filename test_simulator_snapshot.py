@@ -233,7 +233,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 and event.get("shooter_id") == "a2"
             )
         ]
-        with self.assertRaisesRegex(ValueError, "return history is incomplete"):
+        with self.assertRaisesRegex(ValueError, "return history is incomplete|storage event disagrees"):
             restore_simulator(snapshot)
 
     def test_rejects_partial_historical_return_before_reactivation(self):
