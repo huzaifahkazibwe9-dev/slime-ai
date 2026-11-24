@@ -97,6 +97,25 @@ class VisionCalibrationTests(unittest.TestCase):
         self.assertEqual(result["sha256"], data["source_sha256"])
         self.assertTrue(result["dimensions_checked"])
 
+    def test_supports_legacy_dataset_with_hash_but_no_recorded_dimensions(self):
+        image_bytes = b"legacy screenshot bytes"
+        data = {
+            **self.dataset,
+            "source_sha256": sha256(image_bytes).hexdigest(),
+        }
+        result = verify_source_image(data, image_bytes)
+        self.assertEqual(result["sha256"], data["source_sha256"])
+        self.assertFalse(result["dimensions_checked"])
+
+    def test_rejects_hash_mismatch_before_attempting_image_decode(self):
+        data = {
+            **self.dataset,
+            "source_sha256": "0" * 64,
+            "image_size": [12, 8],
+            "grid_size": [2, 2],
+        }
+        with self.assertRaisesRegex(ValueError, "SHA-256 does not match"):
+            verify_source_image(data, b"not-an-image")
     def test_rejects_source_image_with_matching_hash_but_wrong_recorded_dimensions(self):
         buffer = io.BytesIO()
         Image.new("RGB", (12, 8), (20, 30, 40)).save(buffer, format="PNG")
