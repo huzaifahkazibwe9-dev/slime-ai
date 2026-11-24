@@ -277,8 +277,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             "bonded_groups": [["A", "B"]],
         }
         shooters = self.load_payload(payload)
-        self.assertEqual(set(shooters), {"A"})
-        self.assertEqual(shooters["A"].bonded_ids, [])
+        self.assertEqual(shooters, {})
 
     def test_rejects_unknown_sample_quality_status(self):
         payload = {
