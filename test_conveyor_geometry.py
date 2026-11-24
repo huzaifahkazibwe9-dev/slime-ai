@@ -6,7 +6,7 @@ from conveyor_geometry import calculate_firing_geometry
 class ConveyorGeometryInputValidationTests(unittest.TestCase):
     def calculate(self, **overrides):
         values = {
-            "screen_center": (540, 1100),
+            "screen_center": (540, 1200),
             "segment": "bottom",
             "image_size": (1080, 2220),
             "position_verified": True,
