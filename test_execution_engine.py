@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from execution_engine import run_dry_simulation, _simulate_conveyor_batch
+from execution_engine import (\n    run_dry_simulation, _simulate_conveyor_batch, run_multi_batch_schedule\n)
 from game_state import GameState, Shooter
 
 
@@ -103,6 +103,23 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(
             report["failure_reason"], "UNKNOWN_AMMO_ON_EXISTING_CONVEYOR"
         )
+
+    def test_multi_batch_adapter_rejects_unknown_ammo_instead_of_assuming_zero(self):
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0, revealed=False
+        )
+        state = self.make_state([[None]], [hidden])
+        report = run_multi_batch_schedule(
+            state,
+            [{"groups": ["H"], "shots": {"H": 0}}],
+        )
+        self.assertFalse(report["schedule_valid"])
+        self.assertIn(
+            "SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER",
+            report["failure_reason"],
+        )
+        self.assertTrue(report["source_state_unchanged"])
+        self.assertFalse(report["gameplay_actions_performed"])
 
     def test_three_bond_group_rejected_with_one_slot(self):
         shooters = [
