@@ -17,8 +17,16 @@ extraction implementation. It also checks whether saved board labels and colour
 counts agree with the source-derived RGB samples and the current shared
 classifier.
 
-A mismatch is reported per board coordinate. Malformed or incomplete
-provenance and geometry are rejected rather than silently accepted.
+When an observation includes the ingestion `extraction_sha256`, the audit
+recomputes that canonical payload fingerprint across image/grid dimensions,
+bounds, sample centres, board labels, RGB samples, colour counts, and sampling
+method. Missing or malformed fingerprints are reported as non-matching rather
+than treated as verified. This digest detects accidental edits only when the
+digest is not also recomputed; it is not an authenticity signature.
+
+A mismatch is reported per board coordinate where applicable. Malformed or
+incomplete source provenance and geometry are rejected rather than silently
+accepted.
 
 ## What this does not prove
 
