@@ -349,6 +349,29 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
         self.assertIn("does not match", resumed["failure_reason"])
 
+    def test_checkpoint_rejects_boolean_schema_version(self):
+        records = [{"id": "A", "group_id": "A", "ammo": 3}]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+        )
+        checkpoint = partial["checkpoint"]
+        self.assertIsInstance(checkpoint, dict)
+        checkpoint["schema_version"] = True
+
+        resumed = simulate_batch_schedule(
+            records, batches,
+            config=SimulatorConfig(conveyor_capacity=2, ticks_per_lap=3),
+            resume_from=checkpoint,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertIn("schema version", resumed["failure_reason"])
+
     def test_checkpoint_rejects_report_history_changed_from_original_batch(self):
         records = [{"id": "A", "group_id": "A", "ammo": 3},
                    {"id": "B", "group_id": "B", "ammo": 3}]
