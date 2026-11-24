@@ -6,7 +6,7 @@ from region_graph import build_region_graph
 
 
 def simulate_bonded_group(state, shooter_id, *, consume_state=False):
-    """Dry-run one complete legal bonded group on an isolated state copy."""
+    """Dry-run a bonded group, optionally consuming a caller-owned state copy."""
     if not isinstance(state, GameState):
         raise TypeError("Expected a GameState")
 
