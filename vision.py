@@ -1,9 +1,10 @@
 from PIL import Image
 from collections import Counter
 from pathlib import Path
-import colorsys
 import json
 import statistics
+
+from screenshot_ingestor import classify_rgb
 
 IMAGE = Path("screenshots/level39.jpg")
 PALETTE_FILE = Path("data/shooter_palette.json")
@@ -45,35 +46,6 @@ def median_rgb(img, x, y):
         ))
         for channel in range(3)
     )
-
-
-def classify_rgb(rgb):
-    r, g, b = [v / 255 for v in rgb]
-    hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
-    degrees = hue * 360
-
-    if value < 0.22:
-        return "dark"
-
-    if saturation < 0.18:
-        return "white" if value > 0.72 else "gray"
-
-    if degrees < 12 or degrees >= 345:
-        return "red"
-    elif degrees < 38:
-        return "orange"
-    elif degrees < 68:
-        return "yellow"
-    elif degrees < 165:
-        return "green"
-    elif degrees < 205:
-        return "cyan"
-    elif degrees < 260:
-        return "blue"
-    elif degrees < 300:
-        return "purple"
-    else:
-        return "pink"
 
 
 def analyse():
