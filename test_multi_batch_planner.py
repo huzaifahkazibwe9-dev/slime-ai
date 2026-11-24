@@ -373,7 +373,7 @@ class MultiBatchTests(unittest.TestCase):
         )
         self.assertFalse(resumed["schedule_valid"])
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
-        self.assertIn("final batch report", resumed["failure_reason"])
+        self.assertIn("deterministic prefix replay", resumed["failure_reason"])
 
     def test_checkpoint_rejects_boolean_schema_version(self):
         records = [{"id": "A", "group_id": "A", "ammo": 3}]
@@ -469,7 +469,7 @@ class MultiBatchTests(unittest.TestCase):
         )
         self.assertFalse(resumed["schedule_valid"])
         self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
-        self.assertIn("not selected", resumed["failure_reason"])
+        self.assertIn("deterministic prefix replay", resumed["failure_reason"])
 
     def test_checkpoint_mode_preserves_malformed_batch_rejection(self):
         result = simulate_batch_schedule(
