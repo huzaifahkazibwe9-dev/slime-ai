@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch
 from multi_batch_planner import simulate_batch_schedule
@@ -323,6 +324,37 @@ class MultiBatchTests(unittest.TestCase):
         for field in (
             "returned_shooters", "storage_occupied", "conveyor_occupied",
             "tick_count", "events", "groups_scheduled",
+        ):
+            self.assertEqual(resumed[field], uninterrupted[field], field)
+
+    def test_checkpoint_survives_json_round_trip(self):
+        records = [
+            {"id": "A", "group_id": "A", "ammo": 2},
+            {"id": "B", "group_id": "B", "ammo": 2},
+        ]
+        batches = [
+            {"groups": ["A"], "shots": {"A": 1}},
+            {"groups": ["B"], "shots": {"B": 1}},
+        ]
+        config = SimulatorConfig(conveyor_capacity=3, ticks_per_lap=2)
+        partial = simulate_batch_schedule(
+            records, batches, max_batches=1, config=config,
+        )
+        self.assertTrue(partial["schedule_valid"])
+        self.assertIsInstance(partial["checkpoint"], dict)
+
+        persisted = json.loads(json.dumps(partial["checkpoint"]))
+        resumed = simulate_batch_schedule(
+            records, batches, config=config, resume_from=persisted,
+        )
+        uninterrupted = simulate_batch_schedule(
+            records, batches, config=config,
+        )
+        self.assertTrue(resumed["schedule_valid"])
+        self.assertTrue(resumed["schedule_complete"])
+        for field in (
+            "batch_reports", "events", "returned_ids",
+            "conveyor_occupied", "storage_occupied",
         ):
             self.assertEqual(resumed[field], uninterrupted[field], field)
 
