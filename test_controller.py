@@ -124,7 +124,6 @@ class ControllerTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             write_capture_pair(directory)
-            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -142,6 +141,7 @@ class ControllerTests(unittest.TestCase):
             "evidence": {"evidence_gate_passed": False},
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
