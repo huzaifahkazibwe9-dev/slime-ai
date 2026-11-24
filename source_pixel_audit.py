@@ -2,13 +2,14 @@
 """Independently reproduce board RGB samples from the original screenshot.
 
 This audit uses Pillow pixel reads and statistics.median rather than the
-NumPy extraction path. It verifies file/payload consistency, not calibration
-alignment, human label truth, or gameplay correctness.
+NumPy vectorized extractor. It verifies file/payload consistency, not
+calibration alignment, human label truth, or gameplay correctness.
 """
 import argparse
 import hashlib
 import io
 import json
+import math
 import re
 import statistics
 from collections import Counter
@@ -61,27 +62,21 @@ def audit_source_pixels(observation, source_image_bytes):
 
     with image_context as source:
         image = source.convert("RGB")
-        image_size = _positive_int_pair(
-            observation.get("image_size"), "image_size"
-        )
+        image_size = _positive_int_pair(observation.get("image_size"), "image_size")
         if list(image.size) != image_size:
             raise ValueError("Source screenshot dimensions do not match observation")
 
-        grid_size = _positive_int_pair(
-            observation.get("grid_size"), "grid_size"
-        )
+        grid_size = _positive_int_pair(observation.get("grid_size"), "grid_size")
         columns, rows = grid_size
         if columns > 10_000 or rows > 10_000 or columns * rows > 1_000_000:
             raise ValueError("Grid dimensions exceed the safe audit limit")
 
         bounds = observation.get("bounds")
         if (not isinstance(bounds, list) or len(bounds) != 4
-                or any(type(value) not in (int, float) for value in bounds)):
+                or any(type(value) not in (int, float) for value in bounds)
+                or any(type(value) is float and not math.isfinite(value) for value in bounds)):
             raise ValueError("bounds must contain four finite numeric coordinates")
         left, top, right, bottom = bounds
-        if any(isinstance(value, float) and not __import__("math").isfinite(value)
-               for value in bounds):
-            raise ValueError("bounds must contain finite coordinates")
         if (left < 1 or top < 1 or right <= left or bottom <= top
                 or right > image.width - 1 or bottom > image.height - 1):
             raise ValueError("bounds are outside screenshot sampling limits")
@@ -101,23 +96,19 @@ def audit_source_pixels(observation, source_image_bytes):
         ):
             raise ValueError("A 3x3 sampling window falls outside the screenshot")
 
-        raw_rgb = observation.get("raw_rgb")
-        board = observation.get("board")
+        raw_rgb, board = observation.get("raw_rgb"), observation.get("board")
         if (not isinstance(raw_rgb, list) or len(raw_rgb) != rows
                 or not isinstance(board, list) or len(board) != rows):
             raise ValueError("raw_rgb and board must match the declared row count")
 
-        discrepancies = []
-        label_mismatches = []
-        reproduced = 0
-        counts = Counter()
+        discrepancies, label_mismatches = [], []
+        reproduced, counts = 0, Counter()
         for row in range(rows):
             if (not isinstance(raw_rgb[row], list) or len(raw_rgb[row]) != columns
                     or not isinstance(board[row], list) or len(board[row]) != columns):
                 raise ValueError(f"Board/RGB row {row} has incorrect width")
             for column in range(columns):
-                stored = raw_rgb[row][column]
-                label = board[row][column]
+                stored, label = raw_rgb[row][column], board[row][column]
                 if (not isinstance(stored, list) or len(stored) != 3
                         or any(type(channel) is not int or not 0 <= channel <= 255
                                for channel in stored)):
@@ -142,10 +133,15 @@ def audit_source_pixels(observation, source_image_bytes):
                 counts[label] += 1
 
         stored_counts = observation.get("counts")
-        counts_match = (
+        counts_well_formed = (
             isinstance(stored_counts, dict)
-            and stored_counts == dict(counts)
+            and all(
+                isinstance(key, str) and key in COLOUR_LABELS
+                and type(value) is int and value > 0
+                for key, value in stored_counts.items()
+            )
         )
+        counts_match = counts_well_formed and stored_counts == dict(counts)
         total = rows * columns
         return {
             "schema_version": 1,
