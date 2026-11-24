@@ -73,6 +73,28 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside"):
             assess_color_sample(image, 5, 20)
 
+    def test_sample_quality_rejects_nonfinite_or_out_of_range_thresholds(self):
+        image = Image.new("RGB", (40, 40), (35, 35, 35))
+        invalid = [
+            {"minimum_contrast": float("nan")},
+            {"minimum_contrast": -1},
+            {"minimum_contrast": 442},
+            {"maximum_mad": float("inf")},
+            {"maximum_mad": -1},
+            {"maximum_mad": 256},
+        ]
+        for options in invalid:
+            with self.subTest(options=options):
+                with self.assertRaisesRegex(ValueError, "contrast|MAD"):
+                    assess_color_sample(image, 20, 20, **options)
+
+    def test_panel_aspect_tolerance_must_be_finite_and_bounded(self):
+        invalid = [0, -0.1, 1.1, float("nan"), float("inf"), True]
+        for tolerance in invalid:
+            with self.subTest(tolerance=tolerance):
+                with self.assertRaisesRegex(ValueError, "tolerance"):
+                    validate_panel_image_size(REF_W, REF_H, tolerance=tolerance)
+
     def test_reference_panel_dimensions_are_valid(self):
         self.assertTrue(validate_panel_image_size(REF_W, REF_H))
 
