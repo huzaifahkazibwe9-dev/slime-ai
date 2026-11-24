@@ -40,3 +40,18 @@ The report deliberately keeps `calibration_alignment_verified`,
 `label_truth_independently_verified`, and `gameplay_verified` false, and
 `game_taps_enabled` false. A successful pixel audit proves byte-level
 reproducibility of the recorded samples only.
+
+
+## Capture-pipeline integration
+
+The capture pipeline now runs this audit automatically after board ingestion and
+shooter detection, using the same screenshot byte snapshot whose SHA-256 was
+pinned before the subprocesses ran. The pipeline fails closed unless every
+stored RGB sample reproduces, the extraction payload fingerprint matches,
+board labels agree with the shared classifier applied to source-derived RGB,
+and colour counts match. A successful report is written to
+`data/source_pixel_audit_latest.json`.
+
+This integration strengthens source/payload consistency checks; it still does
+not establish calibration alignment with visible game tiles or true game
+colour semantics. It does not enable live game actions.
