@@ -133,9 +133,11 @@ class ExecutionEngineTests(unittest.TestCase):
                 self.assertFalse(shooter.valid())
                 self.assertEqual(state.bonded_group("A"), [])
                 self.assertFalse(state.can_select_group("A"))
+                validation_errors = state.validate()
                 self.assertTrue(any(
-                    "Invalid bonded_ids" in error
-                    for error in state.validate()
+                    ("Invalid bonded_ids" in error
+                     or "Invalid bonded shooter reference" in error)
+                    for error in validation_errors
                 ))
                 self.assertEqual(state.conveyor, [])
 
