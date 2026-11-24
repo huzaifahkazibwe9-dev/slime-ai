@@ -79,6 +79,14 @@ class VisionValidatorTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertFalse(result["initial_occupancy_user_confirmed"])
 
+    def test_audit_discloses_shared_classifier_is_not_independent(self):
+        result = audit_data(self.data)
+        self.assertFalse(result["classification_validation_independent"])
+        self.assertIn(
+            "does not independently validate",
+            result["classification_validation_scope"],
+        )
+
     def test_safety_flags_remain_disabled(self):
         result = audit_data(self.data)
         self.assertFalse(result["vision_classification_verified"])
