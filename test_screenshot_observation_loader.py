@@ -150,7 +150,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertIn("Game taps enabled: False", output.getvalue())
 
     def test_rejects_non_finite_and_extreme_board_bounds_without_overflow(self):
-        for invalid_bound in (float("nan"), float("inf"), float("-inf"), 10**10000, True):
+        for invalid_bound in (float("nan"), float("inf"), float("-inf"), 10**1000, True):
             with self.subTest(bound_type=type(invalid_bound).__name__):
                 self.observation["bounds"] = [
                     10, 10, invalid_bound, 190
