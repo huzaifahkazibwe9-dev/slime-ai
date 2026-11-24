@@ -1,7 +1,9 @@
 import json
 import unittest
 from pathlib import Path
-from vision_validator import audit_data
+from vision_validator import audit_data, classify_rgb as validator_classify_rgb
+from screenshot_ingestor import classify_rgb as ingestion_classify_rgb
+from vision import classify_rgb as analysis_classify_rgb
 
 class VisionValidatorTests(unittest.TestCase):
     def setUp(self):
@@ -22,6 +24,22 @@ class VisionValidatorTests(unittest.TestCase):
                 "initial_occupancy_user_confirmed": True
             }
         }
+
+    def test_all_vision_paths_use_one_shared_classifier(self):
+        self.assertIs(validator_classify_rgb, ingestion_classify_rgb)
+        self.assertIs(analysis_classify_rgb, ingestion_classify_rgb)
+        samples = (
+            (245, 245, 245),
+            (104, 195, 233),
+            (230, 30, 30),
+            (200, 120, 60),
+            (240, 80, 220),
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                expected = ingestion_classify_rgb(sample)
+                self.assertEqual(validator_classify_rgb(sample), expected)
+                self.assertEqual(analysis_classify_rgb(sample), expected)
 
     def test_valid_grid(self):
         self.assertTrue(audit_data(self.data)["passed"])
@@ -60,6 +78,14 @@ class VisionValidatorTests(unittest.TestCase):
         result = audit_data(self.data)
         self.assertFalse(result["passed"])
         self.assertFalse(result["initial_occupancy_user_confirmed"])
+
+    def test_audit_discloses_shared_classifier_is_not_independent(self):
+        result = audit_data(self.data)
+        self.assertFalse(result["classification_validation_independent"])
+        self.assertIn(
+            "does not independently validate",
+            result["classification_validation_scope"],
+        )
 
     def test_safety_flags_remain_disabled(self):
         result = audit_data(self.data)
