@@ -113,6 +113,12 @@ class ConveyorSimulator:
                         if shooter.group_id == group_id)
             if len(members) != total:
                 raise ValueError("Restored storage contains a partial bonded group")
+            positions = {shooter.position for shooter in members}
+            laps = {shooter.completed_laps for shooter in members}
+            if len(positions) != 1 or len(laps) != 1:
+                raise ValueError(
+                    "Restored bonded storage group is not position-synchronized"
+                )
         if active_count > self.config.conveyor_capacity:
             raise ValueError("Restored conveyor exceeds configured capacity")
         if len(returned_by_group) and sum(len(v) for v in returned_by_group.values()) > self.storage_occupied:
