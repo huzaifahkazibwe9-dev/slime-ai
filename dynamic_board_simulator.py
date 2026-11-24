@@ -127,7 +127,10 @@ def simulate_dynamic_board(state, shooter_id, max_shots=None, *, consume_state=F
         "steps": steps,
         "region_history": history,
         "final_region_graph": graph,
-        "final_board": copy.deepcopy(simulated.board),
+        # The simulated state is already isolated in the default mode; in
+        # consume_state mode the caller explicitly supplied a disposable state.
+        # Returning its board avoids a redundant full-grid deepcopy.
+        "final_board": simulated.board,
         "source_state_unchanged": (
             state == original if original is not None else False
         ),
