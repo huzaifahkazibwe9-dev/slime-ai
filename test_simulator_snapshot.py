@@ -124,16 +124,39 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
-    def test_rejects_duplicate_return_events(self):
+    def test_round_trip_allows_shooter_to_return_after_storage_reactivation(self):
+        sim = create_simulator(
+            [{"id": "a", "group_id": "A", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("A"))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["a"])
+        self.assertTrue(sim.reactivate_group("A"))
+        self.assertTrue(sim.select_group("A"))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.returned_ids, ["a"])
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.returned_ids, ["a"])
+        self.assertEqual(restored.events, sim.events)
+        return_events = [
+            event for event in restored.events
+            if event["event"] == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        self.assertEqual(len(return_events), 2)
+
+    def test_rejects_return_event_that_precedes_latest_reactivation(self):
         snapshot = snapshot_simulator(create_simulator([
-            {"id": "a", "ammo": 0, "selected": True, "returned": True}
+            {"id": "a", "group_id": "A", "ammo": 0, "selected": True, "returned": True}
         ], storage_occupied=1))
         snapshot["returned_ids"] = ["a"]
+        snapshot["tick_count"] = 2
         snapshot["events"] = [
             {"tick": 1, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "a"},
-            {"tick": 2, "event": "SHOOTER_RETURNED_TO_STORAGE", "shooter_id": "a"},
+            {"tick": 2, "event": "GROUP_REACTIVATED_FROM_STORAGE",
+             "group_id": "A", "members": ["a"]},
         ]
-        snapshot["tick_count"] = 2
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
