@@ -75,6 +75,22 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.observation_path.write_text(json.dumps(self.observation))
         self.shooter_path.write_text(json.dumps(self.shooters))
 
+    def test_rejects_sample_centres_that_disagree_with_calibration(self):
+        self.observation["sample_centres"] = {
+            "x": [11, 150, 289], "y": [20, 100]
+        }
+        self.write()
+        with self.assertRaisesRegex(ValueError, "Sample centres do not match"):
+            load_observed_level(self.observation_path, self.shooter_path)
+
+    def test_accepts_matching_sample_centres(self):
+        self.observation["sample_centres"] = {
+            "x": [57, 150, 243], "y": [55, 145]
+        }
+        self.write()
+        _, audit = load_observed_level(self.observation_path, self.shooter_path)
+        self.assertEqual(audit["grid_size"], [3, 2])
+
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
             self.observation_path, self.shooter_path, level=39
