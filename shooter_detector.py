@@ -8,6 +8,7 @@ import json
 import argparse
 import hashlib
 import time
+import math
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -24,6 +25,9 @@ SHOOTERS = [
 def validate_panel_image_size(width, height, tolerance=0.02):
     if type(width) is not int or type(height) is not int or width < 1 or height < 1:
         raise ValueError("Shooter panel image dimensions must be positive integers")
+    if (type(tolerance) not in (int, float) or not 0 < tolerance <= 1
+            or not math.isfinite(tolerance)):
+        raise ValueError("Aspect-ratio tolerance must be finite and in (0, 1]")
     expected_ratio = REF_W / REF_H
     actual_ratio = width / height
     if abs(actual_ratio - expected_ratio) / expected_ratio > tolerance:
@@ -50,6 +54,14 @@ def assess_color_sample(image, x, y, patch_radius=4, context_radius=8,
         raise ValueError("Sample coordinates and radii must be integers")
     if patch_radius < 1 or context_radius <= patch_radius:
         raise ValueError("Sample radii are invalid")
+    if (type(minimum_contrast) not in (int, float)
+            or not 0 <= minimum_contrast <= 441.673
+            or not math.isfinite(minimum_contrast)):
+        raise ValueError("Minimum contrast must be finite and within RGB distance bounds")
+    if (type(maximum_mad) not in (int, float)
+            or not 0 <= maximum_mad <= 255
+            or not math.isfinite(maximum_mad)):
+        raise ValueError("Maximum MAD must be finite and within channel bounds")
     if not (context_radius <= x < image.width - context_radius
             and context_radius <= y < image.height - context_radius):
         raise ValueError("Sample context is outside the panel image")
@@ -152,8 +164,16 @@ def read_ammunition(image, box, temp):
     if result.returncode != 0 or not isinstance(result.stdout, str):
         return None
 
-    digits = re.findall(r"\d+", result.stdout)
-    return int(digits[0]) if len(digits) == 1 else None
+    # Accept only a single complete numeric token. A digit sequence
+    # embedded in unexpected OCR text is ambiguous and must fail closed.
+    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
+    if match is None:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        # Malformed or excessively long OCR output is unknown ammo, not a crash.
+        return None
 
 def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
     """Verify a panel image against a region of the full source screenshot.
@@ -165,6 +185,16 @@ def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percen
     if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
             or any(type(v) is not int for v in bounds)):
         raise ValueError("Panel bounds must be four integer coordinates")
+    for name, value in (
+        ("mean_tolerance", mean_tolerance),
+        ("percentile_tolerance", percentile_tolerance),
+    ):
+        if (type(value) not in (int, float)
+                or not 0 <= value <= 255
+                or not math.isfinite(value)):
+            raise ValueError(
+                f"{name} must be finite and within per-channel difference bounds [0, 255]"
+            )
     left, top, right, bottom = bounds
     with Image.open(source_path) as source, Image.open(panel_path) as panel:
         source = source.convert("RGB")
