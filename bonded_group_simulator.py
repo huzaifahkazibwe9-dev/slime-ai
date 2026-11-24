@@ -33,10 +33,10 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
 
     if type(consume_state) is not bool:
         raise TypeError("consume_state must be a bool")
-    original = copy.deepcopy(state)
+    initial_pixels = state.remaining_pixels
     # Internal callers may hand over an already-isolated disposable state.
-    # Consuming it avoids a second full GameState deepcopy; public default
-    # retains the original non-mutating contract.
+    # Do not clone it again just to compute integrity metadata.
+    original = None if consume_state else copy.deepcopy(state)
     working = state if consume_state else copy.deepcopy(state)
 
     if not working.select_group(shooter_id):
@@ -50,7 +50,7 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
     for member_id in group:
         report = simulate_dynamic_board(working, member_id, consume_state=True)
 
-        working.board = copy.deepcopy(report["final_board"])
+        working.board = report["final_board"]
         working.shooters[member_id].ammo = report["remaining_ammo"]
 
         total_removed += report["pixels_removed"]
@@ -71,7 +71,7 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
         })
 
     final_graph = build_region_graph(working.board)
-    unchanged = state == original
+    unchanged = state == original if original is not None else False
 
     return {
         "engine": "build11ac_bonded_group_dynamic_simulator",
@@ -81,7 +81,7 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
             member in working.conveyor for member in group
         ),
         "conveyor_after_selection": list(working.conveyor),
-        "initial_pixels": original.remaining_pixels,
+        "initial_pixels": initial_pixels,
         "remaining_pixels": working.remaining_pixels,
         "pixels_removed": total_removed,
         "shots_attempted": total_shots,
@@ -93,7 +93,7 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
             member: working.shooters[member].ammo for member in group
         },
         "source_state_unchanged": unchanged,
-        "source_state_integrity_checked": True,
+        "source_state_integrity_checked": original is not None,
         "dynamic_regions_rebuilt": True,
         "gameplay_verified": False,
         "evidence_verified": False,
