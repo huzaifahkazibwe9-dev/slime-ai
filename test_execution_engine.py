@@ -124,6 +124,19 @@ class ExecutionEngineTests(unittest.TestCase):
         report = run_dry_simulation(state)
         self.assertEqual(report["status"], "NO_LEGAL_BATCH")
 
+
+    def test_unrevealed_group_with_unknown_ammo_is_skipped_without_crashing(self):
+        hidden = Shooter(
+            "H", None, None, "right", -1, 0,
+            accessible=True, revealed=False
+        )
+        state = self.make_state([[None]], [hidden])
+        report = run_dry_simulation(state)
+        self.assertEqual(report["status"], "NO_LEGAL_BATCH")
+        self.assertEqual(report["accessible_group_count"], 0)
+        self.assertEqual(report["candidates_examined"], 0)
+        self.assertTrue(report["source_state_unchanged"])
+
     def test_live_execution_is_always_disabled(self):
         state = self.make_state([["red"]], [
             Shooter("R", "red", 1, "right", -1, 0, accessible=True)

@@ -301,10 +301,22 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
         raise ValueError("max_candidates must be a positive integer")
 
     original = copy.deepcopy(state)
+    # A selectable-looking observation is not necessarily simulatable:
+    # unrevealed shooters may legally have unknown colour or ammunition.
+    # Exclude those groups before simulation so one incomplete observation
+    # cannot abort the entire candidate search.
     groups = [
         tuple(group)
         for group in available_groups(state)
-        if group and len(group) <= state.conveyor_free
+        if (
+            group
+            and len(group) <= state.conveyor_free
+            and all(
+                state.shooters[member].color is not None
+                and state.shooters[member].ammo is not None
+                for member in group
+            )
+        )
     ]
 
     candidates = []
