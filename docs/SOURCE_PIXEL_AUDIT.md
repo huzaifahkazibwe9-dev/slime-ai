@@ -68,3 +68,16 @@ requires rerunning the capture pipeline.
 
 This is a consistency gate, not proof that the calibration bounds correspond to
 the visible puzzle tiles or that the classifier reflects game semantics.
+
+
+## Capture identity binding
+
+The capture pipeline adds the board observation's capture session ID, capture
+timestamp, snapshot ID, and board snapshot ID to the persisted pixel-audit
+report. Planning preflight requires all four values to match the current board
+observation, in addition to the source hash, dimensions, grid, and pixel-audit
+checks. This prevents a report from an earlier capture from being reused just
+because an identical screenshot byte sequence appears again in a later
+session. These fields establish internal provenance consistency; they are not
+cryptographic signatures and do not independently establish screenshot
+authenticity, calibration alignment, human label truth, or gameplay correctness.
