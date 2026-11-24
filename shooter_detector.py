@@ -177,6 +177,16 @@ def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percen
     if (not isinstance(bounds, (list, tuple)) or len(bounds) != 4
             or any(type(v) is not int for v in bounds)):
         raise ValueError("Panel bounds must be four integer coordinates")
+    for name, value in (
+        ("mean_tolerance", mean_tolerance),
+        ("percentile_tolerance", percentile_tolerance),
+    ):
+        if (type(value) not in (int, float)
+                or not math.isfinite(value)
+                or not 0 <= value <= 255):
+            raise ValueError(
+                f"{name} must be finite and within per-channel difference bounds [0, 255]"
+            )
     left, top, right, bottom = bounds
     with Image.open(source_path) as source, Image.open(panel_path) as panel:
         source = source.convert("RGB")
