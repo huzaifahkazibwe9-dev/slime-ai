@@ -30,11 +30,6 @@ def load_level(level=39, observation_path=None, shooter_path=None):
     board_data = load_board(vision_path)
     board = board_data["board"]
 
-    if board_data["width"] != 35:
-        raise ValueError("Unexpected board width")
-
-    if board_data["height"] != 35:
-        raise ValueError("Unexpected board height")
 
     shooters = load_shooters()
 
