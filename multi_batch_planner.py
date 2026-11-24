@@ -12,6 +12,7 @@ def simulate_batch_schedule(
 ):
     if config is None:
         config = SimulatorConfig()
+        config_error = False
     elif not isinstance(config, SimulatorConfig):
         config_error = True
     else:
