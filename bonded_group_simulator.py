@@ -88,7 +88,9 @@ def simulate_bonded_group(state, shooter_id, *, consume_state=False):
         "member_reports": member_reports,
         "region_history": region_history,
         "final_region_graph": final_graph,
-        "final_board": copy.deepcopy(working.board),
+        # working is private unless the caller explicitly opted into consuming
+        # its disposable state, so another board copy is unnecessary.
+        "final_board": working.board,
         "remaining_ammo": {
             member: working.shooters[member].ammo for member in group
         },
