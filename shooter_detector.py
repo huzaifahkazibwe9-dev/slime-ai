@@ -153,7 +153,13 @@ def read_ammunition(image, box, temp):
         return None
 
     digits = re.findall(r"\d+", result.stdout)
-    return int(digits[0]) if len(digits) == 1 else None
+    if len(digits) != 1:
+        return None
+    try:
+        return int(digits[0])
+    except ValueError:
+        # Malformed or excessively long OCR output is unknown ammo, not a crash.
+        return None
 
 def verify_panel_crop(source_path, panel_path, bounds, mean_tolerance=14, percentile_tolerance=48):
     """Verify a panel image against a region of the full source screenshot.
