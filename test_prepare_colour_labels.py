@@ -37,6 +37,18 @@ class ColourLabelTemplateTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_template(observation)
 
+    def test_output_metadata_and_rgb_are_detached_from_input(self):
+        observation = self.observation()
+        template = build_template(observation)
+
+        observation["image_size"][0] = 1
+        observation["grid_size"][0] = 1
+        observation["raw_rgb"][0][0][0] = 255
+
+        self.assertEqual(template["image_size"], [1080, 2220])
+        self.assertEqual(template["grid_size"], [2, 2])
+        self.assertEqual(template["samples"][0]["rgb"], [10, 20, 30])
+
     def test_rejects_grid_mismatch(self):
         observation = self.observation()
         observation["raw_rgb"] = [[[1, 2, 3]]]
