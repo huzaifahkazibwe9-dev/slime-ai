@@ -23,7 +23,7 @@ labels as reference labels. Keep the original screenshot available for review.
 Run the evaluator only after completing that manual review:
 
 ```sh
-python vision_calibration.py data/colour_labels_template.json
+python vision_calibration.py data/colour_labels_template.json --source-image path/to/original-screenshot.jpg
 ```
 
 ## Dataset format
@@ -42,7 +42,13 @@ The evaluator accepts a UTF-8 JSON file with this structure:
 ```
 
 Each sample needs a unique, non-empty ID, exactly three integer RGB channels
-from 0 through 255, and a non-empty reference label. The explicit
+from 0 through 255, and a non-empty reference label. Templates also carry the
+source screenshot SHA-256, image dimensions, grid dimensions, and each sample's
+zero-based row/column. The evaluator preserves this provenance in its report
+and validates grid coordinates. When `--source-image` is supplied, the
+evaluator hashes that file and refuses to score the dataset if it is not the
+exact screenshot recorded in the template. This binds the report to a source
+file; it does not verify that the human labels are correct. The explicit
 `labelled_by_user` flag is required so automatically generated predictions
 cannot silently be treated as ground truth.
 

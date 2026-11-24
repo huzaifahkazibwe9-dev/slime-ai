@@ -12,7 +12,9 @@ This measures agreement with the supplied labels. It does not independently
 establish that labels are correct or that the samples represent gameplay.
 """
 import argparse
+import hashlib
 import json
+import re
 from pathlib import Path
 
 from screenshot_ingestor import COLOUR_LABELS, classify_rgb
@@ -27,6 +29,25 @@ def validate_dataset(data):
         raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
     if data.get("labelled_by_user") is not True:
         raise ValueError("Dataset must explicitly set labelled_by_user to true")
+
+    source_sha256 = data.get("source_sha256")
+    if source_sha256 is not None and (
+        not isinstance(source_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None
+    ):
+        raise ValueError("source_sha256 must be a lowercase 64-character hexadecimal digest")
+
+    image_size = data.get("image_size")
+    grid_size = data.get("grid_size")
+    if (image_size is None) != (grid_size is None):
+        raise ValueError("image_size and grid_size must be supplied together")
+    if image_size is not None:
+        if (not isinstance(image_size, list) or len(image_size) != 2
+                or any(type(value) is not int or value < 1 for value in image_size)):
+            raise ValueError("image_size must contain positive integer width and height")
+        if (not isinstance(grid_size, list) or len(grid_size) != 2
+                or any(type(value) is not int or value < 1 for value in grid_size)):
+            raise ValueError("grid_size must contain positive integer columns and rows")
 
     samples = data.get("samples")
     if not isinstance(samples, list) or not samples:
@@ -49,6 +70,15 @@ def validate_dataset(data):
                 or any(type(channel) is not int or not 0 <= channel <= 255
                        for channel in rgb)):
             raise ValueError(f"Sample {sample_id} rgb must be three integers in [0, 255]")
+        if image_size is not None:
+            row = sample.get("row")
+            column = sample.get("column")
+            if (type(row) is not int or type(column) is not int
+                    or not 0 <= row < grid_size[1]
+                    or not 0 <= column < grid_size[0]):
+                raise ValueError(
+                    f"Sample {sample_id} row/column must be valid zero-based grid coordinates"
+                )
         label = sample.get("label")
         if not isinstance(label, str) or not label.strip():
             raise ValueError(f"Sample {sample_id} label must be a non-empty string")
@@ -116,6 +146,12 @@ def evaluate_dataset(data):
         "schema_version": SCHEMA_VERSION,
         "classifier": "screenshot_ingestor.classify_rgb",
         "sample_count": total,
+        "source_provenance": {
+            "source_sha256": data.get("source_sha256"),
+            "image_size": data.get("image_size"),
+            "grid_size": data.get("grid_size"),
+            "source_image_hash_checked": False,
+        },
         "correct_count": correct,
         "accuracy": round(correct / total, 6),
         "macro_recall": round(sum(recalls) / len(recalls), 6) if recalls else 0.0,
@@ -141,10 +177,22 @@ def main():
     )
     parser.add_argument("dataset", help="JSON file containing user-labelled RGB samples")
     parser.add_argument("--output", default="data/colour_evaluation_report.json")
+    parser.add_argument(
+        "--source-image",
+        help="Original screenshot; when supplied, its SHA-256 must match the template",
+    )
     args = parser.parse_args()
 
     data = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
     report = evaluate_dataset(data)
+    if args.source_image:
+        expected = data.get("source_sha256")
+        if not isinstance(expected, str):
+            raise ValueError("Dataset has no source_sha256; cannot verify --source-image")
+        actual = hashlib.sha256(Path(args.source_image).read_bytes()).hexdigest()
+        if actual != expected:
+            raise ValueError("Source screenshot SHA-256 does not match the labelled dataset")
+        report["source_provenance"]["source_image_hash_checked"] = True
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
