@@ -264,6 +264,17 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                         "bonded_groups": [],
                     })
 
+    def test_loader_preserves_each_shooters_ammunition_count(self):
+        shooters = self.load_payload({
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 3},
+                {"id": "B", "color": {"name": "blue"}, "ammo": 11},
+            ],
+            "bonded_groups": [],
+        })
+        self.assertEqual(shooters["A"].ammo, 3)
+        self.assertEqual(shooters["B"].ammo, 11)
+
     def test_loader_accepts_zero_ammunition(self):
         shooters = self.load_payload({
             "visible_shooters": [{
