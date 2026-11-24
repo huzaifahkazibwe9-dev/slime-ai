@@ -97,6 +97,44 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid storage occupancy"):
             restore_simulator(snapshot)
 
+    def test_rejects_inconsistent_storage_occupancy_delta(self):
+        sim = create_simulator(
+            [
+                {"id": "a", "ammo": 0},
+                {"id": "b", "ammo": 0},
+            ],
+            config=SimulatorConfig(storage_capacity=2, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.select_group("b"))
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        returns = [
+            event for event in snapshot["events"]
+            if event.get("event") == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        self.assertEqual([event["storage_occupied"] for event in returns], [1, 2])
+        returns[1]["storage_occupied"] = 1
+        with self.assertRaisesRegex(ValueError, "occupancy event delta"):
+            restore_simulator(snapshot)
+
+    def test_rejects_reactivation_event_with_invalid_members_for_occupancy(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("a"))
+        snapshot = snapshot_simulator(sim)
+        event = next(
+            event for event in snapshot["events"]
+            if event.get("event") == "GROUP_REACTIVATED_FROM_STORAGE"
+        )
+        event["members"] = "a"
+        with self.assertRaisesRegex(ValueError, "must list its group members"):
+            restore_simulator(snapshot)
+
     def test_rejects_storage_occupancy_below_returned_shooters(self):
         sim = create_simulator([
             {"id": "a", "ammo": 0, "returned": True},
