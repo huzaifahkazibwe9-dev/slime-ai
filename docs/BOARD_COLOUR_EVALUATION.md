@@ -113,3 +113,13 @@ column that contains reviewed cells, making uneven sampling visible without
 assuming that any particular distribution is statistically adequate. Each grid
 axis is capped at 10,000 cells and the complete grid at 1,000,000 cells to bound
 reporting cost on malformed inputs.
+
+## Human-label consistency audit
+
+The coverage report groups samples with exactly identical RGB triples. It
+reports repeated RGB groups separately from conflicting groups. A conflict is
+an identical RGB value assigned more than one human label; the report includes
+the RGB value, labels, and sample IDs so a reviewer can revisit those cells.
+Repeated RGB values with one consistent label are not treated as errors.
+Conflicts are diagnostic flags, not automatic proof of which label is correct,
+and the evaluator does not silently discard or rewrite them.
