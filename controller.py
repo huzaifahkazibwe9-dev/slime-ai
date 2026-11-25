@@ -132,19 +132,19 @@ class SlimeController:
             "plan_available": verified_plan,
             "plan_is_simulation_candidate": verified_plan,
             "plan_is_gameplay_verified": False,
-            "plan_verification_status": report.get(
-                "plan_verification_status",
-                "NOT_GAMEPLAY_VERIFIED",
+            "plan_verification_status": (
+                "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+                if verified_plan else "NO_VERIFIED_PLAN"
             ),
-            "shooter_observation_quality": report.get(
-                "shooter_observation_quality",
-                {
-                    "colour_independently_verified": False,
-                    "ammunition_independently_verified": False,
-                    "slot_mapping_independently_verified": False,
-                    "interpretation": "Shooter visual quality metadata is unavailable.",
-                },
-            ),
+            "shooter_observation_quality": {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+                "interpretation": (
+                    "STATUS does not trust saved verification claims; "
+                    "shooter observations remain simulation-only."
+                ),
+            },
             "decision": report.get("decision", "NO_REPORT"),
             "evidence_gate_passed": evidence_gate_passed,
             "capture_evidence_valid": capture_evidence_valid,
@@ -221,19 +221,19 @@ class SlimeController:
                 "plan_available": verified_plan,
                 "plan_is_simulation_candidate": verified_plan,
                 "plan_is_gameplay_verified": False,
-                "plan_verification_status": report.get(
-                    "plan_verification_status",
-                    "NOT_GAMEPLAY_VERIFIED",
+                "plan_verification_status": (
+                    "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+                    if verified_plan else "NO_VERIFIED_PLAN"
                 ),
-                "shooter_observation_quality": report.get(
-                    "shooter_observation_quality",
-                    {
-                        "colour_independently_verified": False,
-                        "ammunition_independently_verified": False,
-                        "slot_mapping_independently_verified": False,
-                        "interpretation": "Shooter visual quality metadata is unavailable.",
-                    },
-                ),
+                "shooter_observation_quality": {
+                    "colour_independently_verified": False,
+                    "ammunition_independently_verified": False,
+                    "slot_mapping_independently_verified": False,
+                    "interpretation": (
+                        "Shooter observations are simulation-only; "
+                        "independent verification is not available."
+                    ),
+                },
                 "recommended_group": group if verified_plan else None,
                 "decision": report.get("decision"),
                 "evidence_gate_passed": evidence_gate_passed,
