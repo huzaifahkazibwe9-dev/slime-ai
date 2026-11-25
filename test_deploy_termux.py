@@ -47,7 +47,7 @@ class TermuxDeploymentTests(unittest.TestCase):
             "pkg": 'printf "pkg %s\\n" "$*" >> "$FAKE_LOG"\n',
             "python": (
                 'printf "python %s\\n" "$*" >> "$FAKE_LOG"\n'
-                'if [[ "$*" == *"sys.version_info"* && "$PYTHON_SUPPORTED" != "1" ]]; then exit 1; fi\n'
+                'if [[ "$*" == *"sys.version_info"* && "$PYTHON_SUPPORTED" != "1" ]]; then echo "ERROR: Slime AI requires Python 3.10 or newer." >&2; exit 1; fi\n'
                 'if [[ "${1:-}" == "--version" ]]; then echo "Python 3.12.0"; fi\n'
                 "exit 0\n"
             ),
