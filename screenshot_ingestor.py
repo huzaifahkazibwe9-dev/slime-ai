@@ -297,7 +297,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
     started = time.perf_counter()
     image_path = Path(image_path).expanduser().resolve()
     output_path = Path(output_path)
-    baseline = strict_json_loads(Path(baseline_path).read_bytes())
+    baseline = strict_json_loads(Path(baseline_path).read_text(encoding="utf-8"))
     if not isinstance(baseline, dict):
         raise ValueError("Calibration must be a JSON object")
 
@@ -317,7 +317,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     cached = None
     try:
-        cached = strict_json_loads(output_path.read_bytes())
+        cached = strict_json_loads(output_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         pass
 
