@@ -556,6 +556,18 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "out-of-panel coordinate"):
             batch.verify_batch_report(report)
 
+    def test_rejects_noncanonical_zero_padded_coordinate_even_when_resealed(self):
+        report = self._valid_report()
+        matrix = report["shooter_observation_evaluation"]["metrics"][
+            "slot_position_alignment"
+        ]["confusion_matrix"]
+        matrix["r01c03"] = matrix.pop("r1c3")
+        for row in matrix.values():
+            row["r01c03"] = row.pop("r1c3")
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "noncanonical coordinate"):
+            batch.verify_batch_report(report)
+
     def test_rejects_unknown_visibility_coverage_bucket_even_when_resealed(self):
         report = self._valid_report()
         report["shooter_observation_evaluation"]["review_coverage"][
