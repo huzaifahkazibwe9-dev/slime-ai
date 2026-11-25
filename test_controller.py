@@ -275,6 +275,15 @@ class ControllerTests(unittest.TestCase):
     def test_status_requires_current_capture_before_showing_saved_plan(self):
         report = {
             "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "plan_verification_status": (
+                "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+            ),
+            "shooter_observation_quality": {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+                "interpretation": "Simulation only; detector values are unverified.",
+            },
             "evidence": {"evidence_gate_passed": True},
             "planner": {"recommended_group": ["A"]},
             "capture_provenance": {
