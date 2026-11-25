@@ -754,24 +754,54 @@ def _aggregate_shooter(reports):
         for item in results:
             if not isinstance(item, dict):
                 raise ValueError("Shooter sample result must be an object")
-            visibility_pairs.append((
-                item.get("reviewed_visibility"), item.get("detected_visibility")
-            ))
+            reviewed_visibility = item.get("reviewed_visibility")
+            detected_visibility = item.get("detected_visibility")
+            visibility_correct = item.get("visibility_correct")
+            expected_visibility_correct = reviewed_visibility == detected_visibility
+            if type(visibility_correct) is not bool:
+                raise ValueError("Shooter visibility samples require a boolean correctness result")
+            if visibility_correct is not expected_visibility_correct:
+                raise ValueError(
+                    "Shooter visibility correctness disagrees with the reviewed and detected values"
+                )
+            visibility_pairs.append((reviewed_visibility, detected_visibility))
             reviewed_position = item.get("reviewed_position")
+            position_correct = item.get("position_correct")
             if reviewed_position is not None:
                 detected_position = item.get("detected_position")
                 if (not isinstance(reviewed_position, list) or len(reviewed_position) != 2
-                        or not isinstance(detected_position, list) or len(detected_position) != 2):
-                    raise ValueError("Shooter position sample results must be coordinate pairs")
+                        or not isinstance(detected_position, list) or len(detected_position) != 2
+                        or any(type(value) is not int or value < 1
+                               for value in reviewed_position + detected_position)):
+                    raise ValueError("Shooter position sample results must be positive-integer coordinate pairs")
+                expected_position_correct = reviewed_position == detected_position
+                if type(position_correct) is not bool:
+                    raise ValueError("Reviewed shooter positions require a boolean correctness result")
+                if position_correct is not expected_position_correct:
+                    raise ValueError(
+                        "Shooter position correctness disagrees with the reviewed and detected values"
+                    )
                 position_pairs.append((
                     f"r{reviewed_position[0]}c{reviewed_position[1]}",
                     f"r{detected_position[0]}c{detected_position[1]}",
                 ))
-            if item.get("reviewed_colour") is not None:
+            elif position_correct is not None:
+                raise ValueError("Shooter position correctness must be null when no position was reviewed")
+            reviewed_colour = item.get("reviewed_colour")
+            detected_colour = item.get("detected_colour")
+            colour_correct = item.get("colour_correct")
+            if reviewed_colour is not None:
                 visible_with_colour += 1
-                colour_pairs.append((
-                    item.get("reviewed_colour"), item.get("detected_colour")
-                ))
+                expected_colour_correct = reviewed_colour == detected_colour
+                if type(colour_correct) is not bool:
+                    raise ValueError("Reviewed shooter colours require a boolean correctness result")
+                if colour_correct is not expected_colour_correct:
+                    raise ValueError(
+                        "Shooter colour correctness disagrees with the reviewed and detected values"
+                    )
+                colour_pairs.append((reviewed_colour, detected_colour))
+            elif colour_correct is not None:
+                raise ValueError("Shooter colour correctness must be null when no colour was reviewed")
             reviewed_ammo = item.get("reviewed_ammunition")
             if reviewed_ammo is not None:
                 _nonnegative_count(reviewed_ammo, "reviewed_ammunition")
@@ -792,6 +822,10 @@ def _aggregate_shooter(reports):
                         "detected and reviewed ammunition values"
                     )
                 ammo_correct += item["ammunition_correct"]
+            elif item.get("ammunition_correct") is not None:
+                raise ValueError(
+                    "Shooter ammunition correctness must be null when no ammunition was reviewed"
+                )
 
     return {
         "sample_count": sample_count,
