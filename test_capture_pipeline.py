@@ -253,6 +253,16 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertEqual(result["snapshot_id"], "sha256:" + "a" * 64)
             self.assertEqual(json.loads(output_path.read_text()), result)
 
+    def test_audit_capture_pixels_rejects_unreadable_utf8_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            board_path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(
+                ValueError, "missing or invalid for pixel audit"
+            ):
+                audit_capture_pixels(board_path, b"source screenshot bytes")
+
     def test_audit_capture_pixels_rejects_sample_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
             board_path = Path(directory) / "board.json"
