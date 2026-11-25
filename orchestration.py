@@ -62,6 +62,11 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         root, candidate_report_path
     )
     paths = {
+        # Pin the direct inputs used to produce the planning gate as well
+        # as the derived gate itself. Otherwise an upstream calibration or
+        # reachability change could leave a stale planning report looking current.
+        "reachability_confidence_json": root / "reachability_confidence_latest.json",
+        "conveyor_calibration_json": root / "conveyor_calibration.json",
         "planning_json": root / "planning_gate_latest.json",
         "identity_json": root / "identity_audit_report.json",
         "snapshot_json": root / "snapshot_sync_report.json",
