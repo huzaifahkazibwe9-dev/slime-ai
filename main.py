@@ -130,34 +130,75 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     identity_report = evidence_bundle["identity"]
     candidate_report = evidence_bundle["candidates"]
     snapshot_report = evidence_bundle["snapshot"]
+    conveyor_observation = evidence_bundle["conveyor_observation"]
+    board_observation = (
+        pinned_capture["board_data"] if pinned_capture is not None else None
+    )
 
     print("Planning report present:", planning_report is not None)
     print("Identity report present:", identity_report is not None)
     print("Candidate report present:", candidate_report is not None)
     print("Snapshot report present:", snapshot_report is not None)
 
+    from snapshot_sync import synchronise_bundle
+    from orchestration import evidence_status
+    bundle_sync = synchronise_bundle(
+        board_observation,
+        conveyor_observation,
+        identity_report,
+        candidate_report,
+        planning_report,
+    )
+    synchronized_snapshot = (
+        dict(snapshot_report) if isinstance(snapshot_report, dict) else {}
+    )
+    synchronized_snapshot["synchronised"] = (
+        synchronized_snapshot.get("synchronised") is True
+        and bundle_sync["synchronised"]
+    )
+    synchronized_snapshot["planning_allowed_by_sync"] = (
+        synchronized_snapshot.get("planning_allowed_by_sync") is True
+        and bundle_sync["planning_allowed_by_sync"]
+    )
+    synchronized_snapshot["bundle_synchronisation"] = bundle_sync
+    current_calibration_sha256 = _canonical_json_sha256(
+        evidence_bundle["vision_calibration"]
+    )
+    planner_gate = evidence_status(
+        planning_report,
+        identity_report,
+        synchronized_snapshot,
+        candidate_report,
+        shooter_capture_verified=(
+            vision_verified.get("shooter_capture_provenance_verified") is True
+        ),
+        planning_input_file_sha256=current_source_file_sha256,
+        board_calibration_sha256=(
+            board_observation.get("calibration_sha256")
+            if isinstance(board_observation, dict) else None
+        ),
+        current_calibration_sha256=current_calibration_sha256,
+    )
+
     if errors:
         print("Planner skipped: game state has validation errors.")
         move = None
     elif (
         resource_manager.can_process("ANALYSE")
-        and vision_verified.get("shooter_capture_provenance_verified") is True
+        and planner_gate["evidence_gate_passed"]
     ):
         move = planner.plan_next_move(
             state,
             planning_report=planning_report,
             identity_audit=identity_report,
             candidate_report=candidate_report,
-            snapshot_report=snapshot_report,
+            snapshot_report=synchronized_snapshot,
             current_source_file_sha256=current_source_file_sha256,
-            current_calibration_sha256=_canonical_json_sha256(
-                evidence_bundle["vision_calibration"]
-            ),
+            current_calibration_sha256=current_calibration_sha256,
         )
     else:
         move = None
-        if vision_verified.get("shooter_capture_provenance_verified") is not True:
-            print("Planner skipped: shooter panel is not bound to this board capture.")
+        print("Planner skipped: current screenshot/provenance gate did not pass.")
 
     print("Recommended candidate:", move)
     if move is None:
