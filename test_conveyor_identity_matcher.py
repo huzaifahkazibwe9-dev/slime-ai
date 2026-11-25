@@ -1,9 +1,14 @@
+import hashlib
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from conveyor_identity_matcher import (
     validate_visual_observations,
     validate_visual_provenance,
     validate_observation_provenance,
+    read_snapshot,
 )
 
 
@@ -21,6 +26,16 @@ def observations():
 
 
 class ConveyorIdentityMatcherTests(unittest.TestCase):
+    def test_read_snapshot_hashes_exact_json_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            raw = b'{ "value": 9 }'
+            path = Path(directory) / "sample.json"
+            path.write_bytes(raw)
+            with patch("conveyor_identity_matcher.DATA", Path(directory)):
+                value, digest = read_snapshot("sample.json")
+        self.assertEqual(value, {"value": 9})
+        self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
     def test_complete_unique_frame_is_valid(self):
         self.assertEqual(
             validate_visual_observations(observations(), EXPECTED), []
