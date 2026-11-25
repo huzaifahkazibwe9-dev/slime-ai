@@ -10,9 +10,14 @@ from pathlib import Path
 SOURCE_SCRIPT = Path(__file__).with_name("deploy_termux.sh")
 
 
-    def make_environment(self, root, with_capture_config=False,
-                         python_supported=True, english_data=True):
-    def make_environment(self, root, with_capture_config=False):
+class TermuxDeploymentTests(unittest.TestCase):
+    def make_environment(
+        self,
+        root,
+        with_capture_config=False,
+        python_supported=True,
+        english_data=True,
+    ):
         root = Path(root)
         (root / ".git").mkdir()
         (root / "screenshots").mkdir()
@@ -43,20 +48,23 @@ SOURCE_SCRIPT = Path(__file__).with_name("deploy_termux.sh")
             "python": (
                 'printf "python %s\\n" "$*" >> "$FAKE_LOG"\n'
                 'if [[ "$*" == *"sys.version_info"* && "$PYTHON_SUPPORTED" != "1" ]]; then exit 1; fi\n'
+                'if [[ "${1:-}" == "--version" ]]; then echo "Python 3.12.0"; fi\n'
                 "exit 0\n"
             ),
         }
         if with_capture_config:
             stubs["tesseract"] = (
+                'if [[ "${1:-}" == "--list-langs" ]]; then\n'
                 '  if [[ "$ENGLISH_DATA" == "1" ]]; then printf "List of available languages (1):\\neng\\n"; else printf "List of available languages (0):\\n"; fi\n'
-                '  printf "List of available languages (1):\\neng\\n"\n'
                 "fi\n"
                 "exit 0\n"
             )
 
         for name, body in stubs.items():
             stub_path = bin_dir / name
-            stub_path.write_text("#!/usr/bin/env bash\nset -euo pipefail\n" + body)
+            stub_path.write_text(
+                "#!/usr/bin/env bash\nset -euo pipefail\n" + body
+            )
             stub_path.chmod(stub_path.stat().st_mode | stat.S_IXUSR)
 
         env = os.environ.copy()
