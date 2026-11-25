@@ -50,6 +50,8 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
     # Planning inputs are separate artifacts and are hashed independently.
     evidence_files = {
+        "vision_level39.json": {"fixture": "vision-calibration"},
+        "reachability_audit.json": {"fixture": "reachability-audit"},
         "reachability_confidence_latest.json": {"fixture": "reachability-confidence"},
         "conveyor_calibration.json": {"fixture": "conveyor-calibration"},
         "planning_gate_latest.json": {"fixture": "planning"},
@@ -82,6 +84,8 @@ def capture_bundle_hashes(directory):
 def planning_evidence_hashes(directory):
     root = Path(directory)
     names = {
+        "vision_calibration_json": "vision_level39.json",
+        "reachability_audit_json": "reachability_audit.json",
         "reachability_confidence_json": "reachability_confidence_latest.json",
         "conveyor_calibration_json": "conveyor_calibration.json",
         "planning_json": "planning_gate_latest.json",
@@ -444,15 +448,22 @@ class ControllerTests(unittest.TestCase):
             report_path = Path(directory) / "orchestration_latest.json"
             report_path.write_text(json.dumps(report))
 
-            # Alter an upstream calibration input while leaving capture,
-            # derived reports, and all capture metadata intact.
-            calibration_path = Path(directory) / "conveyor_calibration.json"
-            calibration_path.write_text(json.dumps({"fixture": "modified"}))
-            status = SlimeController(data_dir=directory).status()
-
-        self.assertTrue(status["capture_evidence_valid"])
-        self.assertFalse(status["planning_evidence_matches_current_files"])
-        self.assertFalse(status["plan_available"])
+            # Each upstream geometry/board input must invalidate the saved
+            # plan even while capture identity and derived reports are unchanged.
+            for name in (
+                "vision_level39.json",
+                "reachability_audit.json",
+                "conveyor_calibration.json",
+            ):
+                with self.subTest(upstream_input=name):
+                    path = Path(directory) / name
+                    original = path.read_text()
+                    path.write_text(json.dumps({"fixture": "modified"}))
+                    status = SlimeController(data_dir=directory).status()
+                    path.write_text(original)
+                    self.assertTrue(status["capture_evidence_valid"])
+                    self.assertFalse(status["planning_evidence_matches_current_files"])
+                    self.assertFalse(status["plan_available"])
 
 
 
