@@ -28,6 +28,12 @@ class VisualReviewTests(unittest.TestCase):
             "extraction_fingerprint_match": True, "label_mismatch_count": 0,
             "colour_counts_match": True, "capture_session_id": self.session,
             "captured_at": self.time, "snapshot_id": "sha256:" + self.digest,
+            "source_image_hash_checked": True,
+            "source_image_dimensions_checked": True,
+            "label_truth_independently_verified": False,
+            "calibration_alignment_verified": False,
+            "gameplay_verified": False,
+            "game_taps_enabled": False,
             "board_snapshot_id": "sha256:" + self.digest,
         }
         slots, obs = [], []
@@ -84,6 +90,18 @@ class VisualReviewTests(unittest.TestCase):
         self.assertFalse(shooter["labelled_by_user"])
         self.assertEqual(manifest["review_status"], "NOT_REVIEWED")
         self.assertTrue((self.root / "manifest.json").is_file())
+
+    def test_rejects_capture_audit_claiming_gameplay_verified(self):
+        self.audit["gameplay_verified"] = True
+        self._write()
+        with self.assertRaisesRegex(ValueError, "gameplay_verified"):
+            self._run()
+
+    def test_rejects_persisted_audit_missing_calibration_status(self):
+        self.audit.pop("calibration_alignment_verified")
+        self._write()
+        with self.assertRaisesRegex(ValueError, "calibration_alignment_verified"):
+            self._run()
 
     def test_rejects_screenshot_replaced_after_capture(self):
         def replace(*args):
