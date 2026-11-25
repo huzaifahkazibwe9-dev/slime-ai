@@ -10,7 +10,8 @@ from pathlib import Path
 SOURCE_SCRIPT = Path(__file__).with_name("deploy_termux.sh")
 
 
-class TermuxDeploymentTests(unittest.TestCase):
+    def make_environment(self, root, with_capture_config=False,
+                         python_supported=True, english_data=True):
     def make_environment(self, root, with_capture_config=False):
         root = Path(root)
         (root / ".git").mkdir()
@@ -41,13 +42,13 @@ class TermuxDeploymentTests(unittest.TestCase):
             "pkg": 'printf "pkg %s\\n" "$*" >> "$FAKE_LOG"\n',
             "python": (
                 'printf "python %s\\n" "$*" >> "$FAKE_LOG"\n'
-                'if [[ "${1:-}" == "--version" ]]; then echo "Python 3.12.0"; fi\n'
+                'if [[ "$*" == *"sys.version_info"* && "$PYTHON_SUPPORTED" != "1" ]]; then exit 1; fi\n'
                 "exit 0\n"
             ),
         }
         if with_capture_config:
             stubs["tesseract"] = (
-                'if [[ "${1:-}" == "--list-langs" ]]; then\n'
+                '  if [[ "$ENGLISH_DATA" == "1" ]]; then printf "List of available languages (1):\\neng\\n"; else printf "List of available languages (0):\\n"; fi\n'
                 '  printf "List of available languages (1):\\neng\\n"\n'
                 "fi\n"
                 "exit 0\n"
@@ -64,6 +65,8 @@ class TermuxDeploymentTests(unittest.TestCase):
             "PREFIX": "/data/data/com.termux/files/usr",
             "FAKE_LOG": str(log_path),
             "BUILD_MARKER": str(build_marker),
+            "PYTHON_SUPPORTED": "1" if python_supported else "0",
+            "ENGLISH_DATA": "1" if english_data else "0",
         })
         return env, log_path, build_marker
 
@@ -101,6 +104,28 @@ class TermuxDeploymentTests(unittest.TestCase):
             commands = log_path.read_text()
             self.assertIn("pkg install -y python python-numpy python-pillow", commands)
             self.assertIn("pkg install -y tesseract", commands)
+
+    def test_refuses_unsupported_python_version_before_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env, log_path, build_marker = self.make_environment(
+                directory, python_supported=False
+            )
+            result = self.run_deployment(directory, env)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Python 3.10 or newer", result.stderr)
+            self.assertFalse(build_marker.exists())
+
+    def test_refuses_missing_tesseract_english_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env, log_path, build_marker = self.make_environment(
+                directory, with_capture_config=True, english_data=False
+            )
+            result = self.run_deployment(directory, env)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("English language data", result.stderr)
+            self.assertFalse(build_marker.exists())
 
     def test_refuses_non_termux_environment_before_running_commands(self):
         with tempfile.TemporaryDirectory() as directory:
