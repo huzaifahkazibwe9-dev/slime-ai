@@ -25,6 +25,7 @@ from shooter_detector import (
 
     load_user_confirmed_bonded_groups,
     assess_color_sample,
+    load_user_confirmed_bonded_groups_with_provenance,
 )
 
 
@@ -390,6 +391,27 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             path.write_text('{"verified_by_user": true, "bonded_groups": [["A", "B"], ["A", "C"]]}')
             with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
                 load_user_confirmed_bonded_groups(path, ["A", "B", "C"])
+
+    def test_bonded_group_provenance_hashes_exact_config_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            raw = b'{"verified_by_user": true, "bonded_groups": [["top_1", "top_2"]]}'
+            path.write_bytes(raw)
+            groups, source, digest = load_user_confirmed_bonded_groups_with_provenance(
+                path, ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [["top_1", "top_2"]])
+        self.assertEqual(source, "user_confirmed")
+        self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
+    def test_missing_bonded_group_config_has_no_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            groups, source, digest = load_user_confirmed_bonded_groups_with_provenance(
+                Path(directory) / "missing.json", ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [])
+        self.assertEqual(source, "not_configured")
+        self.assertIsNone(digest)
 
 
 
