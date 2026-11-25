@@ -9,6 +9,8 @@ from conveyor_identity_matcher import (
     validate_visual_provenance,
     validate_observation_provenance,
     validate_identity_audit,
+    validate_calibration_positions,
+    derive_candidate_track,
     read_snapshot,
 )
 
@@ -116,6 +118,110 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             identity, board, visual, positions, expected
         )
         self.assertTrue(any("current frame" in item for item in errors))
+
+    def test_calibration_position_geometry_requires_valid_segment_and_center(self):
+        valid = {
+            "bottom_1": {"segment": "bottom", "center": [10, 20]},
+            "top_1": {"segment": "top", "center": [30.5, 40]},
+        }
+        self.assertEqual(validate_calibration_positions(valid), [])
+        invalid = {
+            "bottom_1": {"segment": "diagonal", "center": [10, 20]},
+            "top_1": {"segment": "top", "center": [30, float("inf")]},
+        }
+        errors = validate_calibration_positions(invalid)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("segment" in error for error in errors))
+        self.assertTrue(any("center" in error for error in errors))
+
+    def test_candidate_track_uses_unique_historical_intersection(self):
+        positions = ["bottom_1", "right_2", "top_2", "left_1"]
+        shooter_positions = {
+            "shooter-A": positions,
+            "shooter-B": ["bottom_2", "right_1", "top_1", "left_2"],
+        }
+        calibrated = {
+            position: {"segment": position.split("_")[0], "center": [10, 20]}
+            for position in positions
+        }
+        visual = {
+            "board_snapshot_id": "sha256:" + "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": "2026-11-25T08:00:00+00:00",
+            "timestamp_identified": True,
+        }
+        observations = {
+            position: {"position_id": position, "colour": "white", "ammo": ammo}
+            for position, ammo in zip(positions, (40, 30, 20, 10))
+        }
+        track = derive_candidate_track(
+            "white",
+            {"positions": positions, "allowed_panel_colours": {"white"}},
+            shooter_positions,
+            {"shooter-A": "bottom_1", "shooter-B": "bottom_2"},
+            {"shooter-A": {"color": {"name": "white"}}},
+            calibrated,
+            observations,
+            visual,
+        )
+        self.assertEqual(track["candidate_shooter"], "shooter-A")
+        self.assertEqual(track["current_position_id"], "bottom_1")
+        self.assertTrue(track["candidate_supported"])
+        self.assertTrue(track["ammo_non_increasing"])
+        self.assertTrue(track["panel_colour_match"])
+        self.assertTrue(track["observed_colour_consistent"])
+
+    def test_candidate_track_rejects_ambiguous_historical_intersection(self):
+        positions = ["bottom_1", "right_2", "top_2", "left_1"]
+        shooter_positions = {
+            "shooter-A": positions,
+            "shooter-B": positions,
+        }
+        calibrated = {
+            position: {"segment": position.split("_")[0], "center": [10, 20]}
+            for position in positions
+        }
+        visual = {"board_snapshot_id": "sha256:" + "a" * 64}
+        observations = {
+            position: {"position_id": position, "colour": "white", "ammo": 10}
+            for position in positions
+        }
+        track = derive_candidate_track(
+            "white",
+            {"positions": positions, "allowed_panel_colours": {"white"}},
+            shooter_positions,
+            {"shooter-A": "bottom_1", "shooter-B": "bottom_2"},
+            {"shooter-A": {"color": {"name": "white"}}},
+            calibrated,
+            observations,
+            visual,
+        )
+        self.assertIsNone(track["candidate_shooter"])
+        self.assertFalse(track["candidate_supported"])
+
+    def test_candidate_track_requires_current_position_in_observed_track(self):
+        positions = ["bottom_1", "right_2", "top_2", "left_1"]
+        calibrated = {
+            position: {"segment": position.split("_")[0], "center": [10, 20]}
+            for position in positions
+        }
+        visual = {"board_snapshot_id": "sha256:" + "a" * 64}
+        observations = {
+            position: {"position_id": position, "colour": "white", "ammo": 10}
+            for position in positions
+        }
+        track = derive_candidate_track(
+            "white",
+            {"positions": positions, "allowed_panel_colours": {"white"}},
+            {"shooter-A": positions},
+            {"shooter-A": "bottom_2"},
+            {"shooter-A": {"color": {"name": "white"}}},
+            calibrated,
+            observations,
+            visual,
+        )
+        self.assertEqual(track["candidate_shooter"], "shooter-A")
+        self.assertFalse(track["candidate_supported"])
 
     def test_complete_unique_frame_is_valid(self):
         self.assertEqual(
