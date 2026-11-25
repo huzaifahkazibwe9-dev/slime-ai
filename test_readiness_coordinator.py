@@ -297,6 +297,28 @@ class LearningSummaryTests(unittest.TestCase):
             self.assertEqual(count, 3)
 
 
+    def test_malformed_evidence_shapes_fail_closed_without_crashing(self):
+        result = readiness.assess(
+            FakeState(),
+            ["not", "an", "object"],
+            {"shooters": {"not": "a list"}, "timing_calibrated_to_game": True,
+             "verified_by_user": True},
+            ["not", "an", "object"],
+            ["not", "an", "object"],
+        )
+        self.assertFalse(result["checks"]["initial_occupancy_user_confirmed"])
+        self.assertFalse(result["checks"]["conveyor_calibration_present"])
+        self.assertFalse(result["checks"]["conveyor_timing_calibrated"])
+        self.assertFalse(result["checks"]["physical_shooter_identity_verified"])
+        self.assertFalse(result["checks"]["actual_firing_verified"])
+
+    def test_read_json_rejects_non_object_top_level_payloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "array.json").write_text("[]")
+            with patch.object(readiness, "DATA", root):
+                self.assertEqual(readiness.read_json("array.json", {}), {})
+
     def test_physical_identity_requires_user_confirmation_and_timestamps(self):
         state = FakeState()
         for field, value in (
