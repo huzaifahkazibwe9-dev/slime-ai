@@ -262,7 +262,6 @@ class ControllerTests(unittest.TestCase):
             write_capture_pair(directory)
             report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
             report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
-            report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
             board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
             report["capture_provenance"]["captured_at"] = board["captured_at"]
             report_path = Path(directory) / "orchestration_latest.json"
@@ -437,7 +436,6 @@ class ControllerTests(unittest.TestCase):
             board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
             report["capture_provenance"]["captured_at"] = board["captured_at"]
             report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
-            report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
             report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
             report_path = Path(directory) / "orchestration_latest.json"
             report_path.write_text(json.dumps(report))
