@@ -1,8 +1,9 @@
 import json
+from strict_json import strict_json_loads
 from collections import Counter
 
 with open("data/vision_level39.json") as f:
-    board = json.load(f)["board"]
+    board = strict_json_loads(f.read())["board"]
 
 BACKGROUND = {"cyan", "green"}
 
