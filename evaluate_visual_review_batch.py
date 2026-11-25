@@ -333,10 +333,28 @@ def evaluate_batch(batch_path):
             raise ValueError(f"Bundle {bundle_id} is missing capture identity")
         screenshot_hash = identity.get("source_screenshot_sha256")
         session_id = identity.get("capture_session_id")
-        if not isinstance(screenshot_hash, str) or len(screenshot_hash) != 64:
+        captured_at = identity.get("captured_at")
+        image_size = identity.get("source_screenshot_size")
+        if (not isinstance(screenshot_hash, str) or len(screenshot_hash) != 64
+                or any(character not in "0123456789abcdef" for character in screenshot_hash)):
             raise ValueError(f"Bundle {bundle_id} screenshot hash is invalid")
-        if not isinstance(session_id, str) or not session_id:
+        if not isinstance(session_id, str) or not session_id.strip():
             raise ValueError(f"Bundle {bundle_id} capture session ID is invalid")
+        if not isinstance(captured_at, str) or not captured_at.strip():
+            raise ValueError(f"Bundle {bundle_id} capture timestamp is invalid")
+        if (not isinstance(image_size, list) or len(image_size) != 2
+                or any(type(value) is not int or value < 1 for value in image_size)):
+            raise ValueError(f"Bundle {bundle_id} screenshot dimensions are invalid")
+        artifact_hashes = report.get("review_artifacts_sha256")
+        if not isinstance(artifact_hashes, dict):
+            raise ValueError(f"Bundle {bundle_id} review artifact hashes are missing")
+        for artifact_name in ("manifest_json", "board_labels_json", "shooter_labels_json"):
+            digest = artifact_hashes.get(artifact_name)
+            if (not isinstance(digest, str) or len(digest) != 64
+                    or any(character not in "0123456789abcdef" for character in digest)):
+                raise ValueError(
+                    f"Bundle {bundle_id} {artifact_name} digest is invalid"
+                )
         if screenshot_hash in seen_screenshots:
             raise ValueError(f"Duplicate source screenshot in batch: {screenshot_hash}")
         if session_id in seen_sessions:
