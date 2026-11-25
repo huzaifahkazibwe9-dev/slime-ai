@@ -285,8 +285,12 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         quality = shooters["A"].observation_quality
         self.assertIs(quality["colour_independently_verified"], False)
         self.assertIs(quality["ammunition_independently_verified"], False)
+        self.assertEqual(quality["ammunition_ocr_status"], "NOT_REPORTED")
         self.assertIs(quality["slot_mapping_independently_verified"], False)
         self.assertEqual(quality["sample_quality_status"], "DISTINCT_SAMPLE")
+        self.assertEqual(
+            quality["ammunition_ocr_status"], "PARSED_EXACT_DIGITS"
+        )
 
     def test_modern_detector_record_requires_successful_ammunition_ocr_status(self):
         with self.assertRaisesRegex(ValueError, "not a successful exact-digit parse"):
