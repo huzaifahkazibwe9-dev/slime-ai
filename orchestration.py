@@ -66,6 +66,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         # as the derived gate itself. Otherwise an upstream calibration or
         # reachability change could leave a stale planning report looking current.
         "vision_calibration_json": root / "vision_level39.json",
+        "edge_confidence_json": root / "edge_confidence_latest.json",
         "reachability_audit_json": root / "reachability_audit.json",
         "reachability_confidence_json": root / "reachability_confidence_latest.json",
         "conveyor_calibration_json": root / "conveyor_calibration.json",
