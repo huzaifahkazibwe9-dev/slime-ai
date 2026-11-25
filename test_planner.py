@@ -108,6 +108,7 @@ def make_evidence():
         },
         "positions_checked": 8,
         "known_shooters": ["A", "B"],
+        "current_position_by_shooter": {"A": "pA", "B": "pB"},
         "timestamps_known": True,
         "identity_verified": True,
         "errors": [],
@@ -310,6 +311,17 @@ class PlannerEvidenceTests(unittest.TestCase):
         e = list(make_evidence())
         e[2]["identity_verified"] = False
         self.assertIsNone(run_plan(e))
+
+    def test_candidate_position_must_match_human_confirmed_current_map(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["current_position_id"] = "pB"
+        evidence[2]["tracks"]["red"]["observations"][0]["position_id"] = "pB"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_missing_human_confirmed_current_position_map_rejected(self):
+        evidence = list(make_evidence())
+        evidence[1].pop("current_position_by_shooter")
+        self.assertIsNone(run_plan(evidence))
 
     def test_missing_current_position_rejected(self):
         e = list(make_evidence())
