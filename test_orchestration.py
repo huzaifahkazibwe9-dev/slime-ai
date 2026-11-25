@@ -63,11 +63,17 @@ class OrchestrationTests(unittest.TestCase):
             "conveyor_calibration_json": "a" * 64,
             "conveyor_visual_observations_json": "b" * 64,
             "shooter_detection_json": "c" * 64,
+            "identity_audit_json": "d" * 64,
+            "board_observation_json": "e" * 64,
+            "shooter_identity_observations_json": "f" * 64,
         }}
         expected = {
             "conveyor_calibration_json": "a" * 64,
             "conveyor_observations_json": "b" * 64,
             "shooter_detection_json": "c" * 64,
+            "identity_json": "d" * 64,
+            "board_observation_json": "e" * 64,
+            "identity_observations_json": "f" * 64,
         }
         checks = evidence_status(
             {}, None, None, candidate,
