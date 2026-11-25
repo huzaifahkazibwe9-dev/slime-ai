@@ -167,6 +167,24 @@ not proof that the class must appear in the next capture. No sample quotas are
 imposed, and this section does not alter
 `coverage_adequacy_assessed = false`.
 
+## Two-reviewer agreement audit
+
+For an additional consistency check, use
+`shooter_review_agreement.py` to compare two separately completed review
+datasets from the same original screenshot. The tool verifies both datasets
+against the exact detector JSON and screenshot bytes, then reports agreement
+by review status, visibility, panel position, colour, ammunition readability,
+and exact ammunition value. It also lists sample-level disagreements.
+Agreement support is limited to samples eligible for each field; the report
+does not infer missing comparisons.
+
+This is a consistency audit, not a truth audit. Caller-supplied reviewer IDs
+are not authenticated, and agreement does not establish label correctness or
+reviewer independence. See
+[`docs/TWO_REVIEWER_AGREEMENT.md`](TWO_REVIEWER_AGREEMENT.md) for the workflow,
+denominators, CLI options, and interpretation limits. Gameplay and game taps
+remain disabled.
+
 ## Ammunition OCR status diagnostics
 
 The detector now records a structured status beside each ammunition result.
