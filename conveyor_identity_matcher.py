@@ -141,6 +141,30 @@ def user_confirmed_bond_source(detection):
     )
 
 
+def is_user_confirmed_bond_pair(detection, shooters, candidate_pair):
+    """Require a user-confirmed source and reciprocal membership for a pair."""
+    if (
+        not user_confirmed_bond_source(detection)
+        or not isinstance(shooters, dict)
+        or not isinstance(candidate_pair, list)
+        or len(candidate_pair) != 2
+        or any(not isinstance(item, str) for item in candidate_pair)
+        or candidate_pair[0] == candidate_pair[1]
+    ):
+        return False
+    first, second = candidate_pair
+    if first not in shooters or second not in shooters:
+        return False
+    first_bonds = shooters[first].get("bonded_ids", [])
+    second_bonds = shooters[second].get("bonded_ids", [])
+    return (
+        isinstance(first_bonds, list)
+        and isinstance(second_bonds, list)
+        and second in first_bonds
+        and first in second_bonds
+    )
+
+
 def validate_identity_audit(identity, board, visual, expected_positions,
                              expected_source_file_sha256):
     """Require a current, user-confirmed identity map bound to exact inputs."""
@@ -623,17 +647,9 @@ def main():
         and len(set(candidate_pair)) == 2
     )
     bond_source_user_confirmed = user_confirmed_bond_source(detection)
-    bonded_pair_confirmed = False
-    if candidate_pair_valid and bond_source_user_confirmed:
-        first, second = candidate_pair
-        first_bonds = shooters[first].get("bonded_ids", [])
-        second_bonds = shooters[second].get("bonded_ids", [])
-        bonded_pair_confirmed = (
-            isinstance(first_bonds, list)
-            and isinstance(second_bonds, list)
-            and second in first_bonds
-            and first in second_bonds
-        )
+    bonded_pair_confirmed = is_user_confirmed_bond_pair(
+        detection, shooters, candidate_pair
+    ) if candidate_pair_valid else False
 
     observed_order = [
         by_position[f"{side}_1"]["position_id"].split("_")[0]
