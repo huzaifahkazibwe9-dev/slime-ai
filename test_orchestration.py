@@ -390,7 +390,7 @@ class OrchestrationTests(unittest.TestCase):
         result = evidence_status(planning, identity, snapshot, candidates)
         self.assertFalse(result["evidence_gate_passed"])
 
-    def test_all_evidence_checks_required(self):
+    def test_source_hash_bundle_is_required_even_when_report_flags_pass(self):
         planning = {
             "decision": "ELIGIBLE_CANDIDATES_FOUND",
             "planning_evidence_verified": True,
@@ -440,9 +440,43 @@ class OrchestrationTests(unittest.TestCase):
             planning, identity, snapshot, candidates,
             shooter_capture_verified=True,
         )
-        self.assertTrue(result["evidence_gate_passed"])
+        self.assertFalse(result["evidence_gate_passed"])
+        self.assertFalse(result["checks"]["current_source_hash_bundle_complete"])
         self.assertTrue(result["checks"]["planning_capture_freshness_verified"])
         self.assertTrue(result["checks"]["all_evidence_sources_share_capture"])
+
+
+    def test_current_source_hash_bundle_requires_every_artifact_digest(self):
+        required = {
+            "vision_calibration_json",
+            "edge_confidence_json",
+            "reachability_audit_json",
+            "reachability_confidence_json",
+            "conveyor_calibration_json",
+            "planning_json",
+            "identity_json",
+            "identity_observations_json",
+            "snapshot_json",
+            "candidate_json",
+            "conveyor_observations_json",
+            "shooter_detection_json",
+            "bonded_groups_config_json",
+            "board_observation_json",
+        }
+        hashes = {name: "a" * 64 for name in required}
+        self.assertTrue(evidence_status(
+            {}, {}, {}, {}, planning_input_file_sha256=hashes
+        )["checks"]["current_source_hash_bundle_complete"])
+
+        hashes.pop("board_observation_json")
+        self.assertFalse(evidence_status(
+            {}, {}, {}, {}, planning_input_file_sha256=hashes
+        )["checks"]["current_source_hash_bundle_complete"])
+
+        hashes["board_observation_json"] = "not-a-sha256"
+        self.assertFalse(evidence_status(
+            {}, {}, {}, {}, planning_input_file_sha256=hashes
+        )["checks"]["current_source_hash_bundle_complete"])
 
     def test_missing_shooter_capture_provenance_blocks_otherwise_valid_evidence(self):
         planning = {
