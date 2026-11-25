@@ -165,3 +165,9 @@ Missing status, timeout, unavailable OCR, ambiguous output, or a success status
 without a count blocks loading rather than allowing a partial or stale shooter
 state into planning. Legacy records without detector quality metadata retain
 compatibility behavior and are explicitly marked legacy/unverified.
+
+The loaded shooter state and simulator snapshots also preserve the OCR status.
+A detector-declared state is rejected if its status is missing or is not
+`PARSED_EXACT_DIGITS`; the level audit reports counts by OCR status. This keeps
+a failed OCR state from becoming valid merely by passing through a simulation
+snapshot/restore cycle.
