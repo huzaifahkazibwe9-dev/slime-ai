@@ -160,7 +160,7 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(result["plan_is_simulation_candidate"])
         self.assertIs(result["plan_is_gameplay_verified"], False)
         self.assertEqual(
-            result["plan_verification_status"], "NOT_GAMEPLAY_VERIFIED"
+            result["plan_verification_status"], "NO_VERIFIED_PLAN"
         )
         self.assertIs(
             result["shooter_observation_quality"][
