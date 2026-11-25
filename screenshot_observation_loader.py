@@ -6,17 +6,32 @@ verification. It never marks colours, removals, shooter accessibility, or
 live actions as verified.
 """
 import argparse
+import hashlib
+import io
 import json
 import math
+import statistics
 from collections import Counter
 from pathlib import Path
+from PIL import Image
 
 from game_state import GameState
 from shooter_loader import load_shooters
-from screenshot_ingestor import classify_rgb
+from screenshot_ingestor import classify_rgb, sample_centres_for_grid
+from capture_provenance import (
+    parse_aware_capture_timestamp,
+    validate_capture_session_id,
+)
 
 DEFAULT_OBSERVATION = Path("data/board_observation_latest.json")
 DEFAULT_SHOOTERS = Path("data/shooter_detection.json")
+
+def _is_finite_coordinate(value):
+    """Accept exact integers or finite floats without overflowing on huge ints."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
 
 
 def _require_grid(data):
@@ -36,8 +51,7 @@ def _require_grid(data):
             or any(type(v) is not int or v < 1 for v in image)):
         raise ValueError("Invalid image_size")
     if (not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(v) not in (int, float) or not math.isfinite(v)
-                   for v in bounds)):
+            or any(not _is_finite_coordinate(v) for v in bounds)):
         raise ValueError("Invalid board bounds")
 
     width, height = grid
@@ -46,6 +60,10 @@ def _require_grid(data):
     if (left < 1 or top < 1 or right <= left or bottom <= top
             or right > image_width - 1 or bottom > image_height - 1):
         raise ValueError("Board bounds are outside the screenshot")
+    if "sample_centres" in data:
+        expected_centres = sample_centres_for_grid(grid, bounds)
+        if data.get("sample_centres") != expected_centres:
+            raise ValueError("Sample centres do not match calibrated board geometry")
 
     if not isinstance(board, list) or len(board) != height:
         raise ValueError("Board row count does not match grid_size")
@@ -98,32 +116,132 @@ def _require_grid(data):
     return width, height, board, counts
 
 
+
+def verify_source_samples(observation, source_image_bytes):
+    """Independently recompute every saved 3x3 median from original image bytes."""
+    if not isinstance(observation, dict):
+        raise ValueError("Observation must be a JSON object")
+    expected_digest = observation.get("source_sha256")
+    actual_digest = hashlib.sha256(source_image_bytes).hexdigest()
+    if expected_digest != actual_digest:
+        raise ValueError("Source screenshot SHA-256 does not match observation")
+
+    try:
+        with Image.open(io.BytesIO(source_image_bytes)) as original:
+            image = original.convert("RGB")
+            image_size = list(image.size)
+            pixels = image.load()
+    except Exception as exc:
+        raise ValueError("Source screenshot cannot be decoded") from exc
+
+    if observation.get("image_size") != image_size:
+        raise ValueError("Source screenshot dimensions do not match observation")
+
+    grid = observation.get("grid_size")
+    bounds = observation.get("bounds")
+    if (not isinstance(grid, list) or len(grid) != 2
+            or any(type(value) is not int or value < 1 for value in grid)
+            or not isinstance(bounds, list) or len(bounds) != 4
+            or any(not _is_finite_coordinate(value) for value in bounds)):
+        raise ValueError("Invalid grid geometry for source sample verification")
+    expected_centres = sample_centres_for_grid(grid, bounds)
+    if observation.get("sample_centres") != expected_centres:
+        raise ValueError("Sample centres do not match calibrated board geometry")
+
+    raw_rgb = observation.get("raw_rgb")
+    cols, rows = grid
+    if (not isinstance(raw_rgb, list) or len(raw_rgb) != rows
+            or any(not isinstance(row, list) or len(row) != cols for row in raw_rgb)):
+        raise ValueError("Raw RGB sample grid does not match observation dimensions")
+
+    checked = 0
+    for row, y in enumerate(expected_centres["y"]):
+        for col, x in enumerate(expected_centres["x"]):
+            recomputed = [
+                int(statistics.median(
+                    pixels[px, py][channel]
+                    for py in range(y - 1, y + 2)
+                    for px in range(x - 1, x + 2)
+                ))
+                for channel in range(3)
+            ]
+            if raw_rgb[row][col] != recomputed:
+                raise ValueError(
+                    f"Source RGB sample mismatch at column {col}, row {row}"
+                )
+            checked += 1
+
+    return {
+        "source_image_sha256_checked": True,
+        "source_image_dimensions_checked": True,
+        "source_rgb_samples_recomputed": checked,
+        "source_rgb_samples_match": True,
+    }
+
+
 def load_observed_level(
     observation_path=DEFAULT_OBSERVATION,
     shooter_path=DEFAULT_SHOOTERS,
     level=39,
+    observation_data=None,
+    shooter_data=None,
 ):
     observation_path = Path(observation_path)
     shooter_path = Path(shooter_path)
-    data = json.loads(observation_path.read_text())
+    # Use the exact parsed objects validated by orchestration when supplied.
+    # Path-based reads remain available for standalone diagnostic use.
+    data = (
+        observation_data
+        if observation_data is not None
+        else json.loads(observation_path.read_text())
+    )
     width, height, board, counts = _require_grid(data)
 
-    shooter_data = json.loads(shooter_path.read_text())
+    if shooter_data is None:
+        shooter_data = json.loads(shooter_path.read_text())
     if not isinstance(shooter_data, dict):
         raise ValueError("Shooter detection must be a JSON object")
     shooter_provenance = shooter_data.get("capture_provenance", {})
+    board_session = data.get("capture_session_id")
+    board_timestamp = data.get("captured_at")
+    try:
+        normalized_board_session = validate_capture_session_id(board_session)
+        normalized_board_timestamp = parse_aware_capture_timestamp(
+            board_timestamp
+        )
+    except ValueError:
+        normalized_board_session = None
+        normalized_board_timestamp = None
+
+    try:
+        normalized_shooter_session = validate_capture_session_id(
+            shooter_provenance.get("capture_session_id")
+            if isinstance(shooter_provenance, dict) else None
+        )
+        normalized_shooter_timestamp = parse_aware_capture_timestamp(
+            shooter_provenance.get("captured_at")
+            if isinstance(shooter_provenance, dict) else None
+        )
+    except ValueError:
+        normalized_shooter_session = None
+        normalized_shooter_timestamp = None
+
+    board_capture_metadata_valid = bool(
+        normalized_board_session and normalized_board_timestamp
+    )
+    shooter_capture_metadata_valid = bool(
+        normalized_shooter_session and normalized_shooter_timestamp
+    )
     board_capture_matches = bool(
         isinstance(shooter_provenance, dict)
         and shooter_provenance.get("verified") is True
         and shooter_provenance.get("source_sha256") == data.get("source_sha256")
-        and isinstance(data.get("capture_session_id"), str)
-        and data.get("capture_session_id")
-        and shooter_provenance.get("capture_session_id") == data.get("capture_session_id")
-        and isinstance(data.get("captured_at"), str)
-        and data.get("captured_at")
-        and shooter_provenance.get("captured_at") == data.get("captured_at")
+        and board_capture_metadata_valid
+        and shooter_capture_metadata_valid
+        and normalized_shooter_session == normalized_board_session
+        and normalized_shooter_timestamp == normalized_board_timestamp
     )
-    shooters = load_shooters(shooter_path)
+    shooters = load_shooters(shooter_path, data=shooter_data)
     state = GameState(
         board=[row[:] for row in board],
         shooters=shooters,
@@ -151,6 +269,8 @@ def load_observed_level(
         "colour_truth_verified": False,
         "shooter_count": len(shooters),
         "shooter_panel_positions_only": True,
+        "board_capture_metadata_valid": board_capture_metadata_valid,
+        "shooter_capture_metadata_valid": shooter_capture_metadata_valid,
         "shooter_capture_provenance_verified": board_capture_matches,
         "shooter_capture_source_matches_board": (
             shooter_provenance.get("source_sha256") == data.get("source_sha256")
@@ -176,6 +296,7 @@ def main():
     parser.add_argument("--observation", default=str(DEFAULT_OBSERVATION))
     parser.add_argument("--shooters", default=str(DEFAULT_SHOOTERS))
     parser.add_argument("--level", type=int, default=39)
+    parser.add_argument("--source-image", help="Original screenshot for independent RGB sample verification")
     args = parser.parse_args()
 
     state, audit = load_observed_level(
@@ -189,6 +310,14 @@ def main():
     print("Shooters:", len(state.shooters))
     print("Snapshot:", audit["snapshot_id"])
     print("State validation:", state.validate())
+    if args.source_image:
+        source_bytes = Path(args.source_image).read_bytes()
+        verification = verify_source_samples(
+            json.loads(Path(args.observation).read_text()), source_bytes
+        )
+        print("\\nSOURCE IMAGE SAMPLE VERIFICATION")
+        for key, value in verification.items():
+            print(f"{key}: {value}")
     print("\nEVIDENCE STATUS")
     for key, value in audit.items():
         print(f"{key}: {value}")
