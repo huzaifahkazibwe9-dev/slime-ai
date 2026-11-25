@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 from identity_auditor import audit_identity
 import conveyor_identity_matcher
+import conveyor_identity_matcher
+
 from conveyor_identity_matcher import (
     validate_visual_observations,
     validate_visual_provenance,
@@ -267,6 +269,28 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         )
         self.assertEqual(track["candidate_shooter"], "shooter-A")
         self.assertFalse(track["candidate_supported"])
+
+    def test_main_fails_closed_on_empty_calibration_without_key_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads = {
+                "board_observation_latest.json": {},
+                "conveyor_visual_observations.json": {"observations": []},
+                "shooter_detection.json": {"visible_shooters": []},
+                "identity_audit_report.json": {},
+                "conveyor_calibration.json": {"shooters": []},
+            }
+            for name, payload in payloads.items():
+                (root / name).write_text(json.dumps(payload))
+            with patch.object(conveyor_identity_matcher, "DATA", root):
+                report = conveyor_identity_matcher.main()
+            self.assertFalse(report["candidate_provenance_verified"])
+            self.assertEqual(report["tracks"], {})
+            self.assertTrue(any(
+                "Calibration shooter list" in error
+                or "Missing required conveyor positions" in error
+                for error in report["validation_errors"]
+            ))
 
     def test_main_builds_candidate_bound_to_confirmed_identity_and_snapshot(self):
         positions = [
