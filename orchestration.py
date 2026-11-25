@@ -301,6 +301,37 @@ def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40,
             "game_taps_enabled": False,
         }
 
+
+def _read_capture_bundle(observation_path, shooter_path, pixel_audit_path=None):
+    """Read each mutable capture artifact once and pin its parsed JSON objects."""
+    observation_path = Path(observation_path)
+    shooter_path = Path(shooter_path)
+    audit_path = (
+        Path(pixel_audit_path)
+        if pixel_audit_path is not None
+        else observation_path.parent / "source_pixel_audit_latest.json"
+    )
+    try:
+        board_bytes = observation_path.read_bytes()
+        shooter_bytes = shooter_path.read_bytes()
+        audit_bytes = audit_path.read_bytes()
+        board = json.loads(board_bytes)
+        shooters = json.loads(shooter_bytes)
+        pixel_audit = json.loads(audit_bytes)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Capture bundle is missing or invalid: {exc}") from exc
+    if not all(isinstance(item, dict) for item in (board, shooters, pixel_audit)):
+        raise ValueError("Capture bundle files must each contain a JSON object.")
+    return {
+        "board_data": board,
+        "shooter_data": shooters,
+        "pixel_audit_data": pixel_audit,
+        "board_bytes_sha256": __import__("hashlib").sha256(board_bytes).hexdigest(),
+        "shooter_bytes_sha256": __import__("hashlib").sha256(shooter_bytes).hexdigest(),
+        "pixel_audit_bytes_sha256": __import__("hashlib").sha256(audit_bytes).hexdigest(),
+    }
+
+
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
     if observation_path is None or shooter_path is None:
@@ -309,9 +340,19 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             "legacy baseline fallback is disabled for orchestration."
         )
     from capture_preflight import validate_capture_pair
-    capture = validate_capture_pair(observation_path, shooter_path)
+    pinned_capture = _read_capture_bundle(observation_path, shooter_path)
+    capture = validate_capture_pair(
+        observation_path,
+        shooter_path,
+        board_data=pinned_capture["board_data"],
+        shooter_data=pinned_capture["shooter_data"],
+        pixel_audit_data=pinned_capture["pixel_audit_data"],
+    )
     if capture.get("valid") is not True:
         raise ValueError(capture.get("reason", "Capture preflight failed."))
+    # All downstream stages use the validated in-memory objects, not paths.
+    board_observation = capture["board_data"]
+    shooter_observation = capture["shooter_data"]
 
     pipeline_started = time.perf_counter()
     timings = {}
@@ -323,6 +364,8 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     state, level_audit = load_level(
         observation_path=observation_path,
         shooter_path=shooter_path,
+        observation_data=board_observation,
+        shooter_data=shooter_observation,
     )
     timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
@@ -338,7 +381,6 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     # Cross-link every evidence source to one explicitly identified board
     # capture. Missing metadata blocks planning rather than being inferred.
     from snapshot_sync import synchronise_bundle
-    board_observation = read_report(root / "board_observation_latest.json")
     conveyor_observation = read_report(root / "conveyor_visual_observations.json")
     bundle_sync = synchronise_bundle(
         board_observation,
@@ -439,6 +481,11 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
 
     report = {
         "build": "11M",
+        "capture_bundle_file_sha256": {
+            "board_json": pinned_capture["board_bytes_sha256"],
+            "shooter_json": pinned_capture["shooter_bytes_sha256"],
+            "pixel_audit_json": pinned_capture["pixel_audit_bytes_sha256"],
+        },
         "capture_provenance": {
             key: board_observation.get(key)
             for key in (
