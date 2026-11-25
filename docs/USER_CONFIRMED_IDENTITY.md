@@ -40,10 +40,15 @@ Level 39 values:
 ```
 
 The example contains only two records to illustrate the structure. A valid
-report requires exactly one confirmed record for **every** position listed in
-`data/conveyor_calibration.json` in the frame named by `current_frame_id`.
-Each current-frame position must map to a distinct shooter ID present in
-`data/shooter_detection.json`.
+report requires the frame named by `current_frame_id` to map **every currently
+detected visible shooter** from `data/shooter_detection.json` to one distinct
+calibrated conveyor position. A calibrated position may be empty in the current
+frame; do not invent an occupant for it.
+
+Across the current and historical frames, the observations must cover every
+position listed in `data/conveyor_calibration.json`. Within each frame, no two
+shooters may occupy the same position, and one shooter may not occupy multiple
+positions at once.
 
 ## Field requirements
 
