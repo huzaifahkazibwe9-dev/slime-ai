@@ -48,24 +48,22 @@ if ! command -v pkg >/dev/null 2>&1; then
     echo "ERROR: Termux package manager (pkg) is unavailable." >&2
     exit 2
 fi
-if ! command -v python >/dev/null 2>&1; then
-    echo "ERROR: Python is not available in this Termux environment." >&2
-    echo "Install it with: pkg install python" >&2
-    exit 2
-fi
-python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "ERROR: Slime AI requires Python 3.10 or newer.")'
-python --version
-
 echo
 echo "[4/6] Installing Termux-native Python dependencies"
-# NumPy and Pillow contain native extensions; use Termux's packaged builds.
-pkg install -y python-numpy python-pillow
+# Install Python and native extensions from Termux packages, not PyPI wheels.
+pkg install -y python python-numpy python-pillow
 if [[ "$NEED_TESSERACT" -eq 1 ]]; then
     pkg install -y tesseract
 fi
 
 echo
-echo "[5/6] Verifying installed libraries and OCR data"
+echo "[5/6] Verifying the Python environment, libraries and OCR data"
+if ! command -v python >/dev/null 2>&1; then
+    echo "ERROR: Termux did not provide the python command after package installation." >&2
+    exit 2
+fi
+python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "ERROR: Slime AI requires Python 3.10 or newer.")'
+python --version
 python -c 'import re, numpy, PIL; parts = lambda value: tuple(int(x) for x in re.findall(r"[0-9]+", value)[:2]); raise SystemExit(0 if parts(numpy.__version__) >= (1, 26) and parts(PIL.__version__) >= (10, 0) else "ERROR: NumPy >=1.26 and Pillow >=10.0 are required.")'
 python -c 'import numpy, PIL; print("NumPy:", numpy.__version__); print("Pillow:", PIL.__version__)'
 if [[ "$NEED_TESSERACT" -eq 1 ]]; then
