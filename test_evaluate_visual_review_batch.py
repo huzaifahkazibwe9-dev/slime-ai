@@ -309,6 +309,19 @@ class VisualReviewBatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "do not equal sample_count"):
                 batch.evaluate_batch(self.batch_path)
 
+    def test_rejects_ammunition_correctness_that_disagrees_with_values(self):
+        first = _report(1)
+        first["shooter_observation_evaluation"]["sample_results"][0][
+            "ammunition_correct"
+        ] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "correctness disagrees with the detected and reviewed"
+            ):
+                batch.evaluate_batch(self.batch_path)
+
 
 def _reseal_report(report):
     unsigned = {
