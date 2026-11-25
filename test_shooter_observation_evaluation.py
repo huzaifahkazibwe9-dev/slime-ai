@@ -77,7 +77,7 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
             coverage["human_visibility_class_support"],
             {
                 "visible": 4, "unrevealed": 4,
-                "partially_occluded": 4, "empty": 0,
+                "partially_occluded": 3, "empty": 1,
             },
         )
         self.assertEqual(coverage["human_visible_colour_support"]["red"], 4)
@@ -95,7 +95,7 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
             report["review_follow_up"][
                 "visibility_classes_with_zero_confirmed_support"
             ],
-            ["empty"],
+            [],
         )
         self.assertEqual(
             report["review_follow_up"][
