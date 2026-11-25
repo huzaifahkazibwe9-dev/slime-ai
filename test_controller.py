@@ -13,6 +13,7 @@ from orchestration import _canonical_json_sha256
 def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     captured_at = captured_at or datetime.now(timezone.utc).isoformat()
     source_hash = "a" * 64
+    root = Path(directory)
     calibration = {
         "grid_size": [35, 35],
         "bounds": [201, 431, 881, 1113],
