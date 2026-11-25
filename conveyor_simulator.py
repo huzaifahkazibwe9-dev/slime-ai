@@ -379,8 +379,22 @@ class ConveyorSimulator:
                     "ammo": s.ammo,
                     "position": s.position,
                     "completed_laps": s.completed_laps,
+                    "observation_quality": {
+                        "colour_independently_verified": False,
+                        "ammunition_independently_verified": False,
+                        "slot_mapping_independently_verified": False,
+                    },
                 }
                 for s in self.active
+            ],
+            "shooter_observation_quality": [
+                {
+                    "id": s.shooter_id,
+                    "colour_independently_verified": False,
+                    "ammunition_independently_verified": False,
+                    "slot_mapping_independently_verified": False,
+                }
+                for s in self.shooters
             ],
             "returned_shooters": list(self.returned_ids),
             "events": list(self.events),
