@@ -1,9 +1,46 @@
+import hashlib
+import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
-from snapshot_sync import synchronise_audit, synchronise_bundle
+from pathlib import Path
+from snapshot_sync import (
+    read_input_snapshots, synchronise_audit, synchronise_bundle,
+)
 
 
 class SnapshotSyncTests(unittest.TestCase):
+    def test_input_snapshot_hashes_exact_parsed_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "vision_level39.json"
+            observations_path = Path(directory) / "conveyor_visual_observations.json"
+            board_bytes = b'{ "grid_size": [35, 35], "bounds": [1, 2, 3, 4] }'
+            observation_bytes = b'{ "observations": [], "captured_at": "2026-11-23T10:00:00+00:00" }'
+            board_path.write_bytes(board_bytes)
+            observations_path.write_bytes(observation_bytes)
+
+            board, observations, hashes = read_input_snapshots(
+                board_path, observations_path
+            )
+
+            self.assertEqual(board["grid_size"], [35, 35])
+            self.assertEqual(observations["observations"], [])
+            self.assertEqual(hashes, {
+                "vision_level39_json": hashlib.sha256(board_bytes).hexdigest(),
+                "conveyor_observations_json": hashlib.sha256(
+                    observation_bytes
+                ).hexdigest(),
+            })
+
+    def test_input_snapshot_reader_rejects_non_object_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            observations_path = Path(directory) / "observations.json"
+            board_path.write_text("[]")
+            observations_path.write_text("{}")
+            with self.assertRaisesRegex(ValueError, "JSON object"):
+                read_input_snapshots(board_path, observations_path)
+
     def valid_data(self):
         now = datetime.now(timezone.utc)
         board = {
