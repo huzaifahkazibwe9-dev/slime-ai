@@ -252,6 +252,20 @@ is provisional (boundary cells require confirmation); it never marks cells confi
 The planner now requires the loaded board snapshot ID to match the independently
 synchronized evidence reports, preventing stale plans from being applied to a new board.
 
+## Capture evidence status contract
+
+The capture pipeline now requires the board observation to explicitly keep
+`same_board_state_confirmed`, `gameplay_verified`,
+`vision_classification_verified`, and `game_taps_enabled` set to
+`false`. It also requires shooter observation-quality flags for colour,
+ammunition, and slot mapping to remain explicitly unverified. Missing, null,
+or true values fail the capture-output validation gate.
+
+These flags describe the limits of the current evidence; they are not a
+verification of visual accuracy or gameplay. Human review and device-side
+validation are still required, and live game taps and purchases remain
+disabled.
+
 ## Legacy baseline audit
 
 `python validate_vision.py` validates the older
