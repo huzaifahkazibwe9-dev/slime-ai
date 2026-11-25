@@ -83,7 +83,10 @@ def _simulate_conveyor_batch(original, state, groups):
                 "conveyor_shooter_ids": sorted(conveyor_ids),
             }
 
-    # Restore shooters already on the conveyor.
+    # Restore shooters already on the conveyor. Bonded members must map
+    # to the same abstract tick; GameState validates each progress value
+    # independently, so verify group synchronization before simulator creation.
+    existing_group_positions = {}
     for shooter_id in original.conveyor:
         shooter = original.shooters[shooter_id]
         if shooter.ammo is None:
@@ -103,14 +106,25 @@ def _simulate_conveyor_batch(original, state, groups):
         progress = float(shooter.rotation_progress or 0.0)
         position = int(round(progress * config.ticks_per_lap))
         position %= config.ticks_per_lap
+        existing_group_positions.setdefault(group_id, set()).add(position)
 
         records.append({
             "id": str(shooter_id),
             "group_id": str(group_id),
-            "ammo": int(shooter.ammo or 0),
+            "ammo": shooter.ammo,
             "position": position,
             "selected": True,
         })
+
+    for group_id, positions in existing_group_positions.items():
+        if len(positions) > 1:
+            return {
+                "failed": True,
+                "batch_selection_valid": False,
+                "failure_reason": "UNSYNCHRONIZED_BONDED_GROUP_ON_CONVEYOR",
+                "group_id": group_id,
+                "abstract_positions": sorted(positions),
+            }
 
     # Add candidate shooters as not-yet-selected.
     for group in groups:
@@ -129,10 +143,30 @@ def _simulate_conveyor_batch(original, state, groups):
                     "batch_selection_valid": False,
                     "failure_reason": "INCONSISTENT_BONDED_GROUP_MEMBERSHIP",
                 }
+            source_shooter = original.shooters[shooter_id]
+            simulated_shooter = state.shooters[shooter_id]
+            if type(source_shooter.ammo) is not int or source_shooter.ammo < 0:
+                return {
+                    "failed": True,
+                    "batch_selection_valid": False,
+                    "failure_reason": "UNKNOWN_OR_INVALID_AMMO_ON_CANDIDATE_SHOOTER",
+                    "shooter_id": str(shooter_id),
+                }
+            if (
+                type(simulated_shooter.ammo) is not int
+                or simulated_shooter.ammo < 0
+                or simulated_shooter.ammo > source_shooter.ammo
+            ):
+                return {
+                    "failed": True,
+                    "batch_selection_valid": False,
+                    "failure_reason": "INVALID_SIMULATED_AMMO_STATE",
+                    "shooter_id": str(shooter_id),
+                }
             records.append({
                 "id": str(shooter_id),
                 "group_id": str(canonical_group_id),
-                "ammo": int(original.shooters[shooter_id].ammo or 0),
+                "ammo": source_shooter.ammo,
             })
 
     sim = create_simulator(
@@ -151,9 +185,9 @@ def _simulate_conveyor_batch(original, state, groups):
     if selected:
         for group in groups:
             for shooter_id in group:
-                initial = int(original.shooters[shooter_id].ammo or 0)
-                remaining = int(state.shooters[shooter_id].ammo or 0)
-                consumed = max(0, initial - remaining)
+                initial = original.shooters[shooter_id].ammo
+                remaining = state.shooters[shooter_id].ammo
+                consumed = initial - remaining
 
                 if not sim.record_shots(str(shooter_id), consumed):
                     selected = False
@@ -184,28 +218,27 @@ def _simulate_order(original, groups):
     for group in groups:
         root = group[0]
 
-        group_report = simulate_bonded_group(state, root)
+        # This candidate already owns a private state copy, so consume it
+        # directly instead of cloning and replaying the same group simulation.
+        group_report = simulate_bonded_group(
+            state, root, consume_state=True
+        )
         if (
             group_report.get("status") != "SIMULATED"
-            or not group_report.get("source_state_unchanged")
             or group_report.get("shooter_ids") != list(group)
+            or not group_report.get("group_selected_atomically")
+            or not all(member in state.conveyor for member in group)
+            or group_report.get("final_board") != state.board
         ):
             return None
 
-        # Apply the verified simulation to this candidate's private state.
-        state.select_group(root)
-
-        if not all(member in state.conveyor for member in group):
-            return None
-
-        state.board = copy.deepcopy(group_report["final_board"])
-
         for shooter_id in group:
-            if shooter_id not in group_report["remaining_ammo"]:
+            if (
+                shooter_id not in group_report["remaining_ammo"]
+                or state.shooters[shooter_id].ammo
+                != group_report["remaining_ammo"][shooter_id]
+            ):
                 return None
-            state.shooters[shooter_id].ammo = (
-                group_report["remaining_ammo"][shooter_id]
-            )
 
         group_simulations.append(group_report)
 
@@ -294,6 +327,31 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
 
     if state.validate():
         raise ValueError("GameState validation failed")
+
+    # Screenshot-derived states carry an explicit provenance gate. If the
+    # shooter panel cannot be tied to the board screenshot/session, do not
+    # produce a candidate plan from a potentially mixed capture.
+    if (hasattr(state, "shooter_capture_provenance_verified")
+            and state.shooter_capture_provenance_verified is not True):
+        return {
+            "engine": "single_batch_dry_run_v1",
+            "status": "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE",
+            "initial_pixels": state.remaining_pixels,
+            "accessible_group_count": 0,
+            "candidates_examined": 0,
+            "candidate_limit": max_candidates,
+            "search_truncated": False,
+            "best": None,
+            "top_candidates": [],
+            "source_state_unchanged": True,
+            "evidence_verified": False,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "limitations": [
+                "Board and shooter observations must share verified screenshot provenance.",
+                "No candidate plan is produced from mismatched or unverified captures.",
+            ],
+        }
 
     if (not isinstance(max_candidates, int)
             or isinstance(max_candidates, bool)
@@ -399,7 +457,44 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
     if state.validate():
         raise ValueError("GameState validation failed")
 
-    config = config or SimulatorConfig()
+    if (hasattr(state, "shooter_capture_provenance_verified")
+            and state.shooter_capture_provenance_verified is not True):
+        return {
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": len(state.conveyor),
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+        }
+
+    if config is None:
+        config = SimulatorConfig()
+    elif not isinstance(config, SimulatorConfig):
+        return {
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "CONFIG_MUST_BE_SIMULATOR_CONFIG",
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": len(state.conveyor),
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+        }
 
     conveyor_ids = set(state.conveyor)
     storage = getattr(state, "storage", [])
@@ -431,7 +526,7 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
         records.append({
             "id": str(shooter_id),
             "group_id": group_id,
-            "ammo": int(shooter.ammo or 0),
+            "ammo": shooter.ammo,
             "position": position,
             "selected": str(shooter_id) in conveyor_ids,
             "returned": str(shooter_id) in storage_ids,

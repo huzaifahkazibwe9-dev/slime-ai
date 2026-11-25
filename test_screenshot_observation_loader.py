@@ -10,6 +10,7 @@ from pathlib import Path
 
 from screenshot_observation_loader import load_observed_level
 from level_loader import load_level
+from execution_engine import run_dry_simulation, run_multi_batch_schedule
 
 
 class ScreenshotObservationLoaderTests(unittest.TestCase):
@@ -111,6 +112,42 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertTrue(audit["shooter_capture_provenance_verified"])
         self.assertTrue(audit["shooter_capture_source_matches_board"])
 
+    def test_matching_hash_with_wrong_session_or_timestamp_stays_unverified(self):
+        cases = (
+            {
+                "verified": True,
+                "source_sha256": "a" * 64,
+                "capture_session_id": "different-session",
+                "captured_at": "2026-11-23T12:30:00+03:00",
+            },
+            {
+                "verified": True,
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-test-1",
+                "captured_at": "2026-11-23T12:31:00+03:00",
+            },
+        )
+        for provenance in cases:
+            with self.subTest(provenance=provenance):
+                self.shooters["capture_provenance"] = provenance
+                self.write()
+                state, audit = load_observed_level(
+                    self.observation_path, self.shooter_path
+                )
+                self.assertFalse(
+                    audit["shooter_capture_provenance_verified"]
+                )
+                self.assertEqual(
+                    run_dry_simulation(state)["status"],
+                    "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE",
+                )
+                schedule = run_multi_batch_schedule(state, [])
+                self.assertFalse(schedule["schedule_valid"])
+                self.assertEqual(
+                    schedule["failure_reason"],
+                    "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+                )
+
     def test_mismatched_shooter_capture_provenance_stays_unverified(self):
         self.shooters["capture_provenance"] = {
             "verified": True,
@@ -124,6 +161,45 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         )
         self.assertFalse(audit["shooter_capture_provenance_verified"])
         self.assertFalse(audit["shooter_capture_source_matches_board"])
+
+    def test_unverified_capture_provenance_blocks_both_planners(self):
+        state, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertFalse(audit["shooter_capture_provenance_verified"])
+
+        dry = run_dry_simulation(state)
+        self.assertEqual(
+            dry["status"], "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE"
+        )
+        self.assertEqual(dry["candidates_examined"], 0)
+        self.assertFalse(dry["live_execution_allowed"])
+
+        schedule = run_multi_batch_schedule(state, [])
+        self.assertFalse(schedule["schedule_valid"])
+        self.assertEqual(
+            schedule["failure_reason"],
+            "UNVERIFIED_SHOOTER_CAPTURE_PROVENANCE",
+        )
+        self.assertEqual(schedule["batches_completed"], 0)
+        self.assertFalse(schedule["live_execution_allowed"])
+
+    def test_verified_matching_capture_provenance_allows_dry_search_entry(self):
+        self.shooters["capture_provenance"] = {
+            "verified": True,
+            "source_sha256": "a" * 64,
+            "capture_session_id": "session-test-1",
+            "captured_at": "2026-11-23T12:30:00+03:00",
+        }
+        self.write()
+        state, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        self.assertTrue(audit["shooter_capture_provenance_verified"])
+        result = run_dry_simulation(state)
+        self.assertNotEqual(
+            result["status"], "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE"
+        )
 
     def test_unified_level_loader_accepts_explicit_screenshot_mode(self):
         state, audit = load_level(

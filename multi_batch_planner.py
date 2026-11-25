@@ -1,5 +1,37 @@
 """Simulation-only event-driven multi-batch conveyor scheduler."""
+from collections.abc import Mapping
+import hashlib
+import json
+
 from conveyor_simulator import create_simulator, SimulatorConfig
+from simulator_snapshot import snapshot_simulator, restore_simulator
+
+CHECKPOINT_SCHEMA_VERSION = 1
+
+
+def _schedule_fingerprint(records, batches, storage_occupied, config,
+                          allow_storage_reactivation):
+    try:
+        payload = {
+            "records": records,
+            "batches": [
+                dict(batch) if isinstance(batch, Mapping) else batch
+                for batch in batches
+            ],
+            "storage_occupied": storage_occupied,
+            "config": {
+                "conveyor_capacity": config.conveyor_capacity,
+                "storage_capacity": config.storage_capacity,
+                "ticks_per_lap": config.ticks_per_lap,
+            },
+            "allow_storage_reactivation": allow_storage_reactivation,
+        }
+        encoded = json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("checkpoint schedule must be JSON-compatible") from exc
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def simulate_batch_schedule(
@@ -8,10 +40,219 @@ def simulate_batch_schedule(
     storage_occupied=0,
     config=None,
     allow_storage_reactivation=False,
+    max_batches=None,
+    resume_from=None,
 ):
-    config = config or SimulatorConfig()
-    records = [dict(item) for item in shooter_records]
-    sim = create_simulator(records, storage_occupied, config)
+    if config is None:
+        config = SimulatorConfig()
+        config_error = False
+    elif not isinstance(config, SimulatorConfig):
+        config_error = True
+    else:
+        config_error = False
+
+    def invalid_input(reason):
+        return {
+            "simulation_only": True,
+            "live_actions_performed": False,
+            "live_taps_enabled": False,
+            "schedule_valid": False,
+            "failure_reason": reason,
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None, "valid": False, "reason": reason,
+            }],
+            "groups_scheduled": [],
+            "conveyor_occupied": 0,
+            "storage_occupied": storage_occupied
+                if type(storage_occupied) is int and storage_occupied >= 0
+                else None,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "timing_calibrated_to_game": False,
+        }
+
+    if config_error:
+        return invalid_input("CONFIG_MUST_BE_SIMULATOR_CONFIG")
+
+    if type(allow_storage_reactivation) is not bool:
+        return invalid_input("ALLOW_STORAGE_REACTIVATION_MUST_BE_BOOLEAN")
+    if max_batches is not None and (
+        type(max_batches) is not int or max_batches < 1
+    ):
+        return invalid_input("MAX_BATCHES_MUST_BE_A_POSITIVE_INTEGER")
+    if resume_from is not None and not isinstance(resume_from, dict):
+        return invalid_input("CHECKPOINT_MUST_BE_AN_OBJECT")
+    if (max_batches is not None or resume_from is not None) and not isinstance(
+        batches, (list, tuple)
+    ):
+        return invalid_input("CHECKPOINT_REQUIRES_A_FINITE_BATCH_SEQUENCE")
+
+    if not isinstance(shooter_records, (list, tuple)):
+        return invalid_input("SHOOTER_RECORDS_MUST_BE_A_SEQUENCE")
+    records = []
+    seen_ids = set()
+    for index, item in enumerate(shooter_records):
+        if not isinstance(item, Mapping):
+            return invalid_input("SHOOTER_RECORD_MUST_BE_A_MAPPING")
+        record = dict(item)
+        shooter_id = record.get("id")
+        group_id = record.get("group_id", shooter_id)
+        ammo = record.get("ammo")
+        if not isinstance(shooter_id, str) or not shooter_id.strip():
+            return invalid_input("SHOOTER_ID_MUST_BE_A_NONEMPTY_STRING")
+        if shooter_id in seen_ids:
+            return invalid_input("DUPLICATE_SHOOTER_ID")
+        seen_ids.add(shooter_id)
+        if not isinstance(group_id, str) or not group_id.strip():
+            return invalid_input("GROUP_ID_MUST_BE_A_NONEMPTY_STRING")
+        if type(ammo) is not int or ammo < 0:
+            return invalid_input("SHOOTER_AMMO_MUST_BE_A_NONNEGATIVE_INTEGER")
+        for field in ("position", "completed_laps"):
+            value = record.get(field, 0)
+            if type(value) is not int or value < 0:
+                return invalid_input("SHOOTER_POSITION_STATE_MUST_BE_NONNEGATIVE_INTEGER")
+        for field in ("selected", "returned"):
+            if type(record.get(field, False)) is not bool:
+                return invalid_input("SHOOTER_STATE_FLAGS_MUST_BE_BOOLEAN")
+        records.append(record)
+
+    try:
+        fingerprint = (
+            _schedule_fingerprint(
+                records, batches, storage_occupied, config,
+                allow_storage_reactivation,
+            )
+            if max_batches is not None or resume_from is not None
+            else None
+        )
+    except ValueError as exc:
+        return invalid_input(str(exc))
+
+    if resume_from is None:
+        try:
+            sim = create_simulator(records, storage_occupied, config)
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_INITIAL_SIMULATOR_STATE: " + str(exc))
+        seen = set()
+        reports = []
+        start_index = 0
+    else:
+        try:
+            if (type(resume_from.get("schema_version")) is not int
+                    or resume_from.get("schema_version") != CHECKPOINT_SCHEMA_VERSION):
+                raise ValueError("unsupported checkpoint schema version")
+            if resume_from.get("simulation_only") is not True:
+                raise ValueError("checkpoint must be simulation-only")
+            if resume_from.get("live_actions_performed") is not False:
+                raise ValueError("checkpoint cannot claim live actions")
+            if resume_from.get("live_taps_enabled") is not False:
+                raise ValueError("checkpoint cannot enable live taps")
+            if resume_from.get("schedule_sha256") != fingerprint:
+                raise ValueError("checkpoint does not match this schedule")
+            start_index = resume_from.get("next_batch_index")
+            if type(start_index) is not int or not 0 <= start_index <= len(batches):
+                raise ValueError("checkpoint batch index is invalid")
+            saved_seen = resume_from.get("seen_groups")
+            saved_reports = resume_from.get("batch_reports")
+            if (
+                not isinstance(saved_seen, list)
+                or any(not isinstance(g, str) or not g for g in saved_seen)
+                or len(saved_seen) != len(set(saved_seen))
+                or not isinstance(saved_reports, list)
+                or len(saved_reports) != start_index
+                or any(
+                    not isinstance(r, dict)
+                    or type(r.get("batch")) is not int
+                    or r.get("batch") != i
+                    or r.get("valid") is not True
+                    for i, r in enumerate(saved_reports)
+                )
+            ):
+                raise ValueError("checkpoint scheduler history is invalid")
+            expected_seen = set()
+            for report_index, report in enumerate(saved_reports):
+                scheduled_batch = batches[report_index]
+                if not isinstance(scheduled_batch, dict):
+                    raise ValueError("checkpoint references a malformed scheduled batch")
+                expected_requested = scheduled_batch.get("groups", [])
+                expected_reactivated = scheduled_batch.get("reactivate_groups", [])
+                if (
+                    not isinstance(expected_requested, (list, tuple))
+                    or not isinstance(expected_reactivated, (list, tuple))
+                    or any(
+                        not isinstance(group_id, str) or not group_id
+                        for group_id in list(expected_requested) + list(expected_reactivated)
+                    )
+                ):
+                    raise ValueError("checkpoint references malformed scheduled groups")
+                reactivated = report.get("reactivated_groups", [])
+                requested = report.get("groups", [])
+                if (
+                    not isinstance(reactivated, list)
+                    or not isinstance(requested, list)
+                    or requested != list(expected_requested)
+                    or reactivated != list(expected_reactivated)
+                ):
+                    raise ValueError(
+                        "checkpoint report does not match the original schedule"
+                    )
+                expected_seen.difference_update(reactivated)
+                expected_seen.update(requested)
+            if set(saved_seen) != expected_seen:
+                raise ValueError("checkpoint seen-group state is inconsistent")
+            seen = set(saved_seen)
+            reports = [dict(r) for r in saved_reports]
+            sim = restore_simulator(resume_from.get("simulator_snapshot"))
+            if sim.failed:
+                raise ValueError("failed simulations cannot be resumed")
+            if sim.config != config:
+                raise ValueError("checkpoint simulator config does not match")
+            if [s.shooter_id for s in sim.shooters] != [
+                r["id"] for r in records
+            ]:
+                raise ValueError("checkpoint shooter roster does not match")
+            if [s.group_id for s in sim.shooters] != [
+                r.get("group_id", r["id"]) for r in records
+            ]:
+                raise ValueError("checkpoint shooter groups do not match")
+            # Checkpoint reports are untrusted input too. Re-run the completed
+            # prefix from the original inputs and compare both its reports and
+            # final simulator state before accepting the saved history.
+            replay = simulate_batch_schedule(
+                records,
+                batches[:start_index],
+                storage_occupied=storage_occupied,
+                config=config,
+                allow_storage_reactivation=allow_storage_reactivation,
+            )
+            if (
+                not replay.get("schedule_valid")
+                or replay.get("batch_reports") != reports
+                or any(
+                    replay.get(key) != value
+                    for key, value in sim.report().items()
+                )
+            ):
+                raise ValueError(
+                    "checkpoint history does not match deterministic prefix replay"
+                )
+
+            final_report = reports[-1] if reports else None
+            if (
+                final_report is None
+                or final_report.get("returned_shooters") != sim.returned_ids
+                or type(final_report.get("conveyor_occupied")) is not int
+                or final_report.get("conveyor_occupied") != len(sim.active)
+                or type(final_report.get("storage_occupied")) is not int
+                or final_report.get("storage_occupied") != sim.storage_occupied
+                or final_report.get("failed") is not False
+            ):
+                raise ValueError(
+                    "checkpoint final batch report does not match simulator state"
+                )
+        except (TypeError, ValueError, KeyError) as exc:
+            return invalid_input("INVALID_CHECKPOINT: " + str(exc))
 
     groups = {}
     by_id = {s.shooter_id: s for s in sim.shooters}
@@ -19,6 +260,15 @@ def simulate_batch_schedule(
         groups.setdefault(
             str(item.get("group_id", item["id"])), []
         ).append(str(item["id"]))
+
+    if resume_from is not None:
+        for group_id in seen:
+            if group_id not in groups or any(
+                not by_id[mid].selected for mid in groups[group_id]
+            ):
+                return invalid_input(
+                    "INVALID_CHECKPOINT: seen group is not selected in simulator state"
+                )
 
     for group_id, members in groups.items():
         flags = [by_id[mid].selected for mid in members]
@@ -35,13 +285,81 @@ def simulate_batch_schedule(
             })
             return result
 
-    seen = set()
-    reports = []
     valid = True
 
-    for index, batch in enumerate(batches):
-        requested = [str(x) for x in batch.get("groups", [])]
+    def snapshot_transition():
+        return {
+            "shooters": [
+                (s.ammo, s.position, s.completed_laps, s.selected, s.returned)
+                for s in sim.shooters
+            ],
+            "storage_occupied": sim.storage_occupied,
+            "returned_ids": list(sim.returned_ids),
+            "events_length": len(sim.events),
+            "seen": set(seen),
+        }
 
+    def rollback_transition(snapshot):
+        for shooter, values in zip(sim.shooters, snapshot["shooters"]):
+            (shooter.ammo, shooter.position, shooter.completed_laps,
+             shooter.selected, shooter.returned) = values
+        sim.storage_occupied = snapshot["storage_occupied"]
+        sim.returned_ids[:] = snapshot["returned_ids"]
+        del sim.events[snapshot["events_length"]:]
+        seen.clear()
+        seen.update(snapshot["seen"])
+
+    try:
+        batch_iterator = iter(
+            batches[start_index:]
+            if isinstance(batches, (list, tuple)) else batches
+        )
+    except TypeError:
+        result = sim.report()
+        result.update({
+            "engine": "event_driven_multi_batch_scheduler_build11t",
+            "schedule_valid": False,
+            "batches_completed": 0,
+            "batch_reports": [{
+                "batch": None,
+                "valid": False,
+                "reason": "BATCHES_MUST_BE_ITERABLE",
+            }],
+            "groups_scheduled": [],
+            "storage_reactivation_enabled": allow_storage_reactivation,
+            "live_execution_allowed": False,
+            "gameplay_actions_performed": False,
+            "timing_calibrated_to_game": False,
+            "limitations": [
+                "Shot counts are supplied inputs, not live observations.",
+                "Conveyor timing is abstract and uncalibrated.",
+                "Storage reactivation is an optional unverified game assumption.",
+                "Only fully returned bonded groups can be reactivated.",
+                "Board geometry and pixel removal are not simulated.",
+            ],
+        })
+        return result
+
+    index = start_index
+    processed_this_call = 0
+    stopped_at_limit = False
+    while True:
+        if max_batches is not None and processed_this_call >= max_batches:
+            stopped_at_limit = index < len(batches)
+            break
+        try:
+            batch = next(batch_iterator)
+        except StopIteration:
+            break
+        except Exception as exc:
+            valid = False
+            reports.append({
+                "batch": index,
+                "valid": False,
+                "reason": "BATCH_ITERATION_FAILED",
+                "exception_type": type(exc).__name__,
+            })
+            break
         def reject(reason, **extra):
             nonlocal valid
             valid = False
@@ -49,6 +367,19 @@ def simulate_batch_schedule(
                 "batch": index, "valid": False,
                 "reason": reason, **extra
             })
+
+        if not isinstance(batch, dict):
+            reject("BATCH_MUST_BE_A_MAPPING")
+            break
+        raw_requested = batch.get("groups", [])
+        if not isinstance(raw_requested, (list, tuple)):
+            reject("GROUPS_MUST_BE_A_SEQUENCE")
+            break
+        if any(not isinstance(x, str) or not x.strip()
+               for x in raw_requested):
+            reject("GROUP_IDS_MUST_BE_NONEMPTY_STRINGS")
+            break
+        requested = list(raw_requested)
 
         if not requested or len(requested) != len(set(requested)):
             reject("EMPTY_OR_DUPLICATE_GROUPS_IN_BATCH")
@@ -58,9 +389,15 @@ def simulate_batch_schedule(
             reject("UNKNOWN_GROUP_ID")
             break
 
-        reactivate = [
-            str(x) for x in batch.get("reactivate_groups", [])
-        ]
+        raw_reactivate = batch.get("reactivate_groups", [])
+        if not isinstance(raw_reactivate, (list, tuple)):
+            reject("REACTIVATE_GROUPS_MUST_BE_A_SEQUENCE")
+            break
+        if any(not isinstance(x, str) or not x.strip()
+               for x in raw_reactivate):
+            reject("REACTIVATION_GROUP_IDS_MUST_BE_NONEMPTY_STRINGS")
+            break
+        reactivate = list(raw_reactivate)
         if len(reactivate) != len(set(reactivate)):
             reject("DUPLICATE_REACTIVATION_GROUPS")
             break
@@ -150,8 +487,38 @@ def simulate_batch_schedule(
             )
             break
 
+        # Validate shot input for every requested member before any
+        # reactivation or selection mutates simulator state.
+        shots_map = batch.get("shots", {})
+        if not isinstance(shots_map, dict):
+            reject("SHOTS_MUST_BE_A_MAPPING")
+            break
+        requested_members = [
+            member for group_id in requested for member in groups[group_id]
+        ]
+        if any(key not in requested_members for key in shots_map):
+            reject("UNKNOWN_SHOOTER_IN_SHOT_MAP")
+            break
+        invalid_shot = next((
+            (member, shots_map.get(member, 0))
+            for member in requested_members
+            if (
+                type(shots_map.get(member, 0)) is not int
+                or shots_map.get(member, 0) < 0
+                or shots_map.get(member, 0) > by_id[member].ammo
+            )
+        ), None)
+        if invalid_shot is not None:
+            reject(
+                "INVALID_OR_EXCESSIVE_SHOT_COUNT",
+                shooter_id=invalid_shot[0],
+            )
+            break
+
+        transition_snapshot = snapshot_transition()
         for group_id in reactivate:
             if not sim.reactivate_group(group_id):
+                rollback_transition(transition_snapshot)
                 reject(
                     "SIMULATOR_REJECTED_STORAGE_REACTIVATION",
                     group_id=group_id,
@@ -163,6 +530,7 @@ def simulate_batch_schedule(
 
         needed = sum(len(groups[g]) for g in requested)
         if needed > sim.conveyor_free:
+            rollback_transition(transition_snapshot)
             reject(
                 "INSUFFICIENT_CONVEYOR_SPACE",
                 required_slots=needed,
@@ -170,8 +538,14 @@ def simulate_batch_schedule(
             )
             break
 
-        # Validate all groups before selecting any.
-        if not all(sim.select_group(g) for g in requested):
+        # Treat the entire multi-group selection as one transaction.
+        selection_ok = True
+        for group_id in requested:
+            if not sim.select_group(group_id):
+                selection_ok = False
+                break
+        if not selection_ok:
+            rollback_transition(transition_snapshot)
             reject("SIMULATOR_REJECTED_GROUP_SELECTION")
             break
 
@@ -192,6 +566,7 @@ def simulate_batch_schedule(
                 break
 
         if shot_error:
+            rollback_transition(transition_snapshot)
             reject("INVALID_OR_EXCESSIVE_SHOT_COUNT")
             break
 
@@ -201,15 +576,19 @@ def simulate_batch_schedule(
                 break
             if ticks and not any(s.ammo == 0 for s in sim.active):
                 break
-            if not sim.tick(1):
-                break
+            tick_succeeded = sim.tick(1)
+            # Count attempted ticks as well as successful ones: a failing
+            # tick advances simulator time before detecting storage overflow.
             ticks += 1
+            if not tick_succeeded:
+                break
             if not any(s.ammo == 0 for s in sim.active):
                 break
 
         reports.append({
             "batch": index,
-            "valid": True,
+            "valid": not sim.failed,
+            "reason": sim.failure_reason if sim.failed else None,
             "groups": requested,
             "reactivated_groups": reactivate,
             "ticks_used": ticks,
@@ -224,10 +603,37 @@ def simulate_batch_schedule(
             valid = False
             break
 
+        index += 1
+        processed_this_call += 1
+
+    checkpoint = None
+    if (
+        stopped_at_limit and valid and not sim.failed
+        and index < len(batches)
+    ):
+        checkpoint = {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "simulation_only": True,
+            "live_taps_enabled": False,
+            "live_actions_performed": False,
+            "schedule_sha256": fingerprint,
+            "next_batch_index": index,
+            "seen_groups": sorted(seen),
+            "batch_reports": [dict(report) for report in reports],
+            "simulator_snapshot": snapshot_simulator(sim),
+        }
+
     result = sim.report()
     result.update({
         "engine": "event_driven_multi_batch_scheduler_build11t",
         "schedule_valid": valid and not sim.failed,
+        "schedule_complete": (
+            valid and not sim.failed and index >= len(batches)
+            if isinstance(batches, (list, tuple))
+            else valid and not sim.failed
+        ),
+        "next_batch_index": index,
+        "checkpoint": checkpoint,
         "batches_completed": sum(
             r.get("valid", False) for r in reports
         ),

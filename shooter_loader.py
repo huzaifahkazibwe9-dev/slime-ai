@@ -28,25 +28,37 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
+        if not isinstance(item.get("id"), str) or not item["id"]:
+            raise ValueError(f"Shooter entry {index} has an invalid id")
         quality = item.get("sample_quality")
         if quality is not None:
             if not isinstance(quality, dict):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality")
             status = quality.get("status")
-            if status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}:
+            if (not isinstance(status, str)
+                    or status not in {"DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"}):
                 raise ValueError(f"Shooter entry {index} has invalid sample quality status")
             if status == "LOW_CONFIDENCE_SAMPLE":
-                low_confidence_ids.add(item.get("id"))
+                low_confidence_ids.add(item["id"])
                 continue
         eligible.append(item)
-    # If a member of a confirmed bond has an unreliable visual sample, do not
-    # load the remaining members as an incomplete bonded group. Preserve
-    # malformed/unknown group references so the normal validator rejects them.
-    groups = [
+    # If any member of a declared bond has an unreliable visual sample,
+    # withhold every member of that group. Otherwise the remaining members
+    # could be loaded as independent shooters and lose the bond constraint.
+    for group_index, group in enumerate(groups):
+        if any(not isinstance(member, str) or not member for member in group):
+            raise ValueError(f"Bonded group {group_index} contains an invalid shooter ID")
+    affected_groups = [
         group for group in groups
-        if not any(member in low_confidence_ids for member in group)
+        if any(member in low_confidence_ids for member in group)
     ]
-    detected = eligible
+    withheld_group_ids = {
+        member for group in affected_groups for member in group
+    }
+    groups = [group for group in groups if group not in affected_groups]
+    detected = [
+        item for item in eligible if item.get("id") not in withheld_group_ids
+    ]
     for index, item in enumerate(detected):
         if not isinstance(item, dict):
             raise ValueError(f"Shooter entry {index} must be an object")
@@ -57,6 +69,11 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
                 or not isinstance(color.get("name"), str)
                 or not color["name"]):
             raise ValueError(f"Shooter entry {index} has an invalid colour")
+        ammo = item.get("ammo")
+        if type(ammo) is not int or ammo < 0:
+            raise ValueError(
+                f"Shooter entry {index} must have a non-negative integer ammunition count"
+            )
     shooter_ids = [item["id"] for item in detected]
     if len(shooter_ids) != len(set(shooter_ids)):
         raise ValueError("Shooter IDs must be unique")
@@ -87,9 +104,12 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None):
             )
         grouped_ids.update(group)
 
-    # Optional observations must come from separately verified
+    # Optional observations must be an object from separately verified
     # conveyor screenshots, never from the shooter panel image.
-    geometry_observations = geometry_observations or {}
+    if geometry_observations is None:
+        geometry_observations = {}
+    elif not isinstance(geometry_observations, dict):
+        raise ValueError("geometry_observations must be an object")
 
     group_lookup = {}
     bonded_lookup = {}

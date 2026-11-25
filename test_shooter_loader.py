@@ -253,6 +253,37 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                     })
 
 
+    def test_loader_rejects_invalid_ammunition_counts(self):
+        for value in (None, True, False, 1.5, -1, "5"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "non-negative integer ammunition"):
+                    self.load_payload({
+                        "visible_shooters": [{
+                            "id": "A", "color": {"name": "red"}, "ammo": value
+                        }],
+                        "bonded_groups": [],
+                    })
+
+    def test_loader_preserves_each_shooters_ammunition_count(self):
+        shooters = self.load_payload({
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 3},
+                {"id": "B", "color": {"name": "blue"}, "ammo": 11},
+            ],
+            "bonded_groups": [],
+        })
+        self.assertEqual(shooters["A"].ammo, 3)
+        self.assertEqual(shooters["B"].ammo, 11)
+
+    def test_loader_accepts_zero_ammunition(self):
+        shooters = self.load_payload({
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 0
+            }],
+            "bonded_groups": [],
+        })
+        self.assertEqual(shooters["A"].ammo, 0)
+
     def test_low_confidence_sample_is_not_loaded_as_shooter(self):
         payload = {
             "visible_shooters": [
@@ -266,7 +297,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         shooters = self.load_payload(payload)
         self.assertEqual(set(shooters), {"clear"})
 
-    def test_bond_group_is_not_partially_loaded_when_member_sample_is_weak(self):
+    def test_entire_bond_group_is_withheld_when_member_sample_is_weak(self):
         payload = {
             "visible_shooters": [
                 {"id": "A", "color": {"name": "red"}, "ammo": 5,
@@ -277,8 +308,7 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             "bonded_groups": [["A", "B"]],
         }
         shooters = self.load_payload(payload)
-        self.assertEqual(set(shooters), {"A"})
-        self.assertEqual(shooters["A"].bonded_ids, [])
+        self.assertEqual(shooters, {})
 
     def test_rejects_unknown_sample_quality_status(self):
         payload = {
@@ -290,6 +320,32 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "sample quality status"):
             self.load_payload(payload)
+
+    def test_geometry_observations_none_is_accepted(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "shooters.json"
+            path.write_text(json.dumps(payload))
+            self.assertEqual(set(load_shooters(path, None)), {"A"})
+
+    def test_rejects_non_object_geometry_observations(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        for value in ([], ["unexpected"], "invalid", 7):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "shooters.json"
+                path.write_text(json.dumps(payload))
+                with self.assertRaisesRegex(ValueError, "geometry_observations must be an object"):
+                    load_shooters(path, value)
 
     def test_legacy_shooter_records_without_sample_quality_still_load(self):
         payload = {
