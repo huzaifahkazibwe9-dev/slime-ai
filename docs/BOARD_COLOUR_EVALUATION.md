@@ -1,0 +1,148 @@
+# Board-colour calibration and evaluation
+
+Slime AI's board-colour classifier is a fixed HSV-threshold function. This tool
+measures how often it agrees with a reference set of RGB samples whose labels
+were supplied by a human reviewer.
+
+## Prepare a review template
+
+After running screenshot ingestion on a complete screenshot, create a template
+from its observation JSON:
+
+```sh
+python prepare_colour_labels.py data/board_observation_latest.json
+```
+
+The template contains each sampled RGB value and its zero-based board row and
+column. It deliberately leaves every label blank and sets
+`labelled_by_user` to `false`. Review the original screenshot, fill every
+sample's `label` with the human-identified colour, and only then change
+`labelled_by_user` to `true`. Do not use the classifier's predicted board
+labels as reference labels. Keep the original screenshot available for review.
+
+Run the evaluator only after completing that manual review:
+
+```sh
+python vision_calibration.py data/colour_labels_template.json --source-image path/to/original-screenshot.jpg
+```
+
+## Dataset format
+
+The evaluator accepts a UTF-8 JSON file with this structure:
+
+```json
+{
+  "schema_version": 1,
+  "labelled_by_user": true,
+  "samples": [
+    {"id": "level39-cell-r03-c07", "rgb": [104, 195, 233], "label": "cyan"},
+    {"id": "level39-cell-r03-c08", "rgb": [245, 245, 245], "label": "white"}
+  ]
+}
+```
+
+Each sample needs a unique, non-empty ID, exactly three integer RGB channels
+from 0 through 255, and a non-empty reference label. Templates also carry the
+source screenshot SHA-256, image dimensions, grid dimensions, and each sample's
+zero-based row/column. The evaluator preserves this provenance in its report
+and validates grid coordinates. When `--source-image` is supplied, the
+evaluator hashes that file and refuses to score the dataset if it is not the
+exact screenshot recorded in the template. This binds the report to a source
+file; it does not verify that the human labels are correct. The explicit
+`labelled_by_user` flag is required so automatically generated predictions
+cannot silently be treated as ground truth.
+
+## Labelling protocol
+
+- Read RGB values from the original screenshot, not from the classifier's
+  predicted label.
+- Assign the label by visually checking the corresponding in-game tile and
+  the agreed colour name.
+- Use the classifier's exact canonical spellings: `dark`, `white`, `gray`,
+  `red`, `orange`, `yellow`, `green`, `cyan`, `blue`, `purple`, or `pink`.
+  Do not mix aliases such as `grey`/`gray`; the evaluator compares labels
+  exactly and treats different spellings as different classes.
+- Include examples from different levels, board regions, tile shades, and
+  screenshot conditions. Do not create a dataset by copying predicted labels.
+- Keep ambiguous samples out until a reviewer can resolve them; record them
+  separately rather than guessing.
+- Keep sample IDs traceable to the screenshot and cell without embedding
+  unnecessary personal information.
+
+## Metrics
+
+The report includes overall accuracy, a confusion matrix, and per-class
+precision, recall, F1, support, and predicted count. Macro recall helps expose
+classes that perform poorly even when they are less common.
+
+The evaluator does not tune thresholds or alter the classifier. It also does
+not claim that human labels are independently verified, that the dataset
+represents every game condition, or that gameplay behaviour has been proven.
+A useful calibration decision requires a sufficiently broad, carefully
+reviewed dataset and human inspection of confusion cases.
+
+All gameplay verification and live game actions remain disabled.
+
+ 
+## Coverage audit
+
+Every evaluation report also includes a descriptive `coverage` section:
+
+- `class_sample_counts` counts human-assigned examples for every canonical colour.
+- `missing_classes` lists colours with no labelled examples.
+- When template grid coordinates are present, `spatial_regions` reports sample and
+  per-colour counts in the four board quadrants; `empty_spatial_regions` identifies
+  quadrants with no samples.
+- For hand-authored datasets without grid metadata, class counts remain available
+  and spatial coverage is explicitly marked unavailable.
+
+Quadrants are a coarse sampling diagnostic, not a guarantee of representative
+coverage. Counts do not establish sample independence, shade diversity, level
+diversity, or label correctness. The report deliberately sets
+`coverage_adequacy_assessed` to `false`; reviewers must decide whether the dataset
+is broad enough for a meaningful evaluation.
+
+
+Grid metadata is also bounded to at most 1,000,000 total cells. This prevents
+malformed dimensions from causing excessive work or memory use during coverage
+reporting. The limit is a defensive input bound, not a statement about normal
+game board sizes.
+
+The board-cell coverage details also include sample counts for each row and
+column that contains reviewed cells, making uneven sampling visible without
+assuming that any particular distribution is statistically adequate. Each grid
+axis is capped at 10,000 cells and the complete grid at 1,000,000 cells to bound
+reporting cost on malformed inputs.
+
+## Human-label consistency audit
+
+The coverage report groups samples with exactly identical RGB triples. It
+reports repeated RGB groups separately from conflicting groups. A conflict is
+an identical RGB value assigned more than one human label; the report includes
+the RGB value, labels, and sample IDs so a reviewer can revisit those cells.
+Repeated RGB values with one consistent label are not treated as errors.
+Conflicts are diagnostic flags, not automatic proof of which label is correct,
+and the evaluator does not silently discard or rewrite them.
+
+
+## Source screenshot dimension verification
+
+When a template includes `image_size`, the evaluator's `--source-image` check uses one immutable byte snapshot to verify both the SHA-256 digest and the decoded image dimensions. A matching hash with inconsistent recorded dimensions is rejected. Reports distinguish hash verification from dimension verification. This confirms file consistency, not that sample coordinates or human-assigned colours are correct.
+
+## Sampling-grid geometry guard
+
+Board extraction rejects calibrations whose rounded sample centres would
+place adjacent 3×3 median windows fewer than three pixels apart. This prevents
+multiple logical cells from reusing overlapping pixel patches and makes the
+sample-to-cell mapping unambiguous at the pixel-window level. The extractor
+also caps each grid axis at 10,000 cells and the total grid at 1,000,000 cells
+before allocating sampling structures. These are defensive geometry checks;
+they do not establish that the calibration bounds align with actual game tiles.
+
+## Sample-centre provenance
+
+Fresh screenshot extraction records the rounded pixel centre used for each board column and row in the sample_centres field. The observation loader recomputes those centres from the saved grid dimensions and calibration bounds and rejects a supplied centre map that disagrees. This makes the cell-to-sample coordinate mapping explicit and auditable. Older hand-authored observations without this optional field remain loadable for compatibility. The check verifies geometry metadata consistency; it does not independently establish that the calibration bounds match the visible game tiles.
+
+## Independent source-image RGB verification
+
+The screenshot observation loader supports an optional `--source-image` argument. It checks the exact source-file SHA-256 and dimensions, then independently recomputes each recorded 3×3 RGB median from the decoded original image using Pillow pixel reads and Python channel medians. It rejects any sample mismatch and reports the number of cells checked. This is a file-to-sample consistency check, not proof that calibration bounds identify the correct game tiles or that colour labels represent gameplay truth. The source image must be the exact byte-identical screenshot used for extraction.
