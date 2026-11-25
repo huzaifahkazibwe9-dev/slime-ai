@@ -20,6 +20,9 @@ if [[ ! -f "$SCREENSHOT" ]]; then
     exit 2
 fi
 
+echo "[Setup] Creating a blank unverified bond config only when missing"
+python prepare_bonded_groups_config.py
+
 if [[ ! -f "data/shooter_capture_config.json" ]]; then
     echo "[Calibration] Creating a coordinate-grid preview for manual shooter-panel bounds"
     python calibrate_shooter_panel.py "$SCREENSHOT" \
