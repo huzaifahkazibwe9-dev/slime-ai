@@ -29,16 +29,16 @@ fi
 
 
 if [[ -f "data/shooter_capture_config.json" ]]; then
-    echo "[1/11] Ingesting board and shooter panel from one calibrated capture"
+    echo "[1/13] Ingesting board and shooter panel from one calibrated capture"
     python capture_pipeline.py "$SCREENSHOT"
 elif [[ -f "$SHOOTER_DATA" ]]; then
-    echo "[1/11] Ingesting board screenshot without overwriting existing shooter evidence"
+    echo "[1/13] Ingesting board screenshot without overwriting existing shooter evidence"
     python screenshot_ingestor.py "$SCREENSHOT"
-    echo "[2/11] Preserving existing shooter detection; capture provenance will be rechecked"
+    echo "[2/13] Preserving existing shooter detection; capture provenance will be rechecked"
 elif [[ -f "$SHOOTER_PANEL" ]]; then
-    echo "[1/11] Ingesting board screenshot"
+    echo "[1/13] Ingesting board screenshot"
     python screenshot_ingestor.py "$SCREENSHOT"
-    echo "[2/11] Running legacy shooter detection (provenance remains unverified)"
+    echo "[2/13] Running legacy shooter detection (provenance remains unverified)"
     python shooter_detector.py
 else
     echo "ERROR: Need data/shooter_capture_config.json, $SHOOTER_PANEL, or $SHOOTER_DATA." >&2
@@ -46,11 +46,11 @@ else
 fi
 
 echo
-echo "[3/11] Integrating screenshot and shooter data"
+echo "[3/13] Integrating screenshot and shooter data"
 python level_loader.py --observation "$OBSERVATION"
 
 echo
-echo "[4/11] Building provisional colour-region analysis"
+echo "[4/13] Building provisional colour-region analysis"
 python observation_region_audit.py --input "$OBSERVATION"
 
 if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observations.json" ]]; then
