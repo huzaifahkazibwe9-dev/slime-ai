@@ -25,7 +25,7 @@ Review the integrated geometry, vision/OCR, bonded-group, and simulation changes
 - #30 shooter-record preflight
 - #31 simulator snapshot/restore
 
-Before merging, verify that the integration branches include their intended prerequisites and that tests cover cross-module state transitions. #31 is a large cumulative change and deserves a focused review of snapshot schema compatibility and rollback semantics.
+Branch comparison confirms #30 is 10 commits ahead of #22 with no commits behind, and #31 is 115 commits ahead of #30 with no commits behind. Thus #31 already contains the #22/#30 line of work; those three should be treated as one cumulative simulator candidate, not three independent merges. However, #31 is diverged from the geometry, vision, and bonded-invariant branches (#19–#21), and is 132 commits ahead of its main baseline while one commit behind current main. Rebase/integrate those foundations deliberately, then run combined CI on the exact candidate SHA. #31 deserves focused review of snapshot schema compatibility, event-history validation, and rollback semantics.
 
 ### B. Screenshot ingestion and capture provenance
 
