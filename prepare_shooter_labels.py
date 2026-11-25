@@ -350,7 +350,7 @@ def main():
     detection_bytes = Path(args.detection).read_bytes()
     try:
         detection = strict_json_loads(detection_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Shooter detection file is not valid UTF-8 JSON") from exc
     screenshot_bytes = Path(args.source_screenshot).read_bytes()
     template = build_template(detection, detection_bytes, screenshot_bytes)
