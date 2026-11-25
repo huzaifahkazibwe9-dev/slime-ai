@@ -64,6 +64,10 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "planning_gate_latest.json": {"fixture": "planning"},
         "identity_audit_report.json": {"fixture": "identity"},
         "shooter_identity_observations.json": {"observations": []},
+        "bonded_groups_confirmed.json": {
+            "verified_by_user": False,
+            "bonded_groups": [],
+        },
         "snapshot_sync_report.json": {"fixture": "snapshot"},
         "conveyor_identity_candidates.json": {"fixture": "candidates"},
         "conveyor_visual_observations.json": {"fixture": "conveyor"},
@@ -90,6 +94,9 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         ).hexdigest(),
         "shooter_identity_observations_json": hashlib.sha256(
             (root / "shooter_identity_observations.json").read_bytes()
+        ).hexdigest(),
+        "bonded_groups_config_json": hashlib.sha256(
+            (root / "bonded_groups_confirmed.json").read_bytes()
         ).hexdigest(),
     }
     candidate_path.write_text(json.dumps(candidate))
@@ -127,6 +134,7 @@ def planning_evidence_hashes(directory):
         "conveyor_observations_json": "conveyor_visual_observations.json",
         "shooter_detection_json": "shooter_detection.json",
         "identity_observations_json": "shooter_identity_observations.json",
+        "bonded_groups_config_json": "bonded_groups_confirmed.json",
         "board_observation_json": "board_observation_latest.json",
     }
     return {
