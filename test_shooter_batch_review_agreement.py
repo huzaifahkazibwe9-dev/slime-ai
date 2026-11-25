@@ -99,6 +99,21 @@ class ShooterBatchReviewAgreementTests(unittest.TestCase):
         self.assertEqual(report["sample_count"], 24)
         self.assertEqual(report["both_confirmed_sample_count"], 24)
         self.assertEqual(report["disagreement_count"], 0)
+        reviewer_provenance = report["captures"][0][
+            "review_dataset_provenance"
+        ]
+        self.assertEqual(
+            reviewer_provenance["reviewer_a_hash_mode"], "raw_file_bytes"
+        )
+        self.assertEqual(
+            reviewer_provenance["reviewer_b_hash_mode"], "raw_file_bytes"
+        )
+        self.assertEqual(
+            len(reviewer_provenance["reviewer_a_dataset_sha256"]), 64
+        )
+        self.assertEqual(
+            len(reviewer_provenance["reviewer_b_dataset_sha256"]), 64
+        )
         self.assertEqual(
             report["field_agreement"]["visibility"]["agreement_rate"], 1.0
         )
