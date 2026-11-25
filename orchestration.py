@@ -75,6 +75,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         "snapshot_json": root / "snapshot_sync_report.json",
         "candidate_json": candidate_path,
         "conveyor_observations_json": root / "conveyor_visual_observations.json",
+        "shooter_detection_json": root / "shooter_detection.json",
     }
     values = {}
     digests = {}
@@ -221,6 +222,22 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
                         "conveyor_calibration_json"
                     ),
                 }
+            )
+        ),
+        "candidate_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(candidates, dict)
+                and isinstance(candidates.get("source_file_sha256"), dict)
+                and candidates.get("source_file_sha256", {}).get(
+                    "conveyor_calibration_json"
+                ) == planning_input_file_sha256.get("conveyor_calibration_json")
+                and candidates.get("source_file_sha256", {}).get(
+                    "conveyor_visual_observations_json"
+                ) == planning_input_file_sha256.get("conveyor_observations_json")
+                and candidates.get("source_file_sha256", {}).get(
+                    "shooter_detection_json"
+                ) == planning_input_file_sha256.get("shooter_detection_json")
             )
         ),
         "reachability_upstream_hashes_match": (
