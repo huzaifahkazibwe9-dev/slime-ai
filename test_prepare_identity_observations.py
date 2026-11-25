@@ -100,7 +100,18 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
     def test_template_rejects_invalid_calibration_slot_layout(self):
         board, visual, calibration, detection = valid_inputs()
         calibration["shooters"].pop()
-        with self.assertRaisesRegex(ValueError, "Missing calibrated position"):
+        with self.assertRaisesRegex(ValueError, "Missing required conveyor positions"):
+            build_template(board, visual, calibration, detection, {
+                "board_observation_json": "1" * 64,
+                "conveyor_visual_observations_json": "4" * 64,
+                "conveyor_calibration_json": "2" * 64,
+                "shooter_detection_json": "3" * 64,
+            })
+
+    def test_template_rejects_visual_observation_from_another_capture(self):
+        board, visual, calibration, detection = valid_inputs()
+        visual["board_snapshot_id"] = "sha256:" + "f" * 64
+        with self.assertRaisesRegex(ValueError, "current board snapshot"):
             build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
                 "conveyor_visual_observations_json": "4" * 64,
