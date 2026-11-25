@@ -9,6 +9,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from evaluate_visual_review_bundle import evaluate_visual_review_bundle
@@ -93,11 +94,15 @@ def _verify_report_bundle_provenance(bundles):
         image_size = identity.get("source_screenshot_size")
         if not _is_sha256(screenshot_hash):
             raise ValueError(f"{context} screenshot hash is invalid")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError(f"{context} capture session ID is invalid")
         try:
             if validate_capture_session_id(session_id) != session_id:
                 raise ValueError(f"{context} capture session ID is not canonical")
         except ValueError as exc:
             raise ValueError(f"{context} capture session ID is invalid") from exc
+        if not isinstance(captured_at, str) or not captured_at.strip():
+            raise ValueError(f"{context} capture timestamp is invalid")
         try:
             parsed_captured_at = parse_aware_capture_timestamp(captured_at)
         except ValueError as exc:
@@ -135,6 +140,278 @@ def _verify_report_bundle_provenance(bundles):
             )
 
 
+def _require_exact_keys(value, expected, context):
+    if not isinstance(value, dict) or set(value) != set(expected):
+        raise ValueError(f"{context} fields do not match schema-v1")
+
+
+def _require_finite_number(value, expected, field):
+    if expected is None:
+        if value is not None:
+            raise ValueError(f"{field} is inconsistent with its sample counts")
+        return
+    if type(value) is not float or not math.isfinite(value) or value != expected:
+        raise ValueError(f"{field} is inconsistent with its sample counts")
+
+
+def _classification_summary(summary, context):
+    _require_exact_keys(
+        summary,
+        {"support", "correct_count", "accuracy", "confusion_matrix"},
+        context,
+    )
+    support = _nonnegative_count(summary["support"], f"{context}.support")
+    correct = _nonnegative_count(
+        summary["correct_count"], f"{context}.correct_count"
+    )
+    matrix = summary["confusion_matrix"]
+    if not isinstance(matrix, dict):
+        raise ValueError(f"{context}.confusion_matrix must be an object")
+    if any(not isinstance(label, str) or not label for label in matrix):
+        raise ValueError(f"{context} confusion-matrix labels must be non-empty strings")
+    labels = sorted(matrix)
+    total = 0
+    diagonal = 0
+    row_counts = {}
+    column_counts = {label: 0 for label in labels}
+    for actual in labels:
+        row = matrix[actual]
+        if not isinstance(row, dict) or set(row) != set(labels):
+            raise ValueError(f"{context} confusion matrix must be square")
+        row_total = 0
+        for predicted in labels:
+            count = _nonnegative_count(
+                row[predicted], f"{context}.confusion_matrix.{actual}.{predicted}"
+            )
+            row_total += count
+            column_counts[predicted] += count
+            if actual == predicted:
+                diagonal += count
+        row_counts[actual] = row_total
+        total += row_total
+    if total != support or diagonal != correct:
+        raise ValueError(f"{context} confusion matrix disagrees with support or correct_count")
+    expected_accuracy = round(correct / support, 6) if support else None
+    _require_finite_number(
+        summary["accuracy"], expected_accuracy, f"{context}.accuracy"
+    )
+    return {
+        "support": support,
+        "correct_count": correct,
+        "labels": labels,
+        "matrix": matrix,
+        "row_counts": row_counts,
+        "column_counts": column_counts,
+    }
+
+
+def _verify_board_summary(board):
+    _require_exact_keys(
+        board,
+        {
+            "sample_count", "correct_count", "accuracy", "macro_recall",
+            "labels", "confusion_matrix", "per_class", "aggregation",
+            "label_source", "label_truth_independently_verified",
+        },
+        "Board-colour evaluation",
+    )
+    if board.get("label_source") != "user_supplied":
+        raise ValueError("Batch report board-colour evaluation label_source is invalid")
+    _require_unverified_flag(
+        board, "label_truth_independently_verified", "Board-colour evaluation"
+    )
+    if board.get("aggregation") != (
+        "pooled sample-level counts across independently verified captures"
+    ):
+        raise ValueError("Board-colour evaluation aggregation description is invalid")
+
+    classification = _classification_summary(
+        {
+            "support": board["sample_count"],
+            "correct_count": board["correct_count"],
+            "accuracy": board["accuracy"],
+            "confusion_matrix": board["confusion_matrix"],
+        },
+        "Board-colour evaluation",
+    )
+    if board["labels"] != classification["labels"]:
+        raise ValueError("Board-colour evaluation labels disagree with confusion matrix")
+
+    expected_per_class = {}
+    recalls = []
+    for label in classification["labels"]:
+        true_positive = classification["matrix"][label][label]
+        support = classification["row_counts"][label]
+        predicted_count = classification["column_counts"][label]
+        precision = true_positive / predicted_count if predicted_count else 0.0
+        recall = true_positive / support if support else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall else 0.0
+        )
+        expected_per_class[label] = {
+            "support": support,
+            "predicted_count": predicted_count,
+            "precision": round(precision, 6),
+            "recall": round(recall, 6),
+            "f1": round(f1, 6),
+        }
+        if support:
+            recalls.append(recall)
+    if board["per_class"] != expected_per_class:
+        raise ValueError("Board-colour per_class metrics disagree with confusion matrix")
+    expected_macro_recall = (
+        round(sum(recalls) / len(recalls), 6) if recalls else 0.0
+    )
+    _require_finite_number(
+        board["macro_recall"], expected_macro_recall,
+        "Board-colour macro_recall",
+    )
+
+
+def _verify_shooter_summary(shooter):
+    _require_exact_keys(
+        shooter,
+        {
+            "sample_count", "confirmed_sample_count", "ambiguous_sample_count",
+            "metrics", "review_coverage", "aggregation", "label_source",
+            "label_truth_independently_verified",
+            "slot_mapping_independently_verified",
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+        },
+        "Shooter evaluation",
+    )
+    if shooter.get("label_source") != "user_supplied":
+        raise ValueError("Batch report shooter evaluation label_source is invalid")
+    if shooter.get("aggregation") != (
+        "pooled sample-level counts across independently verified captures"
+    ):
+        raise ValueError("Shooter evaluation aggregation description is invalid")
+    for field in (
+        "label_truth_independently_verified",
+        "slot_mapping_independently_verified",
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+    ):
+        _require_unverified_flag(shooter, field, "Shooter evaluation")
+
+    sample_count = _nonnegative_count(
+        shooter["sample_count"], "Shooter sample_count"
+    )
+    confirmed = _nonnegative_count(
+        shooter["confirmed_sample_count"], "Shooter confirmed_sample_count"
+    )
+    ambiguous = _nonnegative_count(
+        shooter["ambiguous_sample_count"], "Shooter ambiguous_sample_count"
+    )
+    if confirmed + ambiguous != sample_count:
+        raise ValueError("Shooter confirmed and ambiguous counts do not equal sample_count")
+
+    metrics = shooter["metrics"]
+    _require_exact_keys(
+        metrics,
+        {"visibility", "slot_position_alignment", "colour", "ammunition"},
+        "Shooter metrics",
+    )
+    visibility = _classification_summary(metrics["visibility"], "Shooter visibility")
+    position = _classification_summary(
+        metrics["slot_position_alignment"], "Shooter slot-position alignment"
+    )
+    colour = _classification_summary(metrics["colour"], "Shooter colour")
+    if visibility["support"] != confirmed:
+        raise ValueError("Shooter visibility support does not equal confirmed sample count")
+    if position["support"] > confirmed or colour["support"] > confirmed:
+        raise ValueError("Shooter metric support exceeds confirmed sample count")
+
+    ammo = metrics["ammunition"]
+    _require_exact_keys(
+        ammo,
+        {
+            "support", "exact_match_count", "exact_match_accuracy",
+            "detector_reading_count", "detector_missing_count",
+            "mean_absolute_error_on_detected_readings",
+        },
+        "Shooter ammunition metrics",
+    )
+    ammo_support = _nonnegative_count(ammo["support"], "Ammunition support")
+    exact_matches = _nonnegative_count(
+        ammo["exact_match_count"], "Ammunition exact_match_count"
+    )
+    detected = _nonnegative_count(
+        ammo["detector_reading_count"], "Ammunition detector_reading_count"
+    )
+    missing = _nonnegative_count(
+        ammo["detector_missing_count"], "Ammunition detector_missing_count"
+    )
+    if detected + missing != ammo_support or exact_matches > detected:
+        raise ValueError("Shooter ammunition counts are internally inconsistent")
+    expected_accuracy = (
+        round(exact_matches / ammo_support, 6) if ammo_support else None
+    )
+    _require_finite_number(
+        ammo["exact_match_accuracy"], expected_accuracy,
+        "Shooter ammunition exact-match accuracy",
+    )
+    mae = ammo["mean_absolute_error_on_detected_readings"]
+    if detected == 0:
+        if mae is not None:
+            raise ValueError("Shooter ammunition MAE must be null without detector readings")
+    elif (
+        type(mae) is not float
+        or not math.isfinite(mae)
+        or mae < 0
+    ):
+        raise ValueError("Shooter ammunition MAE must be finite and non-negative")
+
+    coverage = shooter["review_coverage"]
+    _require_exact_keys(
+        coverage,
+        {
+            "confirmed_visibility_counts",
+            "visible_samples_with_human_colour",
+            "visible_samples_with_legible_human_ammunition",
+            "visible_sample_quality_status_counts",
+            "visible_ammunition_ocr_status_counts",
+            "coverage_adequacy_assessed",
+        },
+        "Shooter review coverage",
+    )
+    if coverage["coverage_adequacy_assessed"] is not False:
+        raise ValueError("Shooter coverage_adequacy_assessed must remain false")
+    visibility_counts = _count_dictionary(
+        coverage["confirmed_visibility_counts"], "confirmed_visibility_counts"
+    )
+    quality_counts = _count_dictionary(
+        coverage["visible_sample_quality_status_counts"],
+        "visible_sample_quality_status_counts",
+    )
+    ammo_status_counts = _count_dictionary(
+        coverage["visible_ammunition_ocr_status_counts"],
+        "visible_ammunition_ocr_status_counts",
+    )
+    if sum(visibility_counts.values()) != confirmed:
+        raise ValueError("Shooter visibility coverage counts do not equal confirmed samples")
+    visible_count = visibility_counts.get("visible", 0)
+    if sum(quality_counts.values()) != visible_count:
+        raise ValueError("Shooter sample-quality coverage does not equal visible samples")
+    if sum(ammo_status_counts.values()) != visible_count:
+        raise ValueError("Shooter ammunition-status coverage does not equal visible samples")
+
+    human_colour_count = _nonnegative_count(
+        coverage["visible_samples_with_human_colour"],
+        "visible_samples_with_human_colour",
+    )
+    human_ammo_count = _nonnegative_count(
+        coverage["visible_samples_with_legible_human_ammunition"],
+        "visible_samples_with_legible_human_ammunition",
+    )
+    if human_colour_count != colour["support"] or human_colour_count != visible_count:
+        raise ValueError("Shooter human-colour coverage disagrees with colour support")
+    if human_ammo_count != ammo_support or human_ammo_count > visible_count:
+        raise ValueError("Shooter human-ammunition coverage disagrees with ammunition support")
+
+
 def verify_batch_report(report):
     """Verify the self-digest and basic structure of a saved batch report."""
     if not isinstance(report, dict):
@@ -161,6 +438,15 @@ def verify_batch_report(report):
         raise ValueError("Batch evaluation report content does not match evaluation_sha256")
     if not _is_sha256(report.get("batch_sha256")):
         raise ValueError("Batch evaluation report batch_sha256 is invalid")
+    expected_interpretation = (
+        "Metrics pool reviewed samples only after each capture bundle passes its own "
+        "source-bound verification. Board-colour and shooter-observation metrics remain "
+        "separate. The pooled results measure agreement with user-supplied labels; they "
+        "do not independently verify label truth, calibration alignment, game semantics, "
+        "or gameplay performance."
+    )
+    if report.get("interpretation") != expected_interpretation:
+        raise ValueError("Batch evaluation report interpretation is invalid")
     if type(report.get("bundle_count")) is not int or report["bundle_count"] < 2:
         raise ValueError("Batch evaluation report bundle_count is invalid")
     bundles = report.get("bundles")
@@ -176,23 +462,8 @@ def verify_batch_report(report):
     ):
         _require_unverified_flag(report, field, "Batch report")
 
-    board = report.get("board_colour_evaluation")
-    if not isinstance(board, dict) or board.get("label_source") != "user_supplied":
-        raise ValueError("Batch report board-colour evaluation is invalid")
-    _require_unverified_flag(
-        board, "label_truth_independently_verified", "Board-colour evaluation"
-    )
-
-    shooter = report.get("shooter_observation_evaluation")
-    if not isinstance(shooter, dict) or shooter.get("label_source") != "user_supplied":
-        raise ValueError("Batch report shooter evaluation is invalid")
-    for field in (
-        "label_truth_independently_verified",
-        "slot_mapping_independently_verified",
-        "colour_independently_verified",
-        "ammunition_independently_verified",
-    ):
-        _require_unverified_flag(shooter, field, "Shooter evaluation")
+    _verify_board_summary(report.get("board_colour_evaluation"))
+    _verify_shooter_summary(report.get("shooter_observation_evaluation"))
     return True
 
 

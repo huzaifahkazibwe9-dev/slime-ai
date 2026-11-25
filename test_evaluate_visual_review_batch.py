@@ -409,6 +409,20 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid SHA-256 digest"):
             batch.verify_batch_report(report)
 
+    def test_rejects_missing_capture_session_id_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["capture_session_id"] = None
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture session ID is invalid"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_missing_capture_timestamp_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["captured_at"] = None
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture timestamp is invalid"):
+            batch.verify_batch_report(report)
+
     def test_rejects_naive_timestamp_in_saved_report(self):
         report = self._valid_report()
         report["bundles"][0]["capture_identity"]["captured_at"] = (
@@ -443,11 +457,51 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "capture_identity fields are invalid"):
             batch.verify_batch_report(report)
 
-    def test_rejects_extra_top_level_schema_field_in_saved_report(self):
+    def test_rejects_board_accuracy_inconsistent_with_confusion_matrix(self):
         report = self._valid_report()
-        report["claimed_accuracy"] = 1.0
+        report["board_colour_evaluation"]["accuracy"] = 1.0
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "fields do not match schema-v1"):
+        with self.assertRaisesRegex(ValueError, "accuracy is inconsistent"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_board_per_class_metrics_inconsistent_with_matrix(self):
+        report = self._valid_report()
+        report["board_colour_evaluation"]["per_class"]["cyan"]["precision"] = 0.0
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "per_class metrics disagree"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_shooter_ammunition_accuracy_inconsistent_with_counts(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["metrics"][
+            "ammunition"
+        ]["exact_match_accuracy"] = 1.0
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "exact-match accuracy is inconsistent"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_shooter_coverage_counts_inconsistent_with_visible_samples(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["review_coverage"][
+            "visible_sample_quality_status_counts"
+        ] = {}
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "sample-quality coverage"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_ammunition_exact_matches_exceeding_detector_readings(self):
+        report = self._valid_report()
+        ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
+        ammo["exact_match_count"] = ammo["detector_reading_count"] + 1
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "counts are internally inconsistent"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_non_numeric_boolean_accuracy_even_when_resealed(self):
+        report = self._valid_report()
+        report["board_colour_evaluation"]["accuracy"] = True
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "accuracy is inconsistent"):
             batch.verify_batch_report(report)
 
 
