@@ -178,39 +178,53 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(source, "missing")
 
     def test_snapshot_sync_source_hashes_must_match_current_inputs(self):
-        snapshot = {"source_file_sha256": {
-            "vision_level39_json": "a" * 64,
-            "conveyor_observations_json": "b" * 64,
-        }}
-        expected = {
+        baseline_snapshot = {
+            "board_source_kind": "baseline_board",
+            "source_file_sha256": {
+                "vision_level39_json": "a" * 64,
+                "conveyor_observations_json": "b" * 64,
+            },
+        }
+        baseline_expected = {
             "vision_calibration_json": "a" * 64,
             "conveyor_observations_json": "b" * 64,
         }
         checks = evidence_status(
-            {}, None, snapshot, {},
-            planning_input_file_sha256=expected,
+            {}, None, baseline_snapshot, {},
+            planning_input_file_sha256=baseline_expected,
         )["checks"]
         self.assertTrue(checks["snapshot_source_hashes_match"])
+        baseline_expected["vision_calibration_json"] = "not-a-sha256"
+        self.assertFalse(evidence_status(
+            {}, None, baseline_snapshot, {},
+            planning_input_file_sha256=baseline_expected,
+        )["checks"]["snapshot_source_hashes_match"])
 
-        expected["conveyor_observations_json"] = "c" * 64
-        checks = evidence_status(
-            {}, None, snapshot, {},
-            planning_input_file_sha256=expected,
-        )["checks"]
-        self.assertFalse(checks["snapshot_source_hashes_match"])
-
-        expected["vision_calibration_json"] = "not-a-sha256"
-        checks = evidence_status(
-            {}, None, snapshot, {},
-            planning_input_file_sha256=expected,
-        )["checks"]
-        self.assertFalse(checks["snapshot_source_hashes_match"])
-
-        checks = evidence_status(
+        screenshot_snapshot = {
+            "board_source_kind": "screenshot_observation",
+            "source_file_sha256": {
+                "board_observation_json": "c" * 64,
+                "conveyor_observations_json": "b" * 64,
+            },
+        }
+        screenshot_expected = {
+            "vision_calibration_json": "a" * 64,
+            "board_observation_json": "c" * 64,
+            "conveyor_observations_json": "b" * 64,
+        }
+        self.assertTrue(evidence_status(
+            {}, None, screenshot_snapshot, {},
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+        screenshot_expected["board_observation_json"] = "d" * 64
+        self.assertFalse(evidence_status(
+            {}, None, screenshot_snapshot, {},
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+        self.assertFalse(evidence_status(
             {}, None, {"source_file_sha256": {}}, {},
-            planning_input_file_sha256=expected,
-        )["checks"]
-        self.assertFalse(checks["snapshot_source_hashes_match"])
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
 
     def test_planning_report_input_hashes_must_match_pinned_files(self):
         planning = {"input_file_sha256": {
