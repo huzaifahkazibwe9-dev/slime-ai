@@ -156,6 +156,14 @@ is imposed and no representativeness test is claimed;
 `coverage_adequacy_assessed` remains false. Use these counts to plan
 additional captures and reviews, not as a deployment or gameplay gate.
 
+The batch report also includes an advisory `review_follow_up` section at the
+aggregate and per-capture levels. It lists panel positions with no confirmed
+review, positions containing ambiguous samples, visibility classes with zero
+confirmed support, and visible colour classes with zero confirmed support.
+Use these lists to decide what to inspect next. A zero-support class is an
+observed absence in the supplied review set, not proof that the class must
+appear in the next capture. No sample quotas are imposed, and this section
+does not alter `coverage_adequacy_assessed = false`.
 
 ## Ammunition OCR status diagnostics
 
