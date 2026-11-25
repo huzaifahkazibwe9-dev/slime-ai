@@ -223,11 +223,13 @@ def main():
         raise ValueError("No board confidence data is available")
 
     upstream_source_file_sha256 = report.get("source_file_sha256")
+    upstream_source_kind = report.get("board_source_kind")
     report = annotate_report(report, confidence_matrix)
     report["upstream_source_file_sha256"] = (
         dict(upstream_source_file_sha256)
         if isinstance(upstream_source_file_sha256, dict) else None
     )
+    report["upstream_source_kind"] = upstream_source_kind
     report["source_file_sha256"] = source_hashes
     report["confidence_audit"]["source_snapshot_id"] = confidence_snapshot_id
     report["confidence_audit"]["snapshot_match_verified"] = (
