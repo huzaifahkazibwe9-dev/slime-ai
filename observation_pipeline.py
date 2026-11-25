@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from screenshot_ingestor import extract_board
@@ -98,7 +99,7 @@ def main():
     parser.add_argument("--output", default=str(REPORT))
     args = parser.parse_args()
 
-    calibration = json.loads(Path(args.baseline).read_text())
+    calibration = strict_json_loads(Path(args.baseline).read_text())
     previous = load_observation(args.previous, calibration)
     current = load_observation(args.current, calibration)
 
