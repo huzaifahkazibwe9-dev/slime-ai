@@ -16,6 +16,7 @@ def current_source_hashes():
         "candidate_json": "9" * 64,
         "conveyor_observations_json": "a" * 64,
         "shooter_detection_json": "b" * 64,
+        "bonded_groups_config_json": "c" * 64,
         "board_observation_json": "d" * 64,
         "identity_observations_json": "e" * 64,
     }
@@ -164,6 +165,9 @@ def make_evidence():
             "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
             "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
             "shooter_detection_json": source_hashes["shooter_detection_json"],
+            "bonded_groups_config_json": source_hashes[
+                "bonded_groups_config_json"
+            ],
             "identity_audit_json": source_hashes["identity_json"],
             "board_observation_json": source_hashes["board_observation_json"],
             "shooter_identity_observations_json": source_hashes[
