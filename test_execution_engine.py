@@ -56,6 +56,18 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(report["best"]["groups"], [["A", "B"]])
         self.assertEqual(report["best"]["conveyor_used"], 2)
 
+    def test_game_state_rejects_unsubstantiated_visual_verification_flags(self):
+        shooter = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True,
+            observation_quality={
+                "colour_independently_verified": True,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+            },
+        )
+        self.assertFalse(shooter.valid())
+
     def test_malformed_bond_metadata_fails_closed_without_raising(self):
         for malformed in (None, "B", [["B"]], [None], [1]):
             with self.subTest(bonded_ids=malformed):
