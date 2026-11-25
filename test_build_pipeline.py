@@ -30,6 +30,7 @@ class BuildPipelineContractTests(unittest.TestCase):
     def test_identity_and_snapshot_stages_precede_reachability(self):
         ordered_commands = (
             'python snapshot_sync.py --board "$OBSERVATION"',
+            'python prepare_identity_observations.py --board "$OBSERVATION"',
             'python identity_auditor.py --board "$OBSERVATION"',
             "python conveyor_identity_matcher.py",
             'python reachability_auditor.py --board "$OBSERVATION"',
