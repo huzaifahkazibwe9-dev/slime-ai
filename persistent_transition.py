@@ -4,11 +4,18 @@ import json
 import math
 from pathlib import Path
 
-from screenshot_ingestor import extract_board
+from screenshot_ingestor import extract_board, sample_centres_for_grid
 
 THRESHOLD = 35.0
 STABILITY_THRESHOLD = 20.0
 CALIBRATION = Path("data/vision_level39.json")
+
+
+def _is_finite_number(value):
+    """Treat exact integers as finite without float-conversion overflow."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
 
 
 def distance(a, b):
@@ -35,7 +42,9 @@ def persistent_transition(baseline, first, second,
 
     grid_size = baseline.get("grid_size")
     if (not isinstance(grid_size, list) or len(grid_size) != 2
-            or any(type(value) is not int or value < 1 for value in grid_size)):
+            or any(type(value) is not int or value < 1 for value in grid_size)
+            or grid_size[0] > 10_000 or grid_size[1] > 10_000
+            or grid_size[0] * grid_size[1] > 1_000_000):
         raise ValueError("Invalid grid_size")
     image_size = baseline.get("image_size")
     if (not isinstance(image_size, list) or len(image_size) != 2
@@ -43,13 +52,21 @@ def persistent_transition(baseline, first, second,
         raise ValueError("Invalid image_size")
     bounds = baseline.get("bounds")
     if (not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(value) not in (int, float) or not math.isfinite(value)
-                   for value in bounds)):
+            or any(not _is_finite_number(value) for value in bounds)):
         raise ValueError("Invalid board bounds")
+    image_width, image_height = image_size
+    left, top, right, bottom = bounds
+    if (left < 1 or top < 1 or right <= left or bottom <= top
+            or right > image_width - 1 or bottom > image_height - 1):
+        raise ValueError("Board bounds must be ordered and inside the screenshot")
+    sample_centres = sample_centres_for_grid(grid_size, bounds)
+    x_centres, y_centres = sample_centres["x"], sample_centres["y"]
+    if (any(b - a < 3 for a, b in zip(x_centres, x_centres[1:]))
+            or any(b - a < 3 for a, b in zip(y_centres, y_centres[1:]))):
+        raise ValueError("Grid sample windows overlap")
 
-    if (type(threshold) not in (int, float) or not math.isfinite(threshold)
-            or threshold < 0 or type(stability) not in (int, float)
-            or not math.isfinite(stability) or stability < 0):
+    if (not _is_finite_number(threshold) or threshold < 0
+            or not _is_finite_number(stability) or stability < 0):
         raise ValueError("Thresholds must be finite non-negative numbers")
 
     boards = [x.get("raw_rgb") for x in (baseline, first, second)]
