@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 from datetime import datetime, timezone
@@ -338,12 +339,31 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     }
 
 
-def main():
-    board = json.loads(BOARD_FILE.read_text())
-    observations = json.loads(OBS_FILE.read_text())
 
+def read_input_snapshots(board_path=BOARD_FILE, observations_path=OBS_FILE):
+    """Parse each input from the exact bytes whose SHA-256 is recorded."""
+    board_bytes = Path(board_path).read_bytes()
+    observation_bytes = Path(observations_path).read_bytes()
+    board = json.loads(board_bytes)
+    observations = json.loads(observation_bytes)
+    if not isinstance(board, dict) or not isinstance(observations, dict):
+        raise ValueError("Snapshot-sync inputs must each contain a JSON object")
+    source_hashes = {
+        "vision_level39_json": hashlib.sha256(board_bytes).hexdigest(),
+        "conveyor_observations_json": hashlib.sha256(observation_bytes).hexdigest(),
+    }
+    return board, observations, source_hashes
+
+
+def main():
+    board, observations, source_hashes = read_input_snapshots()
     report = synchronise_audit(board, observations)
-    OUTPUT.write_text(json.dumps(report, indent=2))
+    report["source_file_sha256"] = source_hashes
+
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    temporary = OUTPUT.with_suffix(OUTPUT.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2))
+    temporary.replace(OUTPUT)
 
     print("SLIME AI — SNAPSHOT SYNCHRONISATION")
     print("=" * 48)
