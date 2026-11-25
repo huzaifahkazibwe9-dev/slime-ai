@@ -17,6 +17,7 @@ def current_source_hashes():
         "conveyor_observations_json": "a" * 64,
         "shooter_detection_json": "b" * 64,
         "board_observation_json": "d" * 64,
+        "identity_observations_json": "e" * 64,
     }
 
 
@@ -98,6 +99,13 @@ def make_evidence():
     }
 
     identity = {
+        "source_file_sha256": {
+            "board_observation_json": source_hashes["board_observation_json"],
+            "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
+            "shooter_identity_observations_json": source_hashes["identity_observations_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "shooter_detection_json": source_hashes["shooter_detection_json"],
+        },
         "positions_checked": 8,
         "known_shooters": ["A", "B"],
         "timestamps_known": True,
@@ -141,6 +149,11 @@ def make_evidence():
             "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
             "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
             "shooter_detection_json": source_hashes["shooter_detection_json"],
+            "identity_audit_json": source_hashes["identity_json"],
+            "board_observation_json": source_hashes["board_observation_json"],
+            "shooter_identity_observations_json": source_hashes[
+                "identity_observations_json"
+            ],
         },
         "identity_verified": True,
         "current_snapshot_id": SNAPSHOT_ID,
