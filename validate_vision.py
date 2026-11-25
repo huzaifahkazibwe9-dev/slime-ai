@@ -1,9 +1,10 @@
 import json
+from strict_json import strict_json_loads
 from collections import Counter
 from pathlib import Path
 
 path = Path("data/vision_level39.json")
-data = json.loads(path.read_text())
+data = strict_json_loads(path.read_text())
 
 board = data["board"]
 rgb = data["raw_rgb"]
