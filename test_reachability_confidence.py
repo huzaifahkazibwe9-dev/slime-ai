@@ -1,3 +1,4 @@
+import hashlib
 import json
 import runpy
 import sys
@@ -143,6 +144,11 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             reachability = {
                 "board_dimensions": [35, 35],
                 "board_snapshot_id": "sha256:" + "9" * 64,
+                "source_file_sha256": {
+                    "board_json": "a" * 64,
+                    "conveyor_calibration_json": "b" * 64,
+                    "conveyor_observations_json": "c" * 64,
+                },
                 "game_taps_enabled": False,
                 "results": [{
                     "position_id": "top_1",
@@ -179,6 +185,21 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             self.assertEqual(
                 result["confidence_audit"]["source_snapshot_id"],
                 result["board_snapshot_id"],
+            )
+            self.assertEqual(
+                result["upstream_source_file_sha256"],
+                reachability["source_file_sha256"],
+            )
+            self.assertEqual(
+                result["source_file_sha256"],
+                {
+                    "reachability_audit_json": hashlib.sha256(
+                        input_path.read_bytes()
+                    ).hexdigest(),
+                    "board_observation_json": hashlib.sha256(
+                        board_path.read_bytes()
+                    ).hexdigest(),
+                },
             )
 
     def test_confidence_cli_rejects_different_board_snapshot(self):
