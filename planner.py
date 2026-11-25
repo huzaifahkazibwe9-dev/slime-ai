@@ -100,8 +100,8 @@ def _source_provenance_matches(
 
     if not isinstance(snapshot, dict):
         return False
-    if snapshot.get("board_source_kind") == "screenshot_observation":
-        expected_identity_sources = {
+
+    expected_identity_sources = {
         "board_observation_json": current_source_file_sha256[
             "board_observation_json"
         ],
@@ -124,7 +124,8 @@ def _source_provenance_matches(
     ):
         return False
 
-    expected_snapshot = {
+    if snapshot.get("board_source_kind") == "screenshot_observation":
+        expected_snapshot = {
             "board_observation_json": current_source_file_sha256[
                 "board_observation_json"
             ],
