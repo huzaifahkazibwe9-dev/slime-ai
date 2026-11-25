@@ -69,6 +69,45 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         self.assertEqual(metrics["ammunition"]["support"], 4)
         self.assertEqual(metrics["ammunition"]["exact_match_count"], 3)
         self.assertEqual(metrics["ammunition"]["exact_match_accuracy"], 0.75)
+        coverage = report["coverage_profile"]
+        self.assertEqual(
+            coverage["panel_positions_with_confirmed_labels"], 12
+        )
+        self.assertEqual(
+            coverage["human_visibility_class_support"],
+            {
+                "visible": 4, "unrevealed": 4,
+                "partially_occluded": 3, "empty": 1,
+            },
+        )
+        self.assertEqual(coverage["human_visible_colour_support"]["red"], 3)
+        self.assertEqual(coverage["human_visible_colour_support"]["cyan"], 1)
+        self.assertEqual(
+            coverage["human_legible_ammunition_value_support"],
+            [
+                {"value": 11, "count": 1},
+                {"value": 12, "count": 1},
+                {"value": 14, "count": 2},
+            ],
+        )
+        self.assertEqual(report["review_follow_up"]["panel_review_targets"], [])
+        self.assertEqual(
+            report["review_follow_up"][
+                "visibility_classes_with_zero_confirmed_support"
+            ],
+            [],
+        )
+        self.assertEqual(
+            report["review_follow_up"][
+                "visible_colour_classes_with_zero_confirmed_support"
+            ],
+            [
+                "black", "white", "gray", "brown", "orange", "yellow",
+                "green", "blue", "purple", "magenta",
+            ],
+        )
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertFalse(report["review_follow_up"]["coverage_adequacy_assessed"])
         self.assertFalse(report["label_truth_independently_verified"])
         self.assertFalse(report["colour_independently_verified"])
         self.assertFalse(report["ammunition_independently_verified"])
@@ -86,6 +125,20 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         self.assertEqual(report["ambiguous_sample_count"], 1)
         self.assertEqual(report["confirmed_sample_count"], 11)
         self.assertEqual(report["metrics"]["visibility"]["support"], 11)
+        target = report["review_follow_up"]["panel_review_targets"][0]
+        self.assertEqual(target, {
+            "position": "r1c1",
+            "status": "ambiguous_only",
+            "confirmed_count": 0,
+            "ambiguous_count": 1,
+        })
+        self.assertEqual(
+            report["coverage_profile"][
+                "detector_panel_position_review_counts"
+            ]["r1c1"],
+            {"confirmed": 0, "ambiguous": 1},
+        )
+        self.assertFalse(report["review_follow_up"]["coverage_adequacy_assessed"])
 
     def test_rejects_dataset_without_explicit_user_review(self):
         dataset, _, _ = labelled_fixture()
