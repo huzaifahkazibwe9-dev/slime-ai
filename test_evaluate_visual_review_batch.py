@@ -25,10 +25,19 @@ def _shooter_sample(
     return {
         "reviewed_visibility": visibility,
         "detected_visibility": detected_visibility,
+        "visibility_correct": visibility == detected_visibility,
         "reviewed_position": reviewed_position,
         "detected_position": detected_position or [1, 1],
+        "position_correct": (
+            reviewed_position == (detected_position or [1, 1])
+            if reviewed_position is not None else None
+        ),
         "reviewed_colour": reviewed_colour,
         "detected_colour": detected_colour,
+        "colour_correct": (
+            reviewed_colour == detected_colour
+            if reviewed_colour is not None else None
+        ),
         "reviewed_ammunition": reviewed_ammunition,
         "detected_ammunition": detected_ammunition,
         "ammunition_correct": (
@@ -320,6 +329,72 @@ class VisualReviewBatchTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 ValueError, "correctness disagrees with the detected and reviewed"
             ):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_visibility_correctness_that_disagrees_with_values(self):
+        first = _report(1)
+        first["shooter_observation_evaluation"]["sample_results"][0][
+            "visibility_correct"
+        ] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "visibility correctness disagrees"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_position_correctness_that_disagrees_with_values(self):
+        first = _report(1)
+        first["shooter_observation_evaluation"]["sample_results"][0][
+            "position_correct"
+        ] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "position correctness disagrees"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_position_correctness_when_no_position_was_reviewed(self):
+        first = _report(1)
+        sample = first["shooter_observation_evaluation"]["sample_results"][0]
+        sample["reviewed_position"] = None
+        sample["position_correct"] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "must be null when no position"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_colour_correctness_that_disagrees_with_values(self):
+        first = _report(1)
+        first["shooter_observation_evaluation"]["sample_results"][0][
+            "colour_correct"
+        ] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "colour correctness disagrees"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_colour_correctness_when_no_colour_was_reviewed(self):
+        first = _report(1)
+        sample = first["shooter_observation_evaluation"]["sample_results"][0]
+        sample["reviewed_colour"] = None
+        sample["colour_correct"] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "must be null when no colour"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_ammunition_correctness_when_no_ammunition_was_reviewed(self):
+        first = _report(1)
+        sample = first["shooter_observation_evaluation"]["sample_results"][0]
+        sample["reviewed_ammunition"] = None
+        sample["ammunition_correct"] = False
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "must be null when no ammunition"):
                 batch.evaluate_batch(self.batch_path)
 
 
