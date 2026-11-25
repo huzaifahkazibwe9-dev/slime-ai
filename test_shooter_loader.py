@@ -265,6 +265,52 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                         "bonded_groups": [],
                     })
 
+    def test_loader_carries_explicit_unverified_observation_quality(self):
+        shooters = self.load_payload({
+            "observation_quality": {
+                "colour_method": "fixed_panel_sample_hsv_thresholds",
+                "ammunition_method": "tesseract_exact_digit_ocr",
+                "slot_mapping_method": "fixed_panel_calibration",
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+            },
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "sample_quality": {"status": "DISTINCT_SAMPLE"},
+            }],
+            "bonded_groups": [],
+        })
+        quality = shooters["A"].observation_quality
+        self.assertIs(quality["colour_independently_verified"], False)
+        self.assertIs(quality["ammunition_independently_verified"], False)
+        self.assertIs(quality["slot_mapping_independently_verified"], False)
+        self.assertEqual(quality["sample_quality_status"], "DISTINCT_SAMPLE")
+
+    def test_legacy_shooter_quality_defaults_to_unverified(self):
+        shooters = self.load_payload({
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        })
+        quality = shooters["A"].observation_quality
+        self.assertEqual(quality["evidence_source"], "legacy_or_unspecified")
+        self.assertIs(quality["colour_independently_verified"], False)
+        self.assertIs(quality["ammunition_independently_verified"], False)
+
+    def test_rejects_non_boolean_observation_quality_flag(self):
+        with self.assertRaisesRegex(ValueError, "must be a boolean"):
+            self.load_payload({
+                "observation_quality": {
+                    "ammunition_independently_verified": 1
+                },
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 5}
+                ],
+                "bonded_groups": [],
+            })
+
     def test_loader_preserves_each_shooters_ammunition_count(self):
         shooters = self.load_payload({
             "visible_shooters": [
