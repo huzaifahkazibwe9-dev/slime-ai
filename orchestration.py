@@ -90,6 +90,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         "candidate_json": candidate_path,
         "conveyor_observations_json": root / "conveyor_visual_observations.json",
         "shooter_detection_json": root / "shooter_detection.json",
+        "bonded_groups_config_json": root / "bonded_groups_confirmed.json",
     }
     values = {}
     digests = {}
@@ -351,6 +352,9 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
                     ),
                     "shooter_identity_observations_json": planning_input_file_sha256.get(
                         "identity_observations_json"
+                    ),
+                    "bonded_groups_config_json": planning_input_file_sha256.get(
+                        "bonded_groups_config_json"
                     ),
                 }
                 and all(
