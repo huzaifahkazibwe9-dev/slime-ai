@@ -40,6 +40,50 @@ def read_report(path):
         return None
 
 
+def _read_json_artifact(path):
+    """Read one evidence artifact once, retaining its exact byte digest."""
+    path = Path(path)
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None, None
+    digest = hashlib.sha256(raw).hexdigest()
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        value = None
+    return (value if isinstance(value, dict) else None), digest
+
+
+def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
+    """Pin all non-capture reports consumed by one planning pass."""
+    root = Path(data_dir)
+    candidate_path, candidate_source = resolve_candidate_report_path(
+        root, candidate_report_path
+    )
+    paths = {
+        "planning_json": root / "planning_gate_latest.json",
+        "identity_json": root / "identity_audit_report.json",
+        "snapshot_json": root / "snapshot_sync_report.json",
+        "candidate_json": candidate_path,
+        "conveyor_observations_json": root / "conveyor_visual_observations.json",
+    }
+    values = {}
+    digests = {}
+    for name, path in paths.items():
+        values[name], digests[name] = _read_json_artifact(path)
+    return {
+        "planning": values["planning_json"],
+        "identity": values["identity_json"],
+        "snapshot": values["snapshot_json"],
+        "candidates": values["candidate_json"],
+        "conveyor_observation": values["conveyor_observations_json"],
+        "candidate_path": candidate_path,
+        "candidate_path_source": candidate_source,
+        "file_sha256": digests,
+    }
+
+
 def resolve_candidate_report_path(data_dir, explicit_path=None):
     """Prefer the canonical matcher output; never silently override an explicit path."""
     if explicit_path is not None:
@@ -370,19 +414,20 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     )
     timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
-    planning = read_report(root / "planning_gate_latest.json")
-    identity = read_report(root / "identity_audit_report.json")
-    snapshot = read_report(root / "snapshot_sync_report.json")
-
-    candidate_path, candidate_path_source = resolve_candidate_report_path(
+    evidence_bundle = _read_planning_evidence_bundle(
         root, candidate_report_path
     )
-    candidates = read_report(candidate_path)
+    planning = evidence_bundle["planning"]
+    identity = evidence_bundle["identity"]
+    snapshot = evidence_bundle["snapshot"]
+    candidates = evidence_bundle["candidates"]
+    candidate_path = evidence_bundle["candidate_path"]
+    candidate_path_source = evidence_bundle["candidate_path_source"]
 
     # Cross-link every evidence source to one explicitly identified board
     # capture. Missing metadata blocks planning rather than being inferred.
     from snapshot_sync import synchronise_bundle
-    conveyor_observation = read_report(root / "conveyor_visual_observations.json")
+    conveyor_observation = evidence_bundle["conveyor_observation"]
     bundle_sync = synchronise_bundle(
         board_observation,
         conveyor_observation,
@@ -487,6 +532,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             "shooter_json": pinned_capture["shooter_bytes_sha256"],
             "pixel_audit_json": pinned_capture["pixel_audit_bytes_sha256"],
         },
+        "planning_evidence_file_sha256": evidence_bundle["file_sha256"],
         "capture_provenance": {
             key: board_observation.get(key)
             for key in (
