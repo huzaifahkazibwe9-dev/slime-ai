@@ -409,13 +409,45 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid SHA-256 digest"):
             batch.verify_batch_report(report)
 
-    def test_rejects_boolean_screenshot_dimension_in_saved_report(self):
+    def test_rejects_naive_timestamp_in_saved_report(self):
         report = self._valid_report()
-        report["bundles"][0]["capture_identity"]["source_screenshot_size"] = [
-            True, 30
-        ]
+        report["bundles"][0]["capture_identity"]["captured_at"] = (
+            "2026-11-25T12:01:00"
+        )
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "screenshot dimensions are invalid"):
+        with self.assertRaisesRegex(ValueError, "ISO-8601 with a UTC offset"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_malformed_timestamp_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["captured_at"] = "not-a-time"
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "ISO-8601 with a UTC offset"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_invalid_capture_session_token_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["capture_session_id"] = (
+            "../session"
+        )
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture session ID is invalid"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_extra_capture_identity_field_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["untrusted_note"] = (
+            "arbitrary metadata"
+        )
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture_identity fields are invalid"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_extra_top_level_schema_field_in_saved_report(self):
+        report = self._valid_report()
+        report["claimed_accuracy"] = 1.0
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "fields do not match schema-v1"):
             batch.verify_batch_report(report)
 
 
