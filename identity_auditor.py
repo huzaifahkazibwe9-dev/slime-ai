@@ -213,13 +213,15 @@ def audit_identity(board, visual, identity_data, calibration, detection):
     current_frame_shooters = frame_shooters.get(current_frame_id, set())
     if current_frame_id not in frame_ids:
         errors.append("current_frame_id does not identify a recorded frame")
-    if current_frame_positions != expected_positions:
+    if not current_frame_positions:
+        errors.append("Current identity frame contains no calibrated positions")
+    if current_frame_shooters != known_shooters:
         errors.append(
-            "Current identity frame does not cover every calibrated position"
+            "Current identity frame must map every currently detected shooter exactly once"
         )
-    if len(current_frame_shooters) != len(expected_positions):
+    if len(current_frame_positions) != len(current_frame_shooters):
         errors.append(
-            "Current identity frame must map each calibrated position to a distinct shooter"
+            "Current identity frame must map distinct shooters to distinct positions"
         )
     current_position_by_shooter = {
         shooter_id: position_id
@@ -265,7 +267,7 @@ def audit_identity(board, visual, identity_data, calibration, detection):
     return {
         "identity_verified": not errors,
         "timestamps_known": timestamps_known,
-        "positions_checked": len(seen_positions),
+        "positions_checked": len(current_position_by_shooter),
         "known_shooters": sorted(known_shooters),
         "position_to_shooters": {
             position: sorted(shooter_ids)
