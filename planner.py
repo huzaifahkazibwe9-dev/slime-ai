@@ -41,6 +41,116 @@ def available_groups(state):
         yield tuple(group)
 
 
+def _valid_sha256(value):
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _source_provenance_matches(
+    state, planning, candidates, snapshot,
+    current_source_file_sha256, current_calibration_sha256,
+):
+    """Bind every planning report to the exact inputs pinned for this pass."""
+    if not isinstance(current_source_file_sha256, dict):
+        return False
+    required_inputs = (
+        "vision_calibration_json",
+        "edge_confidence_json",
+        "reachability_audit_json",
+        "reachability_confidence_json",
+        "conveyor_calibration_json",
+        "planning_json",
+        "identity_json",
+        "snapshot_json",
+        "candidate_json",
+        "conveyor_observations_json",
+        "shooter_detection_json",
+    )
+    if any(
+        not _valid_sha256(current_source_file_sha256.get(name))
+        for name in required_inputs
+    ):
+        return False
+
+    expected_snapshot = {
+        "vision_level39_json": current_source_file_sha256["vision_calibration_json"],
+        "conveyor_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+    }
+    if (
+        not isinstance(snapshot, dict)
+        or snapshot.get("source_file_sha256") != expected_snapshot
+    ):
+        return False
+
+    expected_planning = {
+        "reachability_confidence_json": current_source_file_sha256[
+            "reachability_confidence_json"
+        ],
+        "candidate_json": current_source_file_sha256["candidate_json"],
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+    }
+    if (
+        not isinstance(planning, dict)
+        or planning.get("input_file_sha256") != expected_planning
+    ):
+        return False
+
+    expected_candidates = {
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+        "conveyor_visual_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+        "shooter_detection_json": current_source_file_sha256[
+            "shooter_detection_json"
+        ],
+    }
+    if (
+        not isinstance(candidates, dict)
+        or candidates.get("source_file_sha256") != expected_candidates
+    ):
+        return False
+
+    expected_upstream = {
+        "reachability_audit_json": current_source_file_sha256[
+            "reachability_audit_json"
+        ],
+        "vision_level39_json": current_source_file_sha256[
+            "vision_calibration_json"
+        ],
+        "edge_confidence_json": current_source_file_sha256[
+            "edge_confidence_json"
+        ],
+        "board_json": current_source_file_sha256["vision_calibration_json"],
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+        "conveyor_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+    }
+    if (
+        not isinstance(planning.get("upstream_source_file_sha256"), dict)
+        or planning.get("upstream_source_file_sha256") != expected_upstream
+    ):
+        return False
+
+    board_calibration_sha256 = getattr(state, "calibration_sha256", None)
+    return (
+        _valid_sha256(board_calibration_sha256)
+        and _valid_sha256(current_calibration_sha256)
+        and board_calibration_sha256 == current_calibration_sha256
+    )
+
+
 def _verified_identity_mapping(state, identity, candidates, snapshot):
     """Derive current shooter positions from independently verified reports."""
     if not all(isinstance(x, dict) for x in (identity, candidates, snapshot)):
@@ -215,11 +325,22 @@ def plan_next_move(
     identity_audit=None,
     candidate_report=None,
     snapshot_report=None,
+    current_source_file_sha256=None,
+    current_calibration_sha256=None,
 ):
-    """Return a group only when independent, synchronized evidence agrees."""
+    """Return a group only when current source provenance also matches."""
     if state.validate():
         return None
     if getattr(state, "shooter_capture_provenance_verified", False) is not True:
+        return None
+    if not _source_provenance_matches(
+        state,
+        planning_report,
+        candidate_report,
+        snapshot_report,
+        current_source_file_sha256,
+        current_calibration_sha256,
+    ):
         return None
 
     mapping = _verified_identity_mapping(
@@ -263,8 +384,23 @@ if __name__ == "__main__":
     identity = read_report("identity_audit_report.json")
     candidates = read_report("conveyor_identity_candidates.json")
     snapshot = read_report("snapshot_sync_report.json")
+    from orchestration import (
+        _canonical_json_sha256,
+        _read_planning_evidence_bundle,
+    )
+    evidence_bundle = _read_planning_evidence_bundle(Path("data"))
+    planning = evidence_bundle["planning"]
+    identity = evidence_bundle["identity"]
+    candidates = evidence_bundle["candidates"]
+    snapshot = evidence_bundle["snapshot"]
 
-    result = plan_next_move(state, planning, identity, candidates, snapshot)
+    result = plan_next_move(
+        state, planning, identity, candidates, snapshot,
+        current_source_file_sha256=evidence_bundle["file_sha256"],
+        current_calibration_sha256=_canonical_json_sha256(
+            evidence_bundle["vision_calibration"]
+        ),
+    )
 
     print("SLIME AI — BUILD 11J EVIDENCE-BOUND PLANNER")
     print("=" * 52)
