@@ -58,11 +58,6 @@ def make_evidence():
             "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
             "conveyor_observations_json": source_hashes["conveyor_observations_json"],
         },
-        "_legacy_unused_upstream_source_file_sha256": {
-            "reachability_audit_json": source_hashes["reachability_audit_json"],
-            "vision_level39_json": source_hashes["vision_calibration_json"],
-            "edge_confidence_json": source_hashes["edge_confidence_json"],
-        },
         "level": 39,
         "planning_evidence_verified": True,
         "gameplay_verified": False,
