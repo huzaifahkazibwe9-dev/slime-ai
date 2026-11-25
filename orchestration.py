@@ -581,6 +581,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     evidence_bundle = _read_planning_evidence_bundle(
         root, candidate_report_path
     )
+    current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    current_source_file_sha256["board_observation_json"] = (
+        pinned_capture["board_bytes_sha256"]
+    )
     planning = evidence_bundle["planning"]
     identity = evidence_bundle["identity"]
     snapshot = evidence_bundle["snapshot"]
@@ -616,7 +620,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         shooter_capture_verified=(
             level_audit.get("shooter_capture_provenance_verified") is True
         ),
-        planning_input_file_sha256=evidence_bundle["file_sha256"],
+        planning_input_file_sha256=current_source_file_sha256,
         board_calibration_sha256=board_observation.get("calibration_sha256"),
         current_calibration_sha256=_canonical_json_sha256(
             evidence_bundle["vision_calibration"]
@@ -636,7 +640,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
                 identity_audit=identity,
                 candidate_report=candidates,
                 snapshot_report=snapshot,
-                current_source_file_sha256=evidence_bundle["file_sha256"],
+                current_source_file_sha256=current_source_file_sha256,
                 current_calibration_sha256=_canonical_json_sha256(
                     evidence_bundle["vision_calibration"]
                 ),
@@ -705,7 +709,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             "shooter_json": pinned_capture["shooter_bytes_sha256"],
             "pixel_audit_json": pinned_capture["pixel_audit_bytes_sha256"],
         },
-        "planning_evidence_file_sha256": evidence_bundle["file_sha256"],
+        "planning_evidence_file_sha256": current_source_file_sha256,
         "capture_provenance": {
             key: board_observation.get(key)
             for key in (
