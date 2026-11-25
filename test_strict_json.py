@@ -24,6 +24,25 @@ class StrictJsonTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Non-standard JSON numeric constant"):
                     strict_json_loads('{"reading":' + token + '}')
 
+    def test_accepts_finite_float_exponents(self):
+        self.assertEqual(
+            strict_json_loads('{"reading":1.25e3,"max":1.7976931348623157e308}'),
+            {"reading": 1250.0, "max": 1.7976931348623157e308},
+        )
+
+    def test_rejects_exponents_that_overflow_to_infinity(self):
+        for token in ("1e999", "-1e999"):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(ValueError, "outside the finite range"):
+                    strict_json_loads('{"reading":' + token + '}')
+
+    def test_rejects_nonzero_exponents_that_underflow_to_zero(self):
+        with self.assertRaisesRegex(ValueError, "underflows to zero"):
+            strict_json_loads('{"reading":1e-9999}')
+
+    def test_accepts_exact_zero_float(self):
+        self.assertEqual(strict_json_loads('{"reading":0.0e9999}'), {"reading": 0.0})
+
     def test_rejects_invalid_utf8_bytes(self):
         with self.assertRaises(UnicodeDecodeError):
             strict_json_loads(b'{"value":"' + bytes((255,)) + b'"}')
