@@ -72,16 +72,22 @@ class SlimeController:
                     saved_evidence_hashes = report.get(
                         "planning_evidence_file_sha256"
                     )
-                    current_evidence_hashes = current_evidence["file_sha256"]
+                    current_evidence_hashes = dict(
+                        current_evidence["file_sha256"]
+                    )
+                    current_evidence_hashes["board_observation_json"] = (
+                        pinned["board_bytes_sha256"]
+                    )
                     planning_evidence_matches = (
                         isinstance(saved_evidence_hashes, dict)
-                        and all(
-                            isinstance(saved_evidence_hashes.get(key), str)
-                            and saved_evidence_hashes.get(key) == digest
-                            for key, digest in current_evidence_hashes.items()
-                        )
+                        and saved_evidence_hashes == current_evidence_hashes
                         and all(
                             isinstance(value, str)
+                            and len(value) == 64
+                            and all(
+                                character in "0123456789abcdef"
+                                for character in value
+                            )
                             for value in current_evidence_hashes.values()
                         )
                     )
