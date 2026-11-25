@@ -355,6 +355,15 @@ def main():
         input_file_sha256=input_file_sha256,
     )
     result["upstream_source_file_sha256"] = dict(upstream_source_file_sha256)
+    confidence_source_file_sha256 = report.get("source_file_sha256")
+    if not isinstance(confidence_source_file_sha256, dict):
+        raise ValueError(
+            "Reachability confidence report is missing direct source hashes"
+        )
+    result["confidence_source_file_sha256"] = dict(
+        confidence_source_file_sha256
+    )
+    result["upstream_source_kind"] = report.get("upstream_source_kind")
     OUTPUT_FILE.write_text(json.dumps(result, indent=2))
 
     print("SLIME AI — BUILD 11H PLANNING GATE")
