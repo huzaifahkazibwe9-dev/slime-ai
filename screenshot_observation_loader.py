@@ -267,6 +267,14 @@ def load_observed_level(
         shooter_quality_counts[quality_status] = (
             shooter_quality_counts.get(quality_status, 0) + 1
         )
+    ammunition_ocr_status_counts = {}
+    for shooter in shooters.values():
+        ocr_status = shooter.observation_quality.get(
+            "ammunition_ocr_status", "NOT_REPORTED"
+        )
+        ammunition_ocr_status_counts[ocr_status] = (
+            ammunition_ocr_status_counts.get(ocr_status, 0) + 1
+        )
     shooter_observation_quality = {
         "colour_independently_verified": all(
             shooter.observation_quality.get(
@@ -285,6 +293,7 @@ def load_observed_level(
         ) and bool(shooters),
         "shooters_loaded": len(shooters),
         "sample_quality_counts": shooter_quality_counts,
+        "ammunition_ocr_status_counts": ammunition_ocr_status_counts,
         "interpretation": (
             "Detector outputs are observations for simulation only; "
             "colour, ammunition and slot mapping are not independently verified."
