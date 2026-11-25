@@ -146,6 +146,7 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             }
             reachability = {
                 "board_dimensions": [35, 35],
+                "board_source_kind": "screenshot_observation",
                 "board_snapshot_id": "sha256:" + "9" * 64,
                 "source_file_sha256": {
                     "board_json": "a" * 64,
@@ -195,6 +196,10 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             self.assertEqual(
                 result["upstream_source_file_sha256"],
                 reachability["source_file_sha256"],
+            )
+            self.assertEqual(
+                result["upstream_source_kind"],
+                "screenshot_observation",
             )
             self.assertEqual(
                 result["source_file_sha256"],
