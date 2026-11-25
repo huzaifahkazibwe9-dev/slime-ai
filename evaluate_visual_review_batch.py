@@ -12,6 +12,10 @@ import json
 from pathlib import Path
 
 from evaluate_visual_review_bundle import evaluate_visual_review_bundle
+from capture_provenance import (
+    parse_aware_capture_timestamp,
+    validate_capture_session_id,
+)
 
 SCHEMA_VERSION = 1
 BUNDLE_FIELDS = (
@@ -78,16 +82,30 @@ def _verify_report_bundle_provenance(bundles):
         identity = bundle.get("capture_identity")
         if not isinstance(identity, dict):
             raise ValueError(f"{context} capture_identity is invalid")
+        if set(identity) != {
+            "source_screenshot_sha256", "source_screenshot_size",
+            "capture_session_id", "captured_at",
+        }:
+            raise ValueError(f"{context} capture_identity fields are invalid")
         screenshot_hash = identity.get("source_screenshot_sha256")
         session_id = identity.get("capture_session_id")
         captured_at = identity.get("captured_at")
         image_size = identity.get("source_screenshot_size")
         if not _is_sha256(screenshot_hash):
             raise ValueError(f"{context} screenshot hash is invalid")
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError(f"{context} capture session ID is invalid")
-        if not isinstance(captured_at, str) or not captured_at.strip():
-            raise ValueError(f"{context} capture timestamp is invalid")
+        try:
+            if validate_capture_session_id(session_id) != session_id:
+                raise ValueError(f"{context} capture session ID is not canonical")
+        except ValueError as exc:
+            raise ValueError(f"{context} capture session ID is invalid") from exc
+        try:
+            parsed_captured_at = parse_aware_capture_timestamp(captured_at)
+        except ValueError as exc:
+            raise ValueError(
+                f"{context} capture timestamp must be ISO-8601 with a UTC offset"
+            ) from exc
+        if parsed_captured_at != captured_at:
+            raise ValueError(f"{context} capture timestamp is not canonical")
         if (
             not isinstance(image_size, list)
             or len(image_size) != 2
@@ -125,6 +143,15 @@ def verify_batch_report(report):
         raise ValueError("Batch evaluation report schema_version is unsupported")
     if report.get("evaluator") != "evaluate_visual_review_batch":
         raise ValueError("Batch evaluation report evaluator identity is invalid")
+    required_report_fields = {
+        "schema_version", "evaluator", "batch_sha256", "bundle_count", "bundles",
+        "board_colour_evaluation", "shooter_observation_evaluation",
+        "interpretation", "label_truth_independently_verified",
+        "calibration_alignment_verified", "gameplay_verified", "game_taps_enabled",
+        "evaluation_sha256",
+    }
+    if set(report) != required_report_fields:
+        raise ValueError("Batch evaluation report fields do not match schema-v1")
     digest = report.get("evaluation_sha256")
     if (not isinstance(digest, str) or len(digest) != 64
             or any(character not in "0123456789abcdef" for character in digest)):
