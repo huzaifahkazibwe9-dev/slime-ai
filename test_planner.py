@@ -186,6 +186,21 @@ class PlannerEvidenceTests(unittest.TestCase):
         evidence[3]["source_file_sha256"]["conveyor_observations_json"] = "d" * 64
         self.assertIsNone(run_plan(evidence))
 
+    def test_stale_confidence_source_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["confidence_source_file_sha256"]["board_observation_json"] = "e" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_stale_reachability_upstream_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["upstream_source_file_sha256"]["conveyor_calibration_json"] = "e" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_unknown_upstream_source_kind_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["upstream_source_kind"] = "unknown"
+        self.assertIsNone(run_plan(evidence))
+
     def test_malformed_current_source_hash_fails_closed(self):
         hashes = current_source_hashes()
         hashes["edge_confidence_json"] = "not-a-sha256"
