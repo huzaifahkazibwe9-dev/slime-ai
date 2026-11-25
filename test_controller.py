@@ -604,6 +604,7 @@ class ControllerTests(unittest.TestCase):
                 "edge_confidence_latest.json",
                 "reachability_audit.json",
                 "conveyor_calibration.json",
+                "bonded_groups_confirmed.json",
             ):
                 with self.subTest(upstream_input=name):
                     path = Path(directory) / name
