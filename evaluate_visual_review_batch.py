@@ -306,6 +306,18 @@ def evaluate_batch(batch_path):
     reports = []
     bundle_summaries = []
 
+    # Reject duplicate or malformed IDs before evaluating any source artifacts.
+    declared_ids = set()
+    for index, entry in enumerate(batch["bundles"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Batch bundle {index} must be an object")
+        bundle_id = entry.get("id")
+        if not isinstance(bundle_id, str) or not bundle_id.strip():
+            raise ValueError(f"Batch bundle {index} id must be a non-empty string")
+        if bundle_id in declared_ids:
+            raise ValueError(f"Duplicate bundle id: {bundle_id}")
+        declared_ids.add(bundle_id)
+
     for index, entry in enumerate(batch["bundles"]):
         if not isinstance(entry, dict):
             raise ValueError(f"Batch bundle {index} must be an object")
