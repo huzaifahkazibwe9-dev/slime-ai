@@ -7,7 +7,11 @@ from collections import Counter
 from PIL import Image
 
 from screenshot_ingestor import classify_rgb, sample_centres_for_grid
-from source_pixel_audit import audit_source_pixels, EXTRACTION_FINGERPRINT_FIELDS
+from source_pixel_audit import (
+    audit_source_pixels,
+    EXTRACTION_FINGERPRINT_FIELDS,
+    validate_source_pixel_audit_status,
+)
 
 
 class SourcePixelAuditTests(unittest.TestCase):
@@ -59,6 +63,41 @@ class SourcePixelAuditTests(unittest.TestCase):
             payload, sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
         self.observation["extraction_sha256"] = hashlib.sha256(encoded).hexdigest()
+
+    def test_source_pixel_audit_status_requires_explicit_safe_values(self):
+        valid = {
+            "source_image_hash_checked": True,
+            "source_image_dimensions_checked": True,
+            "label_truth_independently_verified": False,
+            "calibration_alignment_verified": False,
+            "gameplay_verified": False,
+            "game_taps_enabled": False,
+        }
+        self.assertTrue(validate_source_pixel_audit_status(valid))
+
+        for flag in (
+            "source_image_hash_checked",
+            "source_image_dimensions_checked",
+        ):
+            for invalid in (False, None, 1):
+                with self.subTest(flag=flag, invalid=invalid):
+                    candidate = dict(valid)
+                    candidate[flag] = invalid
+                    with self.assertRaisesRegex(ValueError, flag):
+                        validate_source_pixel_audit_status(candidate)
+
+        for flag in (
+            "label_truth_independently_verified",
+            "calibration_alignment_verified",
+            "gameplay_verified",
+            "game_taps_enabled",
+        ):
+            for invalid in (True, None, 0):
+                with self.subTest(flag=flag, invalid=invalid):
+                    candidate = dict(valid)
+                    candidate[flag] = invalid
+                    with self.assertRaisesRegex(ValueError, flag):
+                        validate_source_pixel_audit_status(candidate)
 
     def test_reproduces_all_source_pixel_samples_and_payload_fingerprint(self):
         report = audit_source_pixels(self.observation, self.image_bytes)

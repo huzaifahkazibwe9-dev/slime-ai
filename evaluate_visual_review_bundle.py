@@ -15,7 +15,7 @@ from PIL import Image
 from io import BytesIO
 
 from screenshot_ingestor import classify_rgb
-from source_pixel_audit import audit_source_pixels
+from source_pixel_audit import audit_source_pixels, validate_source_pixel_audit_status
 from vision_calibration import evaluate_dataset as evaluate_colour_dataset
 from vision_calibration import validate_dataset as validate_colour_dataset
 from vision_calibration import verify_source_image
@@ -294,6 +294,7 @@ def evaluate_visual_review_bundle(
     board_observation, board_bytes = _read_json_object(board_observation_path, "Board observation")
     shooter_detection, shooter_bytes = _read_json_object(shooter_detection_path, "Shooter detection")
     persisted_audit, audit_bytes = _read_json_object(pixel_audit_path, "Source-pixel audit")
+    validate_source_pixel_audit_status(persisted_audit)
     screenshot_bytes = _read_bytes(source_screenshot_path, "Original screenshot")
 
     actual_screenshot_hash = _sha256(screenshot_bytes)
@@ -357,6 +358,7 @@ def evaluate_visual_review_bundle(
         raise ValueError("Board observation dimensions do not match screenshot")
 
     pixel_audit = audit_source_pixels(board_observation, screenshot_bytes)
+    validate_source_pixel_audit_status(pixel_audit)
     if pixel_audit.get("pixel_samples_reproduced") is not True:
         raise ValueError("Independent source-pixel audit did not reproduce every board RGB sample")
     if pixel_audit.get("extraction_fingerprint_match") is not True:

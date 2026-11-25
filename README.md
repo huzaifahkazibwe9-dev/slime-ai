@@ -252,6 +252,16 @@ is provisional (boundary cells require confirmation); it never marks cells confi
 The planner now requires the loaded board snapshot ID to match the independently
 synchronized evidence reports, preventing stale plans from being applied to a new board.
 
+## Saved source-pixel audit status contract
+
+Review-template preparation and combined review evaluation validate the saved
+source-pixel audit's status fields as well as its screenshot hash and reproduced
+measurements. The audit must explicitly confirm that its source-image hash and
+dimensions were checked, while label truth, calibration alignment, gameplay,
+and game taps remain explicitly unverified. Missing, null, or contradictory
+status fields invalidate the review evidence, even if the artifact digest is
+updated to match the altered file.
+
 ## Capture evidence status contract
 
 The capture pipeline now requires the board observation to explicitly keep

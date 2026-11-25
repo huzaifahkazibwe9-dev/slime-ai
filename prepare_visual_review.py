@@ -21,6 +21,7 @@ from capture_pipeline import (
 )
 from prepare_colour_labels import build_template as build_colour_template
 from prepare_shooter_labels import build_template as build_shooter_template
+from source_pixel_audit import validate_source_pixel_audit_status
 
 
 def _read_json_object(path, description):
@@ -61,6 +62,7 @@ def prepare_visual_review_bundle(
     capture_report = run_capture_pipeline(screenshot_path, config_path)
     if not isinstance(capture_report, dict):
         raise ValueError("Capture pipeline did not return an audit report")
+    validate_source_pixel_audit_status(capture_report)
     if capture_report.get("pixel_samples_reproduced") is not True:
         raise ValueError("Capture pipeline did not independently reproduce board pixels")
     if capture_report.get("extraction_fingerprint_match") is not True:
@@ -93,6 +95,7 @@ def prepare_visual_review_bundle(
     pixel_audit, audit_bytes, audit_digest = _read_json_object(
         PIXEL_AUDIT_OUTPUT, "Source-pixel audit"
     )
+    validate_source_pixel_audit_status(pixel_audit)
 
     if board.get("source_sha256") != screenshot_sha256:
         raise ValueError("Board observation belongs to a different screenshot")

@@ -21,6 +21,31 @@ EXTRACTION_FINGERPRINT_FIELDS = (
 )
 
 
+AUDIT_STATUS_TRUE_FLAGS = (
+    "source_image_hash_checked",
+    "source_image_dimensions_checked",
+)
+AUDIT_STATUS_FALSE_FLAGS = (
+    "label_truth_independently_verified",
+    "calibration_alignment_verified",
+    "gameplay_verified",
+    "game_taps_enabled",
+)
+
+
+def validate_source_pixel_audit_status(report):
+    """Require explicit audit checks and preserve all unverified status flags."""
+    if not isinstance(report, dict):
+        raise ValueError("Source-pixel audit report must be a JSON object")
+    for flag in AUDIT_STATUS_TRUE_FLAGS:
+        if report.get(flag) is not True:
+            raise ValueError(f"Source-pixel audit {flag} must be True")
+    for flag in AUDIT_STATUS_FALSE_FLAGS:
+        if report.get(flag) is not False:
+            raise ValueError(f"Source-pixel audit {flag} must remain False")
+    return True
+
+
 def _positive_int_pair(value, name):
     if (not isinstance(value, list) or len(value) != 2
             or any(type(item) is not int or item < 1 for item in value)):
