@@ -98,33 +98,34 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
             })
 
     def test_template_rejects_invalid_calibration_slot_layout(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         calibration["shooters"].pop()
         with self.assertRaisesRegex(ValueError, "Missing calibrated position"):
-            build_template(board, calibration, detection, {
+            build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             })
 
     def test_template_rejects_duplicate_visible_shooter_ids(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         detection["visible_shooters"][1]["id"] = "shooter-0"
         with self.assertRaisesRegex(ValueError, "not unique"):
-            build_template(board, calibration, detection, {
+            build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             })
 
     def test_prepare_template_hashes_exact_input_bytes_and_writes_atomically(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             paths = {}
             raw_bytes = {}
             for name, payload in (
                 ("board.json", board),
+                ("visual.json", visual),
                 ("calibration.json", calibration),
                 ("detection.json", detection),
             ):
@@ -135,8 +136,11 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
             output = root / "data" / "shooter_identity_observations.json"
 
             result = prepare_template(
-                paths["board.json"], paths["calibration.json"],
-                paths["detection.json"], output,
+                board_path=paths["board.json"],
+                calibration_path=paths["calibration.json"],
+                detection_path=paths["detection.json"],
+                visual_path=paths["visual.json"],
+                output_path=output,
             )
             saved = json.loads(output.read_text(encoding="utf-8"))
 
@@ -147,6 +151,7 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
                 saved["source_file_sha256"],
                 {
                     "board_observation_json": hashlib.sha256(raw_bytes["board.json"]).hexdigest(),
+                    "conveyor_visual_observations_json": hashlib.sha256(raw_bytes["visual.json"]).hexdigest(),
                     "conveyor_calibration_json": hashlib.sha256(raw_bytes["calibration.json"]).hexdigest(),
                     "shooter_detection_json": hashlib.sha256(raw_bytes["detection.json"]).hexdigest(),
                 },
@@ -154,7 +159,7 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
             self.assertFalse(saved["verified_by_user"])
 
     def test_prepare_template_never_overwrites_existing_user_observations(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             paths = []
@@ -162,6 +167,7 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
                 ("board.json", board),
                 ("calibration.json", calibration),
                 ("detection.json", detection),
+                ("visual.json", visual),
             ):
                 path = root / name
                 path.write_text(json.dumps(payload))
