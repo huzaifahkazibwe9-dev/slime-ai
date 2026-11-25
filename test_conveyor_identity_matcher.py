@@ -59,6 +59,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             "capture_session_id": "session-001",
             "captured_at": captured_at,
             "timestamp_identified": True,
+            "timestamps_known": True,
             "verified_by_user": True,
             "positions_checked": 2,
             "known_shooters": ["A", "B"],
@@ -83,6 +84,14 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(mapping["A"], ["bottom_1"])
         self.assertEqual(mapping["B"], ["bottom_2"])
+
+    def test_identity_audit_with_unknown_timestamps_is_rejected(self):
+        identity, board, visual, positions, expected = self.identity_fixture()
+        identity["timestamps_known"] = False
+        errors, _ = validate_identity_audit(
+            identity, board, visual, positions, expected
+        )
+        self.assertTrue(any("timestamps" in item for item in errors))
 
     def test_stale_identity_source_fingerprint_is_rejected(self):
         identity, board, visual, positions, expected = self.identity_fixture()
