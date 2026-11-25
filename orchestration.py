@@ -209,25 +209,46 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
             or (
                 isinstance(snapshot, dict)
                 and isinstance(snapshot.get("source_file_sha256"), dict)
-                and all(
-                    isinstance(planning_input_file_sha256.get(key), str)
-                    and re.fullmatch(
-                        r"[0-9a-f]{64}",
-                        planning_input_file_sha256[key],
-                    ) is not None
-                    for key in (
-                        "vision_calibration_json",
-                        "conveyor_observations_json",
+                and (
+                    (
+                        snapshot.get("board_source_kind") == "screenshot_observation"
+                        and isinstance(
+                            planning_input_file_sha256.get("board_observation_json"),
+                            str,
+                        )
+                        and re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            planning_input_file_sha256["board_observation_json"],
+                        ) is not None
+                        and snapshot.get("source_file_sha256") == {
+                            "board_observation_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                    or (
+                        snapshot.get("board_source_kind") == "baseline_board"
+                        and isinstance(
+                            planning_input_file_sha256.get("vision_calibration_json"),
+                            str,
+                        )
+                        and re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            planning_input_file_sha256["vision_calibration_json"],
+                        ) is not None
+                        and snapshot.get("source_file_sha256") == {
+                            "vision_level39_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
                     )
                 )
-                and snapshot.get("source_file_sha256") == {
-                    "vision_level39_json": planning_input_file_sha256.get(
-                        "vision_calibration_json"
-                    ),
-                    "conveyor_observations_json": planning_input_file_sha256.get(
-                        "conveyor_observations_json"
-                    ),
-                }
             )
         ),
         "evidence_bundle_synchronised": (
