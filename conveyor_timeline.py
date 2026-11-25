@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 from datetime import datetime
 from pathlib import Path
 
@@ -17,7 +18,7 @@ BLUE_POSITIONS = ["bottom_2", "right_1", "top_1", "left_2"]
 def read_visual_snapshot(path=INPUT):
     raw = Path(path).read_bytes()
     try:
-        visual = json.loads(raw)
+        visual = strict_json_loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Conveyor observations are not valid UTF-8 JSON") from exc
     if not isinstance(visual, dict):
