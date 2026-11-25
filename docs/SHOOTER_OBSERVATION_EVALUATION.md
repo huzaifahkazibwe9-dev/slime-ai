@@ -137,6 +137,26 @@ the captures represent every gameplay condition. Coverage adequacy and label
 truth remain explicitly unverified.
 
 
+
+### Descriptive coverage profile
+
+The multi-capture batch report includes a `coverage_profile` at both the
+aggregate and per-capture levels. It reports confirmed versus ambiguous
+review counts for each of the 12 detector panel coordinates, human-labelled
+visibility-class support, visible colour-class support, legible ammunition
+value counts, and visible detector sample-quality/OCR-status counts. This
+makes missing positions or unrepresented classes visible before interpreting
+accuracy metrics.
+
+Panel-position counts use the detector's nominal calibrated slot coordinates.
+They describe which slots were reviewed, not independent proof that the
+detector sampled the correct physical positions. Class and ammunition counts
+describe only the reviewed samples. No statistical minimum-support threshold
+is imposed and no representativeness test is claimed;
+`coverage_adequacy_assessed` remains false. Use these counts to plan
+additional captures and reviews, not as a deployment or gameplay gate.
+
+
 ## Ammunition OCR status diagnostics
 
 The detector now records a structured status beside each ammunition result.
