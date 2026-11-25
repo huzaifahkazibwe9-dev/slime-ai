@@ -73,6 +73,9 @@ These checks establish internal consistency of stored samples against source byt
 - #1–#8 and #10 may contain changes already incorporated into later integrated PRs. Audit commit ancestry and file-level diffs before closing or merging; PR titles alone are not sufficient evidence of duplication.
 
 ## Geometry foundation carried into the simulator branch
+The remaining shooter-crop comparison guard from #20 was also carried over: mean and 99th-percentile pixel-difference tolerances must be finite numeric values in the inclusive 0–255 channel-difference range. Regression tests cover negative, over-range, non-finite, boolean, and string values. This complements the earlier panel aspect-ratio and sample-quality threshold checks.
+
+
 
 The non-overlapping geometry foundation from #19 has been copied into #31: strict finite numeric validation for screen centres, image dimensions, board bounds and grid sizes; segment-side and span checks; and contextual error reporting for invalid calibration entries. Geometry adapter and coordinate-separation regression coverage was added to the existing simulator test module. This is a branch-level integration only; the exact combined candidate must pass CI before the geometry foundation is considered validated with the simulator.
 
