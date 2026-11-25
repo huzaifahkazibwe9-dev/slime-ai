@@ -52,6 +52,35 @@ class OrchestrationTests(unittest.TestCase):
                 hashlib.sha256(expected_raw).hexdigest(),
             )
 
+    def test_planning_bundle_reuses_pinned_shooter_snapshot(self):
+        import hashlib
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in (
+                "vision_level39.json", "edge_confidence_latest.json",
+                "reachability_audit.json", "reachability_confidence_latest.json",
+                "conveyor_calibration.json", "planning_gate_latest.json",
+                "identity_audit_report.json", "shooter_identity_observations.json",
+                "snapshot_sync_report.json", "conveyor_identity_candidates.json",
+                "conveyor_visual_observations.json", "shooter_detection.json",
+                "shooter_capture_config.json", "bonded_groups_confirmed.json",
+            ):
+                (root / name).write_text("{}")
+            pinned = {"capture_provenance": {"capture_config_sha256": "a" * 64}}
+            pinned_raw_digest = hashlib.sha256(b"pinned shooter bytes").hexdigest()
+            bundle = _read_planning_evidence_bundle(
+                root,
+                pinned_shooter_data=pinned,
+                pinned_shooter_sha256=pinned_raw_digest,
+            )
+            self.assertIs(bundle["shooter_detection"], pinned)
+            self.assertEqual(
+                bundle["file_sha256"]["shooter_detection_json"],
+                pinned_raw_digest,
+            )
+
     def test_shooter_capture_config_must_match_detector_provenance(self):
         import hashlib
         import json
