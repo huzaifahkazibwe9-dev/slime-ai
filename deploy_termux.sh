@@ -20,11 +20,11 @@ if [[ -z "${PREFIX:-}" || "${PREFIX}" != *"/com.termux/"* ]]; then
 fi
 
 echo
-echo "[1/5] Synchronising the project"
+echo "[1/6] Synchronising the project"
 git pull --ff-only
 
 echo
-echo "[2/5] Checking local screenshot inputs"
+echo "[2/6] Checking local screenshot inputs"
 if [[ ! -f "screenshots/level39.jpg" ]]; then
     echo "ERROR: screenshots/level39.jpg is missing." >&2
     exit 2
@@ -35,33 +35,52 @@ if [[ ! -f "data/shooter_capture_config.json" \
     echo "ERROR: Need data/shooter_capture_config.json, shooter_panel.jpg, or data/shooter_detection.json." >&2
     exit 2
 fi
-if [[ -f "screenshots/shooter_panel.jpg" || -f "data/shooter_capture_config.json" ]] && ! command -v tesseract >/dev/null 2>&1; then
-    echo "ERROR: Tesseract is required for shooter-panel detection." >&2
-    echo "Install it in Termux with: pkg install tesseract" >&2
-    exit 2
+NEED_TESSERACT=0
+if [[ -f "data/shooter_capture_config.json" ]] \
+   || { [[ ! -f "data/shooter_detection.json" ]] \
+        && [[ -f "screenshots/shooter_panel.jpg" ]]; }; then
+    NEED_TESSERACT=1
 fi
 
 echo
-echo "[3/5] Checking the Termux Python environment"
+echo "[3/6] Checking the Termux Python environment"
+if ! command -v pkg >/dev/null 2>&1; then
+    echo "ERROR: Termux package manager (pkg) is unavailable." >&2
+    exit 2
+fi
+echo
+echo "[4/6] Installing Termux-native Python dependencies"
+# Install Python and native extensions from Termux packages, not PyPI wheels.
+pkg install -y python python-numpy python-pillow
+if [[ "$NEED_TESSERACT" -eq 1 ]]; then
+    pkg install -y tesseract
+fi
+
+echo
+echo "[5/6] Verifying the Python environment, libraries and OCR data"
 if ! command -v python >/dev/null 2>&1; then
-    echo "ERROR: Python is not available in this Termux environment." >&2
-    echo "Install it with: pkg install python" >&2
+    echo "ERROR: Termux did not provide the python command after package installation." >&2
     exit 2
 fi
 python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "ERROR: Slime AI requires Python 3.10 or newer.")'
-if ! python -m pip --version >/dev/null 2>&1; then
-    echo "ERROR: Python pip is unavailable in this Termux environment." >&2
-    echo "Repair the Termux Python installation before deployment." >&2
-    exit 2
-fi
 python --version
+python -c 'import re, numpy, PIL; parts = lambda value: tuple(int(x) for x in re.findall(r"[0-9]+", value)[:2]); raise SystemExit(0 if parts(numpy.__version__) >= (1, 26) and parts(PIL.__version__) >= (10, 0) else "ERROR: NumPy >=1.26 and Pillow >=10.0 are required.")'
+python -c 'import numpy, PIL; print("NumPy:", numpy.__version__); print("Pillow:", PIL.__version__)'
+if [[ "$NEED_TESSERACT" -eq 1 ]]; then
+    if ! command -v tesseract >/dev/null 2>&1; then
+        echo "ERROR: Tesseract installation did not provide the tesseract command." >&2
+        exit 2
+    fi
+    if ! tesseract --list-langs 2>/dev/null | grep -Fxq "eng"; then
+        echo "ERROR: Tesseract English language data (eng) is unavailable." >&2
+        exit 2
+    fi
+fi
+# requirements.txt remains the host-CI dependency declaration. Termux's
+# native packages above provide the Android-compatible NumPy and Pillow builds.
 
 echo
-echo "[4/5] Installing declared Python dependencies"
-python -m pip install -r requirements.txt
-
-echo
-echo "[5/5] Running the validated build pipeline"
+echo "[6/6] Running the validated build pipeline"
 bash build_pipeline.sh
 
 echo
