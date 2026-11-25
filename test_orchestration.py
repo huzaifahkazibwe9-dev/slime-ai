@@ -33,6 +33,7 @@ class OrchestrationTests(unittest.TestCase):
             "conveyor_identity_candidates.json",
             "conveyor_visual_observations.json",
             "shooter_detection.json",
+            "shooter_capture_config.json",
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -50,6 +51,57 @@ class OrchestrationTests(unittest.TestCase):
                 bundle["file_sha256"]["conveyor_calibration_json"],
                 hashlib.sha256(expected_raw).hexdigest(),
             )
+
+    def test_shooter_capture_config_must_match_detector_provenance(self):
+        import hashlib
+        import json
+
+        config = {
+            "panel_bounds": [10, 20, 300, 400],
+            "capture_session_id": "session-abc",
+            "captured_at": "2026-11-25T12:00:00+00:00",
+        }
+        raw = json.dumps(config, separators=(",", ":")).encode("utf-8")
+        digest = hashlib.sha256(raw).hexdigest()
+        detection = {
+            "capture_provenance": {
+                "capture_config_sha256": digest,
+                "panel_bounds": [10, 20, 300, 400],
+                "capture_session_id": "session-abc",
+                "captured_at": "2026-11-25T12:00:00+00:00",
+            }
+        }
+        expected = {"shooter_capture_config_json": digest}
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=detection,
+            shooter_capture_config=config,
+        )["checks"]
+        self.assertTrue(checks["shooter_capture_config_matches_detection"])
+
+        changed_config = dict(config, panel_bounds=[11, 20, 300, 400])
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=detection,
+            shooter_capture_config=changed_config,
+        )["checks"]
+        self.assertFalse(checks["shooter_capture_config_matches_detection"])
+
+        changed_detection = {
+            "capture_provenance": dict(
+                detection["capture_provenance"],
+                capture_config_sha256="0" * 64,
+            )
+        }
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=changed_detection,
+            shooter_capture_config=config,
+        )["checks"]
+        self.assertFalse(checks["shooter_capture_config_matches_detection"])
 
     def test_run_orchestration_requires_explicit_capture_paths(self):
         with self.assertRaisesRegex(ValueError, "Explicit board observation"):
