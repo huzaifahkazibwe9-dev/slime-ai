@@ -66,15 +66,15 @@ def build_timeline_report(visual, visual_sha256=None):
         timeline.append({
             "sequence": index + 1,
             "side": side,
-            "white_position_observation": observations[white_id],
-            "blue_cyan_position_observation": observations[blue_id],
+            "white_candidate": observations[white_id],
+            "blue_cyan_candidate": observations[blue_id],
         })
 
     white_ammo = [
-        step["white_position_observation"]["ammo"] for step in timeline
+        step["white_candidate"]["ammo"] for step in timeline
     ]
     blue_ammo = [
-        step["blue_cyan_position_observation"]["ammo"] for step in timeline
+        step["blue_cyan_candidate"]["ammo"] for step in timeline
     ]
     captured_at = visual.get("captured_at")
     timestamp_identified = False
@@ -102,7 +102,7 @@ def build_timeline_report(visual, visual_sha256=None):
         ),
         "identity_verified": False,
         "candidate_tracks": {
-            "white_position_series": {
+            "white": {
                 "candidate_shooter": None,
                 "identity_status": "UNRESOLVED",
                 "ammo": white_ammo,
@@ -111,7 +111,7 @@ def build_timeline_report(visual, visual_sha256=None):
                     for earlier, later in zip(white_ammo, white_ammo[1:])
                 ),
             },
-            "blue_cyan_position_series": {
+            "blue_cyan": {
                 "candidate_shooter": None,
                 "identity_status": "UNRESOLVED",
                 "ammo": blue_ammo,
