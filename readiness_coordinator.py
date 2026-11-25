@@ -21,9 +21,10 @@ def read_json(name, default=None):
     if not path.exists():
         return default
     try:
-        return json.loads(path.read_text())
+        value = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
         return default
+    return value if isinstance(value, dict) else default
 
 def learning_summary():
     db = DATA / "learning.db"
@@ -54,6 +55,12 @@ def learning_summary():
         return {"available": False, "error": str(error)}
 
 def assess(state, audit, calibration, identity, firing):
+    # Evidence artifacts are external JSON inputs; malformed top-level shapes
+    # should produce unavailable checks, not crash readiness reporting.
+    audit = audit if isinstance(audit, dict) else {}
+    calibration = calibration if isinstance(calibration, dict) else {}
+    identity = identity if isinstance(identity, dict) else {}
+    firing = firing if isinstance(firing, dict) else {}
     errors = state.validate()
     mapping_verified = bool(state.colour_mappings_verified)
     accessible = len(state.accessible_shooters())
@@ -78,10 +85,14 @@ def assess(state, audit, calibration, identity, firing):
         "colour_mappings_gameplay_verified": mapping_verified,
         "at_least_one_accessible_shooter": accessible > 0,
         "conveyor_calibration_present": bool(
-            calibration and calibration.get("shooters")
+            calibration
+            and isinstance(calibration.get("shooters"), list)
+            and calibration["shooters"]
         ),
         "conveyor_timing_calibrated": bool(
             calibration
+            and isinstance(calibration.get("shooters"), list)
+            and calibration["shooters"]
             and calibration.get("timing_calibrated_to_game") is True
             and calibration.get("verified_by_user") is True
         ),
