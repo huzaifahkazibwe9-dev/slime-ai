@@ -154,3 +154,14 @@ for visible samples; batch reports aggregate those counts across captures.
 These diagnostics help distinguish missing OCR from ambiguous readings, but
 do not prove a correctly parsed number is accurate. Human comparison against
 legible source screenshots remains necessary.
+
+
+## Runtime gate for ammunition OCR failures
+
+Current detector records declare structured OCR quality metadata. The runtime
+shooter loader now requires every visible shooter in such a record to carry
+`ammo_observation_status=PARSED_EXACT_DIGITS` and a non-negative integer count.
+Missing status, timeout, unavailable OCR, ambiguous output, or a success status
+without a count blocks loading rather than allowing a partial or stale shooter
+state into planning. Legacy records without detector quality metadata retain
+compatibility behavior and are explicitly marked legacy/unverified.
