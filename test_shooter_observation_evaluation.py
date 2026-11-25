@@ -1,0 +1,160 @@
+import copy
+import unittest
+
+from prepare_shooter_labels import build_template
+from shooter_observation_evaluation import (
+    evaluate_dataset,
+    validate_dataset,
+    verify_source_artifacts,
+)
+from test_prepare_shooter_labels import fixture_artifacts
+
+
+def labelled_fixture():
+    detection, detection_bytes, screenshot_bytes = fixture_artifacts()
+    dataset = build_template(detection, detection_bytes, screenshot_bytes)
+    dataset["labelled_by_user"] = True
+    for sample in dataset["samples"]:
+        detector = sample["detector"]
+        row, column = detector["row"], detector["column"]
+        sample["review_status"] = "confirmed"
+        if row == 1:
+            sample["human"] = {
+                "visibility": "visible",
+                "row": row,
+                "column": column,
+                "colour": "red",
+                "ammunition_readable": True,
+                "ammunition": detector["ammunition"],
+            }
+        elif row == 2:
+            sample["human"] = {
+                "visibility": "unrevealed",
+                "row": row,
+                "column": column,
+                "colour": "",
+                "ammunition_readable": False,
+                "ammunition": None,
+            }
+        else:
+            sample["human"] = {
+                "visibility": "partially_occluded",
+                "row": row,
+                "column": column,
+                "colour": "",
+                "ammunition_readable": False,
+                "ammunition": None,
+            }
+    return dataset, detection_bytes, screenshot_bytes
+
+
+class ShooterObservationEvaluationTests(unittest.TestCase):
+    def test_reports_visibility_position_colour_and_ammunition_metrics(self):
+        dataset, _, _ = labelled_fixture()
+        # Simulate three independently reviewed disagreements.
+        dataset["samples"][0]["human"]["row"] = 2
+        dataset["samples"][1]["human"]["colour"] = "cyan"
+        dataset["samples"][2]["human"]["ammunition"] += 1
+        dataset["samples"][11]["human"]["visibility"] = "empty"
+
+        report = evaluate_dataset(dataset)
+        metrics = report["metrics"]
+        self.assertEqual(report["confirmed_sample_count"], 12)
+        self.assertEqual(metrics["visibility"]["support"], 12)
+        self.assertEqual(metrics["visibility"]["accuracy"], round(11 / 12, 6))
+        self.assertEqual(metrics["slot_position_alignment"]["support"], 12)
+        self.assertEqual(metrics["slot_position_alignment"]["accuracy"], round(11 / 12, 6))
+        self.assertEqual(metrics["colour"]["support"], 4)
+        self.assertEqual(metrics["colour"]["accuracy"], 0.75)
+        self.assertEqual(metrics["ammunition"]["support"], 4)
+        self.assertEqual(metrics["ammunition"]["exact_match_count"], 3)
+        self.assertEqual(metrics["ammunition"]["exact_match_accuracy"], 0.75)
+        self.assertFalse(report["label_truth_independently_verified"])
+        self.assertFalse(report["colour_independently_verified"])
+        self.assertFalse(report["ammunition_independently_verified"])
+        self.assertFalse(report["gameplay_verified"])
+        self.assertFalse(report["game_taps_enabled"])
+
+    def test_ambiguous_samples_are_excluded_from_scored_metrics(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["review_status"] = "ambiguous"
+        dataset["samples"][0]["human"] = {
+            "visibility": "", "row": None, "column": None,
+            "colour": "", "ammunition_readable": None, "ammunition": None,
+        }
+        report = evaluate_dataset(dataset)
+        self.assertEqual(report["ambiguous_sample_count"], 1)
+        self.assertEqual(report["confirmed_sample_count"], 11)
+        self.assertEqual(report["metrics"]["visibility"]["support"], 11)
+
+    def test_rejects_dataset_without_explicit_user_review(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["labelled_by_user"] = False
+        with self.assertRaisesRegex(ValueError, "labelled_by_user"):
+            validate_dataset(dataset)
+
+    def test_rejects_any_sample_left_unreviewed(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["review_status"] = "not_reviewed"
+        with self.assertRaisesRegex(ValueError, "confirmed or ambiguous"):
+            validate_dataset(dataset)
+
+    def test_rejects_boolean_human_ammunition(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["human"]["ammunition"] = True
+        with self.assertRaisesRegex(ValueError, "non-negative integer"):
+            validate_dataset(dataset)
+
+    def test_rejects_noncanonical_human_colour(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["human"]["colour"] = "turquoise"
+        with self.assertRaisesRegex(ValueError, "canonical human colour"):
+            validate_dataset(dataset)
+
+    def test_rejects_invalid_human_visibility(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][4]["human"]["visibility"] = "maybe"
+        with self.assertRaisesRegex(ValueError, "human visibility"):
+            validate_dataset(dataset)
+
+    def test_source_artifact_verification_checks_both_exact_hashes(self):
+        dataset, detection_bytes, screenshot_bytes = labelled_fixture()
+        result = verify_source_artifacts(dataset, detection_bytes, screenshot_bytes)
+        self.assertEqual(
+            result["source_detection_sha256"],
+            dataset["source_detection_sha256"],
+        )
+        self.assertEqual(
+            result["source_screenshot_sha256"],
+            dataset["source_screenshot_sha256"],
+        )
+        self.assertTrue(result["screenshot_dimensions_checked"])
+
+    def test_rejects_different_source_screenshot(self):
+        dataset, detection_bytes, screenshot_bytes = labelled_fixture()
+        with self.assertRaisesRegex(ValueError, "Source screenshot SHA-256"):
+            verify_source_artifacts(dataset, detection_bytes, screenshot_bytes + b"x")
+
+    def test_rejects_different_source_detector_json(self):
+        dataset, detection_bytes, screenshot_bytes = labelled_fixture()
+        with self.assertRaisesRegex(ValueError, "Source detector SHA-256"):
+            verify_source_artifacts(dataset, detection_bytes + b" ", screenshot_bytes)
+
+    def test_rejects_edited_detector_snapshot_inside_labelled_dataset(self):
+        dataset, detection_bytes, screenshot_bytes = labelled_fixture()
+        dataset["samples"][0]["detector"]["colour"] = "blue"
+        with self.assertRaisesRegex(ValueError, "detector snapshot"):
+            verify_source_artifacts(dataset, detection_bytes, screenshot_bytes)
+
+    def test_evaluation_does_not_claim_source_artifacts_checked_without_verifier(self):
+        dataset, _, _ = labelled_fixture()
+        report = evaluate_dataset(dataset)
+        self.assertFalse(report["source_provenance"]["source_detection_hash_checked"])
+        self.assertFalse(report["source_provenance"]["source_screenshot_hash_checked"])
+        self.assertFalse(
+            report["source_provenance"]["source_screenshot_dimensions_checked"]
+        )
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
