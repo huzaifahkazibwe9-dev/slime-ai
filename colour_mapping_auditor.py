@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 import math
 from pathlib import Path
 from collections import defaultdict
@@ -91,9 +92,9 @@ def audit(board_data, shooter_data, mapping_data):
     }
 
 def main():
-    board = json.loads(BOARD_FILE.read_text())
-    shooters = json.loads(SHOOTER_FILE.read_text())
-    mappings = json.loads(MAPPING_FILE.read_text())
+    board = strict_json_loads(BOARD_FILE.read_text())
+    shooters = strict_json_loads(SHOOTER_FILE.read_text())
+    mappings = strict_json_loads(MAPPING_FILE.read_text())
 
     report = audit(board, shooters, mappings)
     OUTPUT_FILE.write_text(json.dumps(report, indent=2))
