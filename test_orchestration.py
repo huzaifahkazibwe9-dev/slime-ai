@@ -10,12 +10,48 @@ from orchestration import (
     resolve_candidate_report_path,
     run_multi_batch_diagnostic,
     run_orchestration,
+    read_report,
+    _read_json_artifact,
+    _read_capture_bundle,
     _read_planning_evidence_bundle,
 )
 import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
+    def test_saved_report_and_artifact_reject_duplicate_json_keys(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "orchestration_latest.json"
+            raw = b'{"planning_ready":false,"planning_ready":true}'
+            path.write_bytes(raw)
+
+            self.assertIsNone(read_report(path))
+            value, digest = _read_json_artifact(path)
+            self.assertIsNone(value)
+            self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
+    def test_capture_bundle_rejects_duplicate_json_keys_in_every_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {
+                "board": root / "board_observation_latest.json",
+                "shooters": root / "shooter_detection.json",
+                "audit": root / "source_pixel_audit_latest.json",
+            }
+            for name in paths:
+                with self.subTest(source=name):
+                    for path in paths.values():
+                        path.write_text("{}")
+                    paths[name].write_text('{"verified":false,"verified":true}')
+                    with self.assertRaisesRegex(
+                        ValueError, "Capture bundle is missing or invalid"
+                    ):
+                        _read_capture_bundle(
+                            paths["board"], paths["shooters"]
+                        )
+
     def test_planning_bundle_returns_pinned_conveyor_calibration(self):
         import hashlib
         import json
