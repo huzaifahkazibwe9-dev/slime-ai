@@ -323,7 +323,7 @@ def _read_json_snapshot(path):
     raw = Path(path).read_bytes()
     try:
         value = strict_json_loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"Evidence artifact is not valid UTF-8 JSON: {path}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"Evidence artifact must contain a JSON object: {path}")
