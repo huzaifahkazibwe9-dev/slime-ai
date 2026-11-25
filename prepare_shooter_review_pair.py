@@ -67,6 +67,16 @@ def prepare_review_pair(
     dataset_b_path = output_dir / f"{reviewer_b_id}.json"
     manifest_path = output_dir / "review_manifest.json"
     targets = (dataset_a_path, dataset_b_path, manifest_path)
+    source_paths = {detection_path, screenshot_path}
+    collisions = [
+        path.name for path in targets
+        if path.resolve() in source_paths
+    ]
+    if collisions:
+        raise ValueError(
+            "Review output paths must not overwrite source artifacts: "
+            + ", ".join(collisions)
+        )
     existing = [path for path in targets if path.exists()]
     if existing and not overwrite:
         names = ", ".join(path.name for path in existing)
