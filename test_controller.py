@@ -51,6 +51,7 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     # Planning inputs are separate artifacts and are hashed independently.
     evidence_files = {
         "vision_level39.json": {"fixture": "vision-calibration"},
+        "edge_confidence_latest.json": {"fixture": "edge-confidence"},
         "reachability_audit.json": {"fixture": "reachability-audit"},
         "reachability_confidence_latest.json": {"fixture": "reachability-confidence"},
         "conveyor_calibration.json": {"fixture": "conveyor-calibration"},
@@ -85,6 +86,7 @@ def planning_evidence_hashes(directory):
     root = Path(directory)
     names = {
         "vision_calibration_json": "vision_level39.json",
+        "edge_confidence_json": "edge_confidence_latest.json",
         "reachability_audit_json": "reachability_audit.json",
         "reachability_confidence_json": "reachability_confidence_latest.json",
         "conveyor_calibration_json": "conveyor_calibration.json",
@@ -452,6 +454,7 @@ class ControllerTests(unittest.TestCase):
             # plan even while capture identity and derived reports are unchanged.
             for name in (
                 "vision_level39.json",
+                "edge_confidence_latest.json",
                 "reachability_audit.json",
                 "conveyor_calibration.json",
             ):
