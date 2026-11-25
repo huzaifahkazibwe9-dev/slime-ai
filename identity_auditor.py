@@ -158,6 +158,10 @@ def audit_identity(board, visual, identity_data, calibration, detection):
     if identity_data.get("timestamp_identified") is not True:
         errors.append("Identity observation timestamp is not explicitly identified")
 
+    current_frame_id = identity_data.get("current_frame_id")
+    if not isinstance(current_frame_id, str) or not current_frame_id.strip():
+        errors.append("Identity observations must identify the current_frame_id")
+
     observations = identity_data.get("observations")
     if not isinstance(observations, list):
         observations = []
@@ -205,6 +209,31 @@ def audit_identity(board, visual, identity_data, calibration, detection):
             errors.append(f"Identity record {index} is not individually user-confirmed")
 
     expected_positions = set(positions)
+    current_frame_positions = frame_positions.get(current_frame_id, set())
+    current_frame_shooters = frame_shooters.get(current_frame_id, set())
+    if current_frame_id not in frame_ids:
+        errors.append("current_frame_id does not identify a recorded frame")
+    if current_frame_positions != expected_positions:
+        errors.append(
+            "Current identity frame does not cover every calibrated position"
+        )
+    if len(current_frame_shooters) != len(expected_positions):
+        errors.append(
+            "Current identity frame must map each calibrated position to a distinct shooter"
+        )
+    current_position_by_shooter = {
+        shooter_id: position_id
+        for position_id, shooter_ids in position_to_shooters.items()
+        if position_id in current_frame_positions
+        for shooter_id in shooter_ids
+        if any(
+            isinstance(item, dict)
+            and item.get("frame_id") == current_frame_id
+            and item.get("position_id") == position_id
+            and item.get("shooter_id") == shooter_id
+            for item in observations
+        )
+    }
     if expected_positions - seen_positions:
         errors.append(
             "Identity observations are missing calibrated positions: "
@@ -241,6 +270,8 @@ def audit_identity(board, visual, identity_data, calibration, detection):
             for shooter_id in sorted(known_shooters)
         },
         "identity_frame_ids": sorted(frame_ids),
+        "current_frame_id": current_frame_id,
+        "current_position_by_shooter": current_position_by_shooter,
         "board_snapshot_id": board_id,
         "capture_session_id": board_session,
         "captured_at": board_time.isoformat() if board_time else None,
