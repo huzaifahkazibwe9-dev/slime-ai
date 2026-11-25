@@ -62,6 +62,12 @@ class SlimeController:
                         "source_sha256", "capture_session_id", "captured_at",
                         "snapshot_id", "board_snapshot_id",
                     )
+                    report_artifacts = report.get("capture_bundle_file_sha256")
+                    pinned_artifacts = {
+                        "board_json": pinned.get("board_bytes_sha256"),
+                        "shooter_json": pinned.get("shooter_bytes_sha256"),
+                        "pixel_audit_json": pinned.get("pixel_audit_bytes_sha256"),
+                    }
                     capture_report_matches = (
                         isinstance(board, dict)
                         and isinstance(provenance, dict)
@@ -70,6 +76,14 @@ class SlimeController:
                             and provenance.get(key) == board.get(key)
                             for key in capture_fields
                         )
+                        and isinstance(report_artifacts, dict)
+                        and all(
+                            isinstance(report_artifacts.get(key), str)
+                            and report_artifacts.get(key) == digest
+                            for key, digest in pinned_artifacts.items()
+                            if isinstance(digest, str)
+                        )
+                        and all(isinstance(value, str) for value in pinned_artifacts.values())
                     )
             except Exception:
                 capture_evidence_valid = False
