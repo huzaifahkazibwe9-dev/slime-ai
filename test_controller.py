@@ -260,6 +260,12 @@ class ControllerTests(unittest.TestCase):
                 "gameplay_ready": True,
                 "game_taps_enabled": True,
                 "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+                "plan_verification_status": "GAMEPLAY_VERIFIED",
+                "shooter_observation_quality": {
+                    "colour_independently_verified": True,
+                    "ammunition_independently_verified": True,
+                    "slot_mapping_independently_verified": True,
+                },
                 "evidence": {"evidence_gate_passed": True},
                 "planner": {"recommended_group": ["A"]},
             }))
@@ -271,6 +277,23 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(status["plan_available"])
         self.assertFalse(status["capture_evidence_valid"])
         self.assertFalse(status["capture_report_matches_current_capture"])
+        self.assertFalse(status["plan_is_gameplay_verified"])
+        self.assertEqual(status["plan_verification_status"], "NO_VERIFIED_PLAN")
+        self.assertFalse(
+            status["shooter_observation_quality"][
+                "colour_independently_verified"
+            ]
+        )
+        self.assertFalse(
+            status["shooter_observation_quality"][
+                "ammunition_independently_verified"
+            ]
+        )
+        self.assertFalse(
+            status["shooter_observation_quality"][
+                "slot_mapping_independently_verified"
+            ]
+        )
 
     def test_status_requires_current_capture_before_showing_saved_plan(self):
         report = {
