@@ -159,6 +159,11 @@ def main(observation_path=None, shooter_path=None):
         board_observation = read_json("board_observation_latest.json", {})
 
     evidence_bundle = _read_planning_evidence_bundle(DATA)
+    current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    if pinned_capture is not None:
+        current_source_file_sha256["board_observation_json"] = (
+            pinned_capture["board_bytes_sha256"]
+        )
     calibration = read_json("conveyor_calibration.json", {})
     identity = evidence_bundle["identity"] or {}
     firing = read_json("firing_observations.json", {})
@@ -205,7 +210,7 @@ def main(observation_path=None, shooter_path=None):
         shooter_capture_verified=(
             audit.get("shooter_capture_provenance_verified") is True
         ),
-        planning_input_file_sha256=evidence_bundle["file_sha256"],
+        planning_input_file_sha256=current_source_file_sha256,
         board_calibration_sha256=(
             board_observation.get("calibration_sha256")
             if isinstance(board_observation, dict) else None
@@ -225,7 +230,7 @@ def main(observation_path=None, shooter_path=None):
             identity_audit=identity_audit,
             candidate_report=candidate_report,
             snapshot_report=synchronized_snapshot,
-            current_source_file_sha256=evidence_bundle["file_sha256"],
+            current_source_file_sha256=current_source_file_sha256,
             current_calibration_sha256=current_calibration_sha256,
         )
     manager.stop()
