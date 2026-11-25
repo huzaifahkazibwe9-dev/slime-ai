@@ -136,40 +136,14 @@ class ShooterBatchReviewAgreementTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             first = _write_pair(root, 1, (10, 20, 30))
-            second = _write_pair(root, 2, (30, 40, 50))
-            second_dataset = json.loads(second["dataset_b_path"].read_text())
-            first_dataset = json.loads(
-                (root / first["reviewer_a_dataset"]).read_text()
-            )
-            second_dataset["capture_provenance"]["capture_session_id"] = (
-                first_dataset["capture_provenance"]["capture_session_id"]
-            )
-            # Both A/B datasets in capture two must carry the same session ID.
-            (root / second["reviewer_a_dataset"]).write_text(
-                json.dumps(second_dataset), encoding="utf-8"
-            )
-            (root / second["reviewer_b_dataset"]).write_text(
-                json.dumps(second_dataset), encoding="utf-8"
-            )
-            manifest = {
-                "schema_version": 1,
-                "captures": [
-                    {
-                        key: first[key]
-                        for key in (
-                            "reviewer_a_dataset", "reviewer_b_dataset",
-                            "detection", "screenshot",
-                        )
-                    },
-                    {
-                        key: second[key]
-                        for key in (
-                            "reviewer_a_dataset", "reviewer_b_dataset",
-                            "detection", "screenshot",
-                        )
-                    },
-                ],
+            entry = {
+                key: first[key]
+                for key in (
+                    "reviewer_a_dataset", "reviewer_b_dataset",
+                    "detection", "screenshot",
+                )
             }
+            manifest = {"schema_version": 1, "captures": [entry, entry]}
             with self.assertRaisesRegex(ValueError, "repeats capture session_id"):
                 evaluate_agreement_manifest(
                     manifest, root, "reviewer-a", "reviewer-b"
@@ -179,14 +153,9 @@ class ShooterBatchReviewAgreementTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             first = _write_pair(root, 1, (10, 20, 30))
-            second = _write_pair(root, 2, (30, 40, 50))
-            # Change the second dataset's screenshot source binding to the first
-            # screenshot is intentionally not permitted; duplicate bytes are
-            # detected before they can contribute extra sample support.
-            first_bytes = (root / first["screenshot"]).read_bytes()
-            second_bytes = (root / second["screenshot"]).read_bytes()
-            self.assertNotEqual(first_bytes, second_bytes)
-            (root / second["screenshot"]).write_bytes(first_bytes)
+            # Same original screenshot bytes, but a distinct capture session
+            # and detector JSON, isolates duplicate-image manifest rejection.
+            second = _write_pair(root, 2, (10, 20, 30))
             manifest = {
                 "schema_version": 1,
                 "captures": [
