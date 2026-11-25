@@ -3,7 +3,7 @@ name: Slime AI tests
 on:
   push:
     branches: [main]
-  # Run validation for PRs targeting main or any dependent feature branch.
+  # Validate pull requests targeting main and dependent feature branches.
   pull_request:
   schedule:
     # Daily at 03:17 UTC; GitHub may delay scheduled starts.
