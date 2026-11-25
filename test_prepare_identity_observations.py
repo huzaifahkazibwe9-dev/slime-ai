@@ -103,6 +103,7 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Missing calibrated position"):
             build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
+                "conveyor_visual_observations_json": "4" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             })
@@ -113,6 +114,7 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not unique"):
             build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
+                "conveyor_visual_observations_json": "4" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             })
