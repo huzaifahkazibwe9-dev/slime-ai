@@ -6,6 +6,7 @@ from unittest.mock import patch
 from game_state import GameState
 from orchestration import (
     evidence_status,
+    _canonical_json_sha256,
     resolve_candidate_report_path,
     run_multi_batch_diagnostic,
     run_orchestration,
@@ -150,6 +151,36 @@ class OrchestrationTests(unittest.TestCase):
             {"input_file_sha256": {}}, None, None, None,
             planning_input_file_sha256=expected,
         )["checks"]["planning_report_input_hashes_match"])
+
+    def test_board_calibration_must_match_current_pinned_config(self):
+        calibration = {"grid_size": [35, 35], "bounds": [201, 431, 881, 1113]}
+        matching_digest = _canonical_json_sha256(calibration)
+        self.assertEqual(len(matching_digest), 64)
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=matching_digest,
+            current_calibration_sha256=_canonical_json_sha256(calibration),
+        )["checks"]
+        self.assertTrue(checks["board_calibration_matches_current_config"])
+
+        changed_calibration = dict(calibration, bounds=[200, 431, 881, 1113])
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=matching_digest,
+            current_calibration_sha256=_canonical_json_sha256(changed_calibration),
+        )["checks"]
+        self.assertFalse(checks["board_calibration_matches_current_config"])
+
+    def test_missing_board_calibration_fingerprint_blocks_production_gate(self):
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=None,
+            current_calibration_sha256="a" * 64,
+        )["checks"]
+        self.assertFalse(checks["board_calibration_matches_current_config"])
 
     def test_missing_evidence_blocks(self):
         result = evidence_status(None, None, None, None)
