@@ -85,36 +85,86 @@ class OrchestrationTests(unittest.TestCase):
             planning_input_file_sha256=expected,
         )["checks"]["candidate_source_hashes_match"])
 
-    def test_reachability_upstream_hashes_must_match_current_inputs(self):
-        planning = {"upstream_source_file_sha256": {
-            "reachability_audit_json": "a" * 64,
-            "vision_level39_json": "b" * 64,
-            "edge_confidence_json": "c" * 64,
-            "board_json": "b" * 64,
-            "conveyor_calibration_json": "e" * 64,
-            "conveyor_observations_json": "f" * 64,
-        }}
+    def test_reachability_upstream_hashes_match_screenshot_mode_sources(self):
+        planning = {
+            "upstream_source_kind": "screenshot_observation",
+            "upstream_source_file_sha256": {
+                "board_json": "b" * 64,
+                "conveyor_calibration_json": "e" * 64,
+                "conveyor_observations_json": "f" * 64,
+            },
+            "confidence_source_file_sha256": {
+                "reachability_audit_json": "a" * 64,
+                "board_observation_json": "d" * 64,
+            },
+        }
         expected = {
             "reachability_audit_json": "a" * 64,
             "vision_calibration_json": "b" * 64,
             "edge_confidence_json": "c" * 64,
-            "board_json": "d" * 64,
+            "board_json": "b" * 64,
+            "board_observation_json": "d" * 64,
             "conveyor_calibration_json": "e" * 64,
             "conveyor_observations_json": "f" * 64,
         }
-        self.assertTrue(evidence_status(
+        checks = evidence_status(
             planning, None, None, None,
             planning_input_file_sha256=expected,
-        )["checks"]["reachability_upstream_hashes_match"])
-        expected["vision_calibration_json"] = "g" * 64
-        self.assertFalse(evidence_status(
+        )["checks"]
+        self.assertTrue(checks["reachability_upstream_hashes_match"])
+        self.assertTrue(checks["confidence_source_hashes_match"])
+
+        expected["board_observation_json"] = "0" * 64
+        checks = evidence_status(
             planning, None, None, None,
             planning_input_file_sha256=expected,
-        )["checks"]["reachability_upstream_hashes_match"])
+        )["checks"]
+        self.assertFalse(checks["reachability_upstream_hashes_match"])
+        self.assertFalse(checks["confidence_source_hashes_match"])
+
         self.assertFalse(evidence_status(
-            {"upstream_source_file_sha256": {}}, None, None, None,
+            {
+                "upstream_source_kind": "screenshot_observation",
+                "upstream_source_file_sha256": {},
+                "confidence_source_file_sha256": {},
+            }, None, None, None,
             planning_input_file_sha256=expected,
         )["checks"]["reachability_upstream_hashes_match"])
+
+    def test_reachability_upstream_hashes_match_legacy_mode_sources(self):
+        planning = {
+            "upstream_source_kind": "baseline_board",
+            "upstream_source_file_sha256": {
+                "board_json": "b" * 64,
+                "conveyor_calibration_json": "e" * 64,
+                "conveyor_observations_json": "f" * 64,
+            },
+            "confidence_source_file_sha256": {
+                "reachability_audit_json": "a" * 64,
+                "vision_level39_json": "b" * 64,
+                "edge_confidence_json": "c" * 64,
+            },
+        }
+        expected = {
+            "reachability_audit_json": "a" * 64,
+            "vision_calibration_json": "b" * 64,
+            "edge_confidence_json": "c" * 64,
+            "board_observation_json": "d" * 64,
+            "conveyor_calibration_json": "e" * 64,
+            "conveyor_observations_json": "f" * 64,
+        }
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["reachability_upstream_hashes_match"])
+        self.assertTrue(checks["confidence_source_hashes_match"])
+        expected["edge_confidence_json"] = "0" * 64
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["confidence_source_hashes_match"])
 
     def test_missing_candidate_artifact_fails_closed_to_canonical_path(self):
         with tempfile.TemporaryDirectory() as directory:
