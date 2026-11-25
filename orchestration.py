@@ -90,6 +90,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         "candidate_json": candidate_path,
         "conveyor_observations_json": root / "conveyor_visual_observations.json",
         "shooter_detection_json": root / "shooter_detection.json",
+        "shooter_capture_config_json": root / "shooter_capture_config.json",
         "bonded_groups_config_json": root / "bonded_groups_confirmed.json",
     }
     values = {}
@@ -105,6 +106,8 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         "snapshot": values["snapshot_json"],
         "candidates": values["candidate_json"],
         "conveyor_observation": values["conveyor_observations_json"],
+        "shooter_detection": values["shooter_detection_json"],
+        "shooter_capture_config": values["shooter_capture_config_json"],
         "candidate_path": candidate_path,
         "candidate_path_source": candidate_source,
         "file_sha256": digests,
@@ -157,9 +160,35 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
 
 def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False,
                     planning_input_file_sha256=None, board_calibration_sha256=None,
-                    current_calibration_sha256=None):
+                    current_calibration_sha256=None, shooter_detection=None,
+                    shooter_capture_config=None):
     checks = {
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
+        "shooter_capture_config_matches_detection": (
+            planning_input_file_sha256 is None
+            or "shooter_capture_config_json" not in planning_input_file_sha256
+            or (
+                isinstance(shooter_detection, dict)
+                and isinstance(shooter_detection.get("capture_provenance"), dict)
+                and isinstance(shooter_capture_config, dict)
+                and isinstance(
+                    planning_input_file_sha256.get("shooter_capture_config_json"), str
+                )
+                and re.fullmatch(
+                    r"[0-9a-f]{64}",
+                    planning_input_file_sha256["shooter_capture_config_json"],
+                ) is not None
+                and shooter_detection["capture_provenance"].get(
+                    "capture_config_sha256"
+                ) == planning_input_file_sha256["shooter_capture_config_json"]
+                and shooter_detection["capture_provenance"].get("panel_bounds")
+                == shooter_capture_config.get("panel_bounds")
+                and shooter_detection["capture_provenance"].get("capture_session_id")
+                == shooter_capture_config.get("capture_session_id")
+                and shooter_detection["capture_provenance"].get("captured_at")
+                == shooter_capture_config.get("captured_at")
+            )
+        ),
         "planning_report_present": isinstance(planning, dict),
         "identity_report_present": isinstance(identity, dict),
         "identity_source_hashes_match": (
@@ -698,6 +727,8 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         current_calibration_sha256=_canonical_json_sha256(
             evidence_bundle["vision_calibration"]
         ),
+        shooter_detection=evidence_bundle["shooter_detection"],
+        shooter_capture_config=evidence_bundle["shooter_capture_config"],
     )
     timings["evidence_gate_seconds"] = round(time.perf_counter() - stage_started, 6)
 
