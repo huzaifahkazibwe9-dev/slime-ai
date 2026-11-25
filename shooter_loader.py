@@ -26,6 +26,28 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
     # New detector records include a sample-quality assessment. A weak sample
     # must not be converted into a Shooter colour. Older diagnostic files
     # without this optional field retain their legacy loading behaviour.
+    raw_quality = data.get("observation_quality", {})
+    if not isinstance(raw_quality, dict):
+        raise ValueError("observation_quality must be an object")
+    quality_fields = (
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+        "slot_mapping_independently_verified",
+    )
+    for field_name in quality_fields:
+        value = raw_quality.get(field_name, False)
+        if type(value) is not bool:
+            raise ValueError(
+                f"observation_quality.{field_name} must be a boolean"
+            )
+    normalized_quality = {
+        field_name: raw_quality.get(field_name, False)
+        for field_name in quality_fields
+    }
+    normalized_quality["evidence_source"] = (
+        "detector_declared" if raw_quality else "legacy_or_unspecified"
+    )
+
     eligible = []
     low_confidence_ids = set()
     for index, item in enumerate(detected):
@@ -144,6 +166,14 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             # Detection coordinates belong to the selection panel.
             panel_center=tuple(center) if center else None,
             panel_box=tuple(box) if box else None,
+            observation_quality={
+                **normalized_quality,
+                "sample_quality_status": (
+                    item.get("sample_quality", {}).get("status", "NOT_RECORDED")
+                    if isinstance(item.get("sample_quality"), dict)
+                    else "NOT_RECORDED"
+                ),
+            },
             # Conveyor coordinates are assigned separately.
             screen_center=None,
             screen_box=None,
