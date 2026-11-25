@@ -52,6 +52,10 @@ def fixture_artifacts():
                 },
                 "sample_quality": {"status": "DISTINCT_SAMPLE"},
                 "ammunition_observation": 10 + column if row == 1 else None,
+                "ammunition_observation_status": (
+                    "PARSED_EXACT_DIGITS" if row == 1
+                    else "NOT_ATTEMPTED_UNVERIFIED_SLOT"
+                ),
                 "screen_center": [x, y],
                 "screen_box": [x - 30, y - 30, x + 30, y + 30],
                 "screen_sample": [x, y],
@@ -108,6 +112,10 @@ class PrepareShooterLabelsTests(unittest.TestCase):
             self.assertEqual(sample["human"]["visibility"], "")
             self.assertIsNone(sample["human"]["ammunition"])
             self.assertEqual(sample["detector"]["colour"], "red")
+            self.assertIn(
+                sample["detector"]["ammunition_observation_status"],
+                {"PARSED_EXACT_DIGITS", "NOT_ATTEMPTED_UNVERIFIED_SLOT"},
+            )
 
     def test_template_rejects_screenshot_not_used_by_capture(self):
         detection, detection_bytes, _ = fixture_artifacts()
@@ -185,6 +193,24 @@ class PrepareShooterLabelsTests(unittest.TestCase):
         detection["panel_slot_observations"][0]["verified"] = True
         raw = json.dumps(detection).encode()
         with self.assertRaisesRegex(ValueError, "cannot be marked verified"):
+            build_template(detection, raw, screenshot_bytes)
+
+    def test_template_rejects_unknown_ammunition_status(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["panel_slot_observations"][0][
+            "ammunition_observation_status"
+        ] = "MAYBE"
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "invalid ammunition observation status"):
+            build_template(detection, raw, screenshot_bytes)
+
+    def test_template_rejects_ammunition_value_with_failure_status(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["panel_slot_observations"][0][
+            "ammunition_observation_status"
+        ] = "TESSERACT_TIMEOUT"
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "non-success OCR status"):
             build_template(detection, raw, screenshot_bytes)
 
     def test_template_rejects_unknown_detector_colour(self):
