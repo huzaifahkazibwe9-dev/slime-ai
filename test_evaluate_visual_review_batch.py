@@ -744,11 +744,13 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
 
 
     def test_batch_manifest_rejects_duplicate_object_keys(self):
-        self.batch_path.write_text(
-            '{"schema_version":1,"schema_version":1,"bundles":[]}'
-        )
-        with self.assertRaisesRegex(ValueError, "not valid UTF-8 JSON"):
-            batch._read_batch(self.batch_path)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(
+                '{"schema_version":1,"schema_version":1,"bundles":[]}'
+            )
+            with self.assertRaisesRegex(ValueError, "not valid UTF-8 JSON"):
+                batch._read_batch(path)
 
 
 if __name__ == "__main__":
