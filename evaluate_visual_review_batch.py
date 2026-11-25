@@ -452,6 +452,14 @@ def _verify_shooter_summary(shooter):
         raise ValueError("Shooter ammunition coverage contains an unknown OCR status")
     if sum(visibility_counts.values()) != confirmed:
         raise ValueError("Shooter visibility coverage counts do not equal confirmed samples")
+    positive_visibility_row_counts = {
+        label: count for label, count in visibility["row_counts"].items() if count > 0
+    }
+    if visibility_counts != positive_visibility_row_counts:
+        raise ValueError(
+            "Shooter visibility coverage counts disagree with visibility "
+            "confusion-matrix row totals"
+        )
     visible_count = visibility_counts.get("visible", 0)
     if sum(quality_counts.values()) != visible_count:
         raise ValueError("Shooter sample-quality coverage does not equal visible samples")
