@@ -234,7 +234,7 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
             report["review_follow_up"][
                 "visibility_classes_with_zero_confirmed_support"
             ],
-            ["visible", "empty"],
+            ["empty"],
         )
         self.assertFalse(report["review_follow_up"]["coverage_adequacy_assessed"])
 
