@@ -136,7 +136,8 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
             return False
     return True
 
-def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False):
+def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False,
+                    planning_input_file_sha256=None):
     checks = {
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
         "planning_report_present": isinstance(planning, dict),
@@ -205,6 +206,22 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
         ),
         "all_evidence_sources_share_capture": _capture_metadata_matches(
             planning, identity, snapshot, candidates
+        ),
+        "planning_report_input_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("input_file_sha256"), dict)
+                and planning.get("input_file_sha256") == {
+                    "reachability_confidence_json": planning_input_file_sha256.get(
+                        "reachability_confidence_json"
+                    ),
+                    "candidate_json": planning_input_file_sha256.get("candidate_json"),
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                }
+            )
         ),
     }
     return {
@@ -460,6 +477,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         shooter_capture_verified=(
             level_audit.get("shooter_capture_provenance_verified") is True
         ),
+        planning_input_file_sha256=evidence_bundle["file_sha256"],
     )
     timings["evidence_gate_seconds"] = round(time.perf_counter() - stage_started, 6)
 
