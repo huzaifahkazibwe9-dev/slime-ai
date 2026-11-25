@@ -305,15 +305,20 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
         not isinstance(tracks, dict)
         or not tracks
         or not isinstance(known, list)
+        or not known
+        or any(not isinstance(shooter_id, str) or not shooter_id for shooter_id in known)
+        or len(set(known)) != len(known)
         or not isinstance(confirmed_positions, dict)
         or not confirmed_positions
         or any(
             not isinstance(shooter_id, str)
+            or shooter_id not in known
             or not isinstance(position_id, str)
             or not position_id
             for shooter_id, position_id in confirmed_positions.items()
         )
         or len(set(confirmed_positions.values())) != len(confirmed_positions)
+        or len(confirmed_positions) != identity.get("positions_checked")
     ):
         return None
 
