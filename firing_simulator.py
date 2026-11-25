@@ -3,6 +3,7 @@
 import argparse
 import copy
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -226,7 +227,7 @@ def main():
     if not SOURCE.exists():
         raise FileNotFoundError(SOURCE)
 
-    data = json.loads(SOURCE.read_text())
+    data = strict_json_loads(SOURCE.read_text())
     original_board = data["board"]
     validate_board(original_board)
 
