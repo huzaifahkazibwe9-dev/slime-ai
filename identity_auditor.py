@@ -53,7 +53,12 @@ def read_json_snapshot(path):
 def audit_identity(board, visual, identity_data, calibration, detection):
     """Validate one user-confirmed identity frame against a current capture."""
     errors = []
-    board_id = board.get("snapshot_id") if isinstance(board, dict) else None
+    board = board if isinstance(board, dict) else {}
+    visual = visual if isinstance(visual, dict) else {}
+    identity_data = identity_data if isinstance(identity_data, dict) else {}
+    calibration = calibration if isinstance(calibration, dict) else {}
+    detection = detection if isinstance(detection, dict) else {}
+    board_id = board.get("snapshot_id")
     board_source = board.get("source_sha256") if isinstance(board, dict) else None
     board_session = board.get("capture_session_id") if isinstance(board, dict) else None
     board_time_text = board.get("captured_at") if isinstance(board, dict) else None
