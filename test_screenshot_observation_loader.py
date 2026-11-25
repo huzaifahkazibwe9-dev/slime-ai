@@ -100,6 +100,28 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         )
         self.assertFalse(state.timestamp_identified)
 
+    def test_level_audit_carries_unverified_shooter_quality_flags(self):
+        self.shooters["observation_quality"] = {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+        }
+        self.write()
+        state, audit = load_observed_level(
+            self.observation_path, self.shooter_path
+        )
+        quality = audit["shooter_observation_quality"]
+        self.assertEqual(quality["shooters_loaded"], 2)
+        self.assertIs(quality["colour_independently_verified"], False)
+        self.assertIs(quality["ammunition_independently_verified"], False)
+        self.assertIs(quality["slot_mapping_independently_verified"], False)
+        self.assertEqual(quality["sample_quality_counts"], {
+            "NOT_RECORDED": 2
+        })
+        self.assertIs(state.shooters["top_1"].observation_quality[
+            "ammunition_independently_verified"
+        ], False)
+
     def test_matching_verified_shooter_capture_provenance_passes(self):
         self.shooters["capture_provenance"] = {
             "verified": True,
