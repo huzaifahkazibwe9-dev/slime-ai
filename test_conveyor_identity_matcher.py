@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from identity_auditor import audit_identity
+import conveyor_identity_matcher
 from conveyor_identity_matcher import (
     validate_visual_observations,
     validate_visual_provenance,
@@ -222,6 +224,172 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         )
         self.assertEqual(track["candidate_shooter"], "shooter-A")
         self.assertFalse(track["candidate_supported"])
+
+    def test_main_builds_candidate_bound_to_confirmed_identity_and_snapshot(self):
+        positions = [
+            "bottom_1", "bottom_2", "right_1", "right_2",
+            "top_1", "top_2", "left_1", "left_2",
+        ]
+        captured_at = "2026-11-25T09:00:00+00:00"
+        source_digest = "a" * 64
+        snapshot_id = "sha256:" + source_digest
+        session_id = "session-001"
+        board = {
+            "source_sha256": source_digest,
+            "snapshot_id": snapshot_id,
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": session_id,
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+        }
+        visual_colours = {
+            "bottom_1": ("white", 40),
+            "bottom_2": ("cyan", 40),
+            "right_1": ("blue", 30),
+            "right_2": ("white", 30),
+            "top_1": ("cyan", 20),
+            "top_2": ("white", 20),
+            "left_1": ("white", 10),
+            "left_2": ("blue", 10),
+        }
+        visual = {
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": session_id,
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+            "same_board_state_confirmed": True,
+            "identity_verified": False,
+            "gameplay_verified": False,
+            "observations": [
+                {
+                    "position_id": position,
+                    "colour": visual_colours[position][0],
+                    "ammo": visual_colours[position][1],
+                }
+                for position in positions
+            ],
+        }
+        calibration = {
+            "verified_by_user": True,
+            "shooters": [
+                {
+                    "id": position,
+                    "segment": position.split("_")[0],
+                    "center": [index * 10 + 5, index * 10 + 7],
+                }
+                for index, position in enumerate(positions)
+            ],
+        }
+        shooter_ids = [f"shooter-{index}" for index in range(8)]
+        detection = {
+            "visible_shooters": [
+                {
+                    "id": shooter_ids[index],
+                    "color": {"name": "white" if index == 0 else "cyan"},
+                    "ammo": 40,
+                    "bonded_ids": (
+                        [shooter_ids[1]] if index == 0
+                        else [shooter_ids[0]] if index == 1 else []
+                    ),
+                }
+                for index in range(8)
+            ]
+        }
+        current_frame = [
+            {
+                "frame_id": "current",
+                "position_id": position,
+                "shooter_id": shooter_ids[index],
+                "verified": True,
+            }
+            for index, position in enumerate(positions)
+        ]
+        historical = []
+        white_track = [
+            ("right_2", "shooter-0"),
+            ("top_2", "shooter-0"),
+            ("left_1", "shooter-0"),
+        ]
+        blue_track = [
+            ("right_1", "shooter-1"),
+            ("top_1", "shooter-1"),
+            ("left_2", "shooter-1"),
+        ]
+        for index, (position, shooter_id) in enumerate(white_track + blue_track):
+            historical.append({
+                "frame_id": f"history-{index}",
+                "position_id": position,
+                "shooter_id": shooter_id,
+                "verified": True,
+            })
+        identity_observations = {
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": session_id,
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+            "verified_by_user": True,
+            "current_frame_id": "current",
+            "observations": current_frame + historical,
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads = {
+                "board_observation_latest.json": board,
+                "conveyor_visual_observations.json": visual,
+                "shooter_detection.json": detection,
+                "conveyor_calibration.json": calibration,
+                "shooter_identity_observations.json": identity_observations,
+            }
+            source_bytes = {}
+            for name, payload in payloads.items():
+                raw = json.dumps(payload, separators=(",", ":")).encode()
+                (root / name).write_bytes(raw)
+                source_bytes[name] = raw
+
+            identity_report = audit_identity(
+                board, visual, identity_observations, calibration, detection
+            )
+            identity_report["source_file_sha256"] = {
+                "board_observation_json": hashlib.sha256(
+                    source_bytes["board_observation_latest.json"]
+                ).hexdigest(),
+                "conveyor_visual_observations_json": hashlib.sha256(
+                    source_bytes["conveyor_visual_observations.json"]
+                ).hexdigest(),
+                "shooter_identity_observations_json": hashlib.sha256(
+                    source_bytes["shooter_identity_observations.json"]
+                ).hexdigest(),
+                "conveyor_calibration_json": hashlib.sha256(
+                    source_bytes["conveyor_calibration.json"]
+                ).hexdigest(),
+                "shooter_detection_json": hashlib.sha256(
+                    source_bytes["shooter_detection.json"]
+                ).hexdigest(),
+            }
+            (root / "identity_audit_report.json").write_text(
+                json.dumps(identity_report)
+            )
+
+            with patch.object(conveyor_identity_matcher, "DATA", root):
+                report = conveyor_identity_matcher.main()
+
+            self.assertTrue(identity_report["identity_verified"])
+            self.assertEqual(report["current_snapshot_id"], snapshot_id)
+            self.assertTrue(report["checks"]["current_snapshot_identified"])
+            self.assertTrue(report["checks"]["identity_previously_verified"])
+            self.assertTrue(report["candidate_provenance_verified"])
+            self.assertEqual(
+                [report["tracks"][name]["candidate_shooter"]
+                 for name in ("white", "blue_cyan")],
+                ["shooter-0", "shooter-1"],
+            )
+            self.assertTrue(
+                all(track["candidate_supported"]
+                    for track in report["tracks"].values())
+            )
+            self.assertFalse(report["gameplay_verified"])
+            self.assertFalse(report["game_taps_enabled"])
 
     def test_complete_unique_frame_is_valid(self):
         self.assertEqual(
