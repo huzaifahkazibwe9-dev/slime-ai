@@ -7,13 +7,19 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from controller import SlimeController
+from orchestration import _canonical_json_sha256
 
 
 def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     captured_at = captured_at or datetime.now(timezone.utc).isoformat()
     source_hash = "a" * 64
+    calibration = {
+        "grid_size": [35, 35],
+        "bounds": [201, 431, 881, 1113],
+    }
     board = {
         "source_sha256": source_hash,
+        "calibration_sha256": _canonical_json_sha256(calibration),
         "snapshot_id": "sha256:" + source_hash,
         "board_snapshot_id": "sha256:" + source_hash,
         "capture_session_id": "session-abc",
@@ -50,7 +56,7 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
     # Planning inputs are separate artifacts and are hashed independently.
     evidence_files = {
-        "vision_level39.json": {"fixture": "vision-calibration"},
+        "vision_level39.json": calibration,
         "edge_confidence_latest.json": {"fixture": "edge-confidence"},
         "reachability_audit.json": {"fixture": "reachability-audit"},
         "reachability_confidence_latest.json": {"fixture": "reachability-confidence"},
