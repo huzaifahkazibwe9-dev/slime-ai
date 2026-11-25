@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from datetime import datetime
@@ -8,8 +9,9 @@ from capture_provenance import validate_capture_session_id
 DATA = Path("data")
 ORDER = ["bottom", "right", "top", "left"]
 
-def read(name):
-    return json.loads((DATA / name).read_text())
+def read_snapshot(name):
+    raw = (DATA / name).read_bytes()
+    return json.loads(raw), hashlib.sha256(raw).hexdigest()
 
 
 def validate_visual_observations(observations, expected_positions):
@@ -112,9 +114,14 @@ def validate_observation_provenance(observations, visual):
 
 
 def main():
-    calibration = read("conveyor_calibration.json")
-    visual = read("conveyor_visual_observations.json")
-    detection = read("shooter_detection.json")
+    calibration, calibration_digest = read_snapshot("conveyor_calibration.json")
+    visual, visual_digest = read_snapshot("conveyor_visual_observations.json")
+    detection, detection_digest = read_snapshot("shooter_detection.json")
+    source_file_sha256 = {
+        "conveyor_calibration_json": calibration_digest,
+        "conveyor_visual_observations_json": visual_digest,
+        "shooter_detection_json": detection_digest,
+    }
 
     observations = visual["observations"]
     positions = {p["id"]: p for p in calibration["shooters"]}
@@ -137,6 +144,7 @@ def main():
             "observations_valid": False,
             "validation_errors": validation_errors,
             "tracks": {},
+            "source_file_sha256": source_file_sha256,
             "checks": {"observations_valid": False},
             "candidate_provenance_verified": False,
             "identity_verified": False,
@@ -179,6 +187,7 @@ def main():
         "captured_at": visual.get("captured_at"),
         "timestamp_identified": visual.get("timestamp_identified") is True,
         "tracks": {},
+        "source_file_sha256": source_file_sha256,
         "checks": {"observations_valid": True},
         "identity_verified": False,
         "gameplay_taps_enabled": False,
