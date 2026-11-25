@@ -8,6 +8,17 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
+def _canonical_json_sha256(value):
+    """Match screenshot_ingestor's canonical calibration payload fingerprint."""
+    try:
+        encoded = json.dumps(
+            value, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return None
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _valid_snapshot_fingerprint(value):
     return (
         isinstance(value, str)
@@ -82,6 +93,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
     for name, path in paths.items():
         values[name], digests[name] = _read_json_artifact(path)
     return {
+        "vision_calibration": values["vision_calibration_json"],
         "planning": values["planning_json"],
         "identity": values["identity_json"],
         "snapshot": values["snapshot_json"],
@@ -138,7 +150,8 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
     return True
 
 def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False,
-                    planning_input_file_sha256=None):
+                    planning_input_file_sha256=None, board_calibration_sha256=None,
+                    current_calibration_sha256=None):
     checks = {
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
         "planning_report_present": isinstance(planning, dict),
@@ -207,6 +220,16 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
         ),
         "all_evidence_sources_share_capture": _capture_metadata_matches(
             planning, identity, snapshot, candidates
+        ),
+        "board_calibration_matches_current_config": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(board_calibration_sha256, str)
+                and re.fullmatch(r"[0-9a-f]{64}", board_calibration_sha256) is not None
+                and isinstance(current_calibration_sha256, str)
+                and re.fullmatch(r"[0-9a-f]{64}", current_calibration_sha256) is not None
+                and board_calibration_sha256 == current_calibration_sha256
+            )
         ),
         "planning_report_input_hashes_match": (
             planning_input_file_sha256 is None
@@ -520,6 +543,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             level_audit.get("shooter_capture_provenance_verified") is True
         ),
         planning_input_file_sha256=evidence_bundle["file_sha256"],
+        board_calibration_sha256=board_observation.get("calibration_sha256"),
+        current_calibration_sha256=_canonical_json_sha256(
+            evidence_bundle["vision_calibration"]
+        ),
     )
     timings["evidence_gate_seconds"] = round(time.perf_counter() - stage_started, 6)
 
