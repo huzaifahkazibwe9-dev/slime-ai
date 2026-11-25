@@ -133,6 +133,12 @@ class CombinedVisualReviewTests(unittest.TestCase):
             "pixel_samples_reproduced": True,
             "extraction_fingerprint_match": True,
             "label_mismatch_count": 0, "colour_counts_match": True,
+            "source_image_hash_checked": True,
+            "source_image_dimensions_checked": True,
+            "label_truth_independently_verified": False,
+            "calibration_alignment_verified": False,
+            "gameplay_verified": False,
+            "game_taps_enabled": False,
         }
 
     def _write_sources_and_reviews(self):
@@ -225,6 +231,51 @@ class CombinedVisualReviewTests(unittest.TestCase):
         self.assertEqual(report["source_artifacts_sha256"], expected_source_hashes)
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["label_truth_independently_verified"])
+
+    def test_rejects_persisted_pixel_audit_with_unsafe_or_missing_status_flags(self):
+        flags = (
+            "label_truth_independently_verified",
+            "calibration_alignment_verified",
+            "gameplay_verified",
+            "game_taps_enabled",
+        )
+        for flag in flags:
+            with self.subTest(flag=flag):
+                self._write_sources_and_reviews()
+                self._write_manifest()
+                audit = json.loads(self.audit_path.read_text(encoding="utf-8"))
+                audit[flag] = True
+                self.audit_path.write_bytes(encoded(audit))
+                audit_hash = hashlib.sha256(self.audit_path.read_bytes()).hexdigest()
+                self._reseal_manifest(
+                    lambda manifest: manifest["source_artifacts_sha256"].update({
+                        "source_pixel_audit_json": audit_hash
+                    })
+                )
+                with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
+                    with self.assertRaisesRegex(ValueError, flag):
+                        self._evaluate()
+
+        required_true_flags = (
+            "source_image_hash_checked",
+            "source_image_dimensions_checked",
+        )
+        for flag in required_true_flags:
+            with self.subTest(missing_flag=flag):
+                self._write_sources_and_reviews()
+                self._write_manifest()
+                audit = json.loads(self.audit_path.read_text(encoding="utf-8"))
+                del audit[flag]
+                self.audit_path.write_bytes(encoded(audit))
+                audit_hash = hashlib.sha256(self.audit_path.read_bytes()).hexdigest()
+                self._reseal_manifest(
+                    lambda manifest: manifest["source_artifacts_sha256"].update({
+                        "source_pixel_audit_json": audit_hash
+                    })
+                )
+                with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
+                    with self.assertRaisesRegex(ValueError, flag):
+                        self._evaluate()
 
     def test_rejects_modified_manifest_content(self):
         manifest = json.loads(self.manifest_path.read_text())
