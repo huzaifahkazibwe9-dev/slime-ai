@@ -223,6 +223,22 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
                 }
             )
         ),
+        "reachability_upstream_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("upstream_source_file_sha256"), dict)
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "reachability_audit_json"
+                ) == planning_input_file_sha256.get("reachability_audit_json")
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "vision_level39_json"
+                ) == planning_input_file_sha256.get("vision_calibration_json")
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "edge_confidence_json"
+                ) == planning_input_file_sha256.get("edge_confidence_json")
+            )
+        ),
     }
     return {
         "checks": checks,
