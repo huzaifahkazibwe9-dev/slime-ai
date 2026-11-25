@@ -209,6 +209,13 @@ class CombinedVisualReviewTests(unittest.TestCase):
             report["review_artifacts_sha256"]["shooter_labels_json"],
             hashlib.sha256(self.shooter_labels_path.read_bytes()).hexdigest(),
         )
+        expected_source_hashes = {
+            "board_observation_json": hashlib.sha256(self.board_path.read_bytes()).hexdigest(),
+            "shooter_detection_json": hashlib.sha256(self.shooter_path.read_bytes()).hexdigest(),
+            "source_pixel_audit_json": hashlib.sha256(self.audit_path.read_bytes()).hexdigest(),
+            "source_screenshot": hashlib.sha256(self.image_path.read_bytes()).hexdigest(),
+        }
+        self.assertEqual(report["source_artifacts_sha256"], expected_source_hashes)
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["label_truth_independently_verified"])
 
