@@ -77,11 +77,10 @@ def validate_dataset(data):
         layout.get("rows"), layout.get("columns"), layout.get("slot_count")
     )
     if (type(rows) is not int or type(columns) is not int
-            or rows < 1 or columns < 1
-            or rows > 16 or columns > 16 or rows * columns > 256):
-        raise ValueError("panel_layout dimensions must be positive and bounded")
-    if type(slot_count) is not int or slot_count != rows * columns:
-        raise ValueError("panel_layout slot_count must equal rows multiplied by columns")
+            or rows != 3 or columns != 4):
+        raise ValueError("This evaluator supports only the calibrated 3-row by 4-column panel")
+    if type(slot_count) is not int or slot_count != 12:
+        raise ValueError("panel_layout slot_count must be 12 for the calibrated panel")
 
     quality = data.get("detector_observation_quality")
     if not isinstance(quality, dict):
