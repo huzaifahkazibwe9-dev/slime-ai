@@ -371,6 +371,8 @@ def _verify_shooter_summary(shooter):
         if match is None:
             raise ValueError("Shooter position metrics contain an invalid coordinate label")
         row, column = (int(value) for value in match.groups())
+        if label != f"r{row}c{column}":
+            raise ValueError("Shooter position metrics contain a noncanonical coordinate")
         if not (1 <= row <= 3 and 1 <= column <= 4):
             raise ValueError("Shooter position metrics contain an out-of-panel coordinate")
     if not set(colour["labels"]).issubset(set(DETECTOR_COLOURS)):
