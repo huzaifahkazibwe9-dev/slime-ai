@@ -35,6 +35,25 @@ def observations():
 
 
 class ConveyorIdentityMatcherTests(unittest.TestCase):
+    def test_bond_source_requires_explicit_user_confirmation_and_digest(self):
+        valid = {
+            "bonding_source": "user_confirmed",
+            "bonding_config_sha256": "a" * 64,
+        }
+        self.assertTrue(
+            conveyor_identity_matcher.user_confirmed_bond_source(valid)
+        )
+        for invalid in (
+            {},
+            {"bonding_source": "not_user_confirmed", "bonding_config_sha256": "a" * 64},
+            {"bonding_source": "user_confirmed", "bonding_config_sha256": None},
+            {"bonding_source": "user_confirmed", "bonding_config_sha256": "not-a-digest"},
+        ):
+            with self.subTest(invalid=invalid):
+                self.assertFalse(
+                    conveyor_identity_matcher.user_confirmed_bond_source(invalid)
+                )
+
     def test_read_snapshot_rejects_unreadable_utf8_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
@@ -377,6 +396,8 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         }
         shooter_ids = [f"shooter-{index}" for index in range(4)]
         detection = {
+            "bonding_source": "user_confirmed",
+            "bonding_config_sha256": "f" * 64,
             "visible_shooters": [
                 {
                     "id": shooter_ids[index],
@@ -473,6 +494,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             self.assertEqual(report["current_snapshot_id"], snapshot_id)
             self.assertTrue(report["checks"]["current_snapshot_identified"])
             self.assertTrue(report["checks"]["identity_previously_verified"])
+            self.assertTrue(report["checks"]["bond_source_user_confirmed"])
             self.assertTrue(report["candidate_provenance_verified"])
             self.assertEqual(
                 [report["tracks"][name]["candidate_shooter"]
