@@ -118,6 +118,13 @@ class OrchestrationTests(unittest.TestCase):
             planning_input_file_sha256=expected,
         )["checks"]
         self.assertTrue(checks["candidate_source_hashes_match"])
+        expected["bonded_groups_config_json"] = "e" * 64
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["candidate_source_hashes_match"])
+        expected["bonded_groups_config_json"] = "g" * 64
         expected["shooter_detection_json"] = "d" * 64
         checks = evidence_status(
             {}, None, None, candidate,
