@@ -1,5 +1,6 @@
 """Build 11M: evidence-gated, dry-run-only orchestration."""
 import argparse
+import hashlib
 import json
 import re
 import time
@@ -326,9 +327,9 @@ def _read_capture_bundle(observation_path, shooter_path, pixel_audit_path=None):
         "board_data": board,
         "shooter_data": shooters,
         "pixel_audit_data": pixel_audit,
-        "board_bytes_sha256": __import__("hashlib").sha256(board_bytes).hexdigest(),
-        "shooter_bytes_sha256": __import__("hashlib").sha256(shooter_bytes).hexdigest(),
-        "pixel_audit_bytes_sha256": __import__("hashlib").sha256(audit_bytes).hexdigest(),
+        "board_bytes_sha256": hashlib.sha256(board_bytes).hexdigest(),
+        "shooter_bytes_sha256": hashlib.sha256(shooter_bytes).hexdigest(),
+        "pixel_audit_bytes_sha256": hashlib.sha256(audit_bytes).hexdigest(),
     }
 
 
