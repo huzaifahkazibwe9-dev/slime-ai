@@ -10,7 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from reachability_confidence import (
-    annotate_report, observation_confidence, validate_edge_confidence_source,\n    validate_board_observation_source,
+    annotate_report, observation_confidence, validate_edge_confidence_source,
+    validate_board_observation_source,
 )
 
 
