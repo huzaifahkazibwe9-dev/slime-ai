@@ -51,9 +51,13 @@ nominal Cohen's kappa where defined for:
   sample visible and the ammunition legible.
 
 For each disagreement, the JSON report records the detector sample ID, field,
-and both supplied values. A field with no eligible comparisons reports null
-agreement. Cohen's kappa is null when its expected-agreement denominator is
-zero; `cohen_kappa_status` explains why.
+and both supplied values. In addition to aggregate metrics, the
+`per_slot_agreement` object reports row, column, support, agreement rate, and
+Cohen's kappa status for each detector slot. This prevents a strong aggregate
+score from hiding disagreement concentrated in one panel position. A field
+with no eligible comparisons reports null agreement. Cohen's kappa is null
+when its expected-agreement denominator is zero; `cohen_kappa_status`
+explains why.
 
 ## Interpretation and limitations
 

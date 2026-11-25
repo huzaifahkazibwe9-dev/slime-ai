@@ -27,6 +27,11 @@ class ShooterReviewAgreementTests(unittest.TestCase):
         self.assertEqual(report["both_ambiguous_sample_count"], 0)
         self.assertEqual(report["one_or_both_ambiguous_sample_count"], 0)
         self.assertEqual(report["disagreement_count"], 0)
+        self.assertEqual(len(report["per_slot_agreement"]), 12)
+        self.assertEqual(
+            report["per_slot_agreement"]["top_1"]["field_agreement"]["colour"]["agreement_rate"],
+            1.0,
+        )
         self.assertEqual(report["field_agreement"]["review_status"]["agreement_rate"], 1.0)
         self.assertEqual(report["field_agreement"]["visibility"]["agreement_rate"], 1.0)
         self.assertEqual(report["field_agreement"]["position"]["agreement_rate"], 1.0)
@@ -106,6 +111,18 @@ class ShooterReviewAgreementTests(unittest.TestCase):
         self.assertEqual(disagreements["top_2"], {"visibility"})
         self.assertEqual(disagreements["top_3"], {"ammunition_exact_value"})
         self.assertEqual(disagreements["top_4"], {"review_status"})
+        self.assertEqual(
+            report["per_slot_agreement"]["top_1"]["field_agreement"]["colour"]["agreement_rate"],
+            0.0,
+        )
+        self.assertEqual(
+            report["per_slot_agreement"]["top_2"]["field_agreement"]["colour"]["support"],
+            0,
+        )
+        self.assertEqual(
+            report["per_slot_agreement"]["top_4"]["field_agreement"]["review_status"]["agreement_rate"],
+            0.0,
+        )
 
     def test_rejects_same_reviewer_identifier_case_insensitively(self):
         dataset, detection_bytes, screenshot_bytes = labelled_fixture()
