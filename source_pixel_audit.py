@@ -13,6 +13,7 @@ from pathlib import Path
 from PIL import Image
 
 from screenshot_ingestor import COLOUR_LABELS, classify_rgb, sample_centres_for_grid
+from strict_json import strict_json_loads
 
 SAMPLING_METHOD = "numpy_vectorized_3x3_median"
 EXTRACTION_FINGERPRINT_FIELDS = (
@@ -218,7 +219,7 @@ def main():
     parser.add_argument("--source-image", required=True, help="Original screenshot")
     parser.add_argument("--output", default="data/source_pixel_audit.json")
     args = parser.parse_args()
-    observation = json.loads(Path(args.observation).read_text(encoding="utf-8"))
+    observation = strict_json_loads(Path(args.observation).read_bytes())
     report = audit_source_pixels(observation, Path(args.source_image).read_bytes())
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
