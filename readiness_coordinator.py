@@ -86,7 +86,13 @@ def assess(state, audit, calibration, identity, firing):
             and calibration.get("verified_by_user") is True
         ),
         "physical_shooter_identity_verified": bool(
-            identity and identity.get("identity_verified") is True
+            identity
+            and identity.get("identity_verified") is True
+            and identity.get("verified_by_user") is True
+            and identity.get("timestamps_known") is True
+            and identity.get("timestamp_identified") is True
+            and identity.get("errors") == []
+            and identity.get("blockers") == []
         ),
         "actual_firing_verified": bool(
             firing and firing.get("actual_firing_verified") is True
@@ -179,7 +185,7 @@ def main(observation_path=None, shooter_path=None):
         current_source_file_sha256["board_observation_json"] = (
             pinned_capture["board_bytes_sha256"]
         )
-    calibration = read_json("conveyor_calibration.json", {})
+    calibration = evidence_bundle["conveyor_calibration"] or {}
     identity = evidence_bundle["identity"] or {}
     firing = read_json("firing_observations.json", {})
     planning = evidence_bundle["planning"]
