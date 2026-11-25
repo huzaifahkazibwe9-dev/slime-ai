@@ -18,6 +18,7 @@ from PIL import Image
 from game_state import GameState
 from shooter_loader import load_shooters
 from screenshot_ingestor import classify_rgb, sample_centres_for_grid
+from strict_json import strict_json_loads
 from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
@@ -193,12 +194,12 @@ def load_observed_level(
     data = (
         observation_data
         if observation_data is not None
-        else json.loads(observation_path.read_text())
+        else strict_json_loads(observation_path.read_bytes())
     )
     width, height, board, counts = _require_grid(data)
 
     if shooter_data is None:
-        shooter_data = json.loads(shooter_path.read_text())
+        shooter_data = strict_json_loads(shooter_path.read_bytes())
     if not isinstance(shooter_data, dict):
         raise ValueError("Shooter detection must be a JSON object")
     shooter_provenance = shooter_data.get("capture_provenance", {})
@@ -355,7 +356,7 @@ def main():
     if args.source_image:
         source_bytes = Path(args.source_image).read_bytes()
         verification = verify_source_samples(
-            json.loads(Path(args.observation).read_text()), source_bytes
+            strict_json_loads(Path(args.observation).read_bytes()), source_bytes
         )
         print("\\nSOURCE IMAGE SAMPLE VERIFICATION")
         for key, value in verification.items():
