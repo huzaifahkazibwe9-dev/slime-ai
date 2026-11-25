@@ -1,6 +1,7 @@
 """Verified conveyor direction and screen-to-board geometry."""
 
 import json
+from strict_json import strict_json_loads
 from math import floor, isfinite
 from numbers import Real
 from pathlib import Path
@@ -136,7 +137,7 @@ def calculate_firing_geometry(
 
 
 def audit_saved_calibration(path="data/conveyor_calibration.json"):
-    data = json.loads(Path(path).read_text())
+    data = strict_json_loads(Path(path).read_text())
     width, height = data["image_size"]
     results = []
 
