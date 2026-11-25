@@ -27,6 +27,17 @@ class BuildPipelineContractTests(unittest.TestCase):
         self.assertEqual(stage_numbers.count(1), 3)
         self.assertEqual(stage_numbers.count(2), 2)
 
+    def test_blank_bond_config_is_prepared_before_shooter_detection(self):
+        prepare = self.script.index("python prepare_bonded_groups_config.py")
+        capture = min(
+            position for position in (
+                self.script.find("python capture_pipeline.py"),
+                self.script.find("python shooter_detector.py"),
+            )
+            if position >= 0
+        )
+        self.assertLess(prepare, capture)
+
     def test_identity_and_snapshot_stages_precede_reachability(self):
         ordered_commands = (
             'python snapshot_sync.py --board "$OBSERVATION"',
