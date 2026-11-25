@@ -9,6 +9,8 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
+
+from strict_json import strict_json_loads
 import re
 
 from prepare_shooter_labels import (
@@ -441,8 +443,8 @@ def verify_source_artifacts(data, detection_bytes, screenshot_bytes):
         raise ValueError("Source screenshot SHA-256 does not match the labelled dataset")
 
     try:
-        detection = json.loads(detection_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        detection = strict_json_loads(detection_bytes)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Source detector file is not valid JSON") from exc
     expected = build_template(detection, detection_bytes, screenshot_bytes)
 
@@ -479,7 +481,7 @@ def main():
     parser.add_argument("--output", default="data/shooter_observation_evaluation.json")
     args = parser.parse_args()
 
-    data = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
+    data = strict_json_loads(Path(args.dataset).read_bytes())
     validate_dataset(data)
     detection_bytes = Path(args.source_detection).read_bytes()
     screenshot_bytes = Path(args.source_screenshot).read_bytes()

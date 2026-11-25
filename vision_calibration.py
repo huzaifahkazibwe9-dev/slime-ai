@@ -18,6 +18,8 @@ import json
 import re
 from pathlib import Path
 
+from strict_json import strict_json_loads
+
 from PIL import Image
 
 from screenshot_ingestor import COLOUR_LABELS, classify_rgb
@@ -326,7 +328,7 @@ def main():
     )
     args = parser.parse_args()
 
-    data = json.loads(Path(args.dataset).read_text(encoding="utf-8"))
+    data = strict_json_loads(Path(args.dataset).read_bytes())
     report = evaluate_dataset(data)
     if args.source_image:
         source_image_bytes = Path(args.source_image).read_bytes()

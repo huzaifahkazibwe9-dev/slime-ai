@@ -262,6 +262,16 @@ and game taps remain explicitly unverified. Missing, null, or contradictory
 status fields invalidate the review evidence, even if the artifact digest is
 updated to match the altered file.
 
+## Strict JSON inputs for capture and review evidence
+
+The capture and review workflows use strict UTF-8 JSON parsing for calibration,
+board and shooter observations, pixel audits, human-review datasets, review
+manifests, and batch manifests. Duplicate object keys (including nested keys)
+and non-standard numeric constants such as `NaN` and `Infinity` are rejected,
+so each accepted evidence file has one unambiguous parsed representation.
+This is a parsing-integrity check, not an authenticity signature; exact source
+hashes and independent screenshot checks remain separate requirements.
+
 ## Capture evidence status contract
 
 The capture pipeline now requires the board observation to explicitly keep

@@ -632,5 +632,18 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                 self.assertLess(panel.getpixel((10, 10))[0], 100)
 
 
+    def test_bonded_group_config_rejects_duplicate_json_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bonds.json"
+            path.write_text(
+                '{"verified_by_user":false,"verified_by_user":true,'
+                '"bonded_groups":[["top_1","top_2"]]}'
+            )
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                load_user_confirmed_bonded_groups_with_provenance(
+                    path, ["top_1", "top_2"]
+                )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

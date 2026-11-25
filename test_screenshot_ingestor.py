@@ -366,5 +366,16 @@ class ScreenshotIngestorTests(unittest.TestCase):
             path.unlink(missing_ok=True)
 
 
+    def test_ingest_rejects_duplicate_calibration_json_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            baseline = root / "baseline.json"
+            baseline.write_text(
+                '{"grid_size":[2,2],"grid_size":[3,3],"bounds":[3,3,27,27]}'
+            )
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                ingest(root / "source.png", baseline, root / "output.json")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

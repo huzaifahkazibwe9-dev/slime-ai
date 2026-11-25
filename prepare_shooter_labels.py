@@ -12,6 +12,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from strict_json import strict_json_loads
+
 from PIL import Image
 
 SCHEMA_VERSION = 1
@@ -271,8 +273,8 @@ def build_template(detection, detection_bytes, screenshot_bytes):
     if not isinstance(screenshot_bytes, bytes) or not screenshot_bytes:
         raise ValueError("Original screenshot bytes are required")
     try:
-        parsed_bytes = json.loads(detection_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        parsed_bytes = strict_json_loads(detection_bytes)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Shooter detection bytes are not valid JSON") from exc
     if not isinstance(parsed_bytes, dict) or parsed_bytes != detection:
         raise ValueError("Detection object does not match the exact supplied JSON bytes")
@@ -347,8 +349,8 @@ def main():
 
     detection_bytes = Path(args.detection).read_bytes()
     try:
-        detection = json.loads(detection_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        detection = strict_json_loads(detection_bytes)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Shooter detection file is not valid UTF-8 JSON") from exc
     screenshot_bytes = Path(args.source_screenshot).read_bytes()
     template = build_template(detection, detection_bytes, screenshot_bytes)

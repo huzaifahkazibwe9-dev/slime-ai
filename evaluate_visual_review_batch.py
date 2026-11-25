@@ -20,6 +20,7 @@ from prepare_shooter_labels import (
     DETECTOR_COLOURS,
 )
 from shooter_observation_evaluation import HUMAN_VISIBILITY_LABELS
+from strict_json import strict_json_loads
 from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
@@ -560,8 +561,8 @@ def _read_batch(path):
     except OSError as exc:
         raise ValueError("Batch manifest is missing or unreadable") from exc
     try:
-        data = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        data = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Batch manifest is not valid UTF-8 JSON") from exc
     if not isinstance(data, dict):
         raise ValueError("Batch manifest must be a JSON object")

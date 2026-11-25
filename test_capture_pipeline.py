@@ -61,6 +61,18 @@ class CapturePipelineConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
                 load_capture_config(path)
 
+    def test_rejects_duplicate_capture_config_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            path.write_text(
+                '{"panel_bounds":[10,20,900,600],'
+                '"capture_session_id":"first",'
+                '"capture_session_id":"session-abc",'
+                '"captured_at":"2026-11-23T12:30:00+03:00"}'
+            )
+            with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
+                load_capture_config(path)
+
     def test_accepts_explicit_same_capture_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, {

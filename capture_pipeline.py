@@ -13,6 +13,7 @@ from capture_provenance import (
     validate_capture_session_id,
 )
 from source_pixel_audit import audit_source_pixels
+from strict_json import strict_json_loads
 
 BOARD_OUTPUT = Path("data/board_observation_latest.json")
 SHOOTER_OUTPUT = Path("data/shooter_detection.json")
@@ -24,8 +25,8 @@ def load_capture_config(path):
     config_bytes = path.read_bytes()
     config_sha256 = hashlib.sha256(config_bytes).hexdigest()
     try:
-        data = json.loads(config_bytes)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        data = strict_json_loads(config_bytes)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Capture config is not valid UTF-8 JSON") from exc
     if not isinstance(data, dict):
         raise ValueError("Capture config must be a JSON object")
@@ -52,9 +53,9 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
                              expected_config_sha256=None, expected_panel_bounds=None):
     """Fail closed unless both stages prove they processed the same source bytes."""
     try:
-        board = json.loads(Path(board_path).read_text())
-        shooter = json.loads(Path(shooter_path).read_text())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        board = strict_json_loads(Path(board_path).read_bytes())
+        shooter = strict_json_loads(Path(shooter_path).read_bytes())
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Capture pipeline outputs are missing or invalid JSON") from exc
 
     if not isinstance(board, dict) or not isinstance(shooter, dict):
@@ -138,7 +139,7 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
 def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT_OUTPUT):
     """Require independently reproduced source pixels before accepting capture."""
     try:
-        observation = json.loads(Path(board_path).read_text(encoding="utf-8"))
+        observation = strict_json_loads(Path(board_path).read_bytes())
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Board observation is missing or invalid for pixel audit") from exc
     report = audit_source_pixels(observation, source_image_bytes)

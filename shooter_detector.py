@@ -12,6 +12,8 @@ import time
 import math
 from collections import Counter
 
+from strict_json import strict_json_loads
+
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
 
@@ -299,7 +301,7 @@ def load_user_confirmed_bonded_groups_with_provenance(path, shooter_ids):
         return [], "not_configured", None
 
     config_sha256 = hashlib.sha256(config_bytes).hexdigest()
-    data = json.loads(config_bytes)
+    data = strict_json_loads(config_bytes)
     if not isinstance(data, dict):
         raise ValueError("Bonded-group config must be a JSON object")
     if data.get("verified_by_user") is not True:
