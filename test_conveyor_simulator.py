@@ -201,6 +201,15 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 config=SimulatorConfig(ticks_per_lap=5),
             )
 
+    def test_simulator_rejects_bonded_group_larger_than_three(self):
+        with self.assertRaisesRegex(ValueError, "maximum size of 3"):
+            create_simulator([
+                {"id": "A1", "group_id": "TRIPLE_PLUS", "ammo": 2},
+                {"id": "A2", "group_id": "TRIPLE_PLUS", "ammo": 2},
+                {"id": "A3", "group_id": "TRIPLE_PLUS", "ammo": 2},
+                {"id": "A4", "group_id": "TRIPLE_PLUS", "ammo": 2},
+            ])
+
     def test_restore_rejects_bonded_group_with_different_positions(self):
         with self.assertRaisesRegex(ValueError, "position-synchronized"):
             create_simulator([
