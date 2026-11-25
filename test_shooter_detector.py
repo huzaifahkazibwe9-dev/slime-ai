@@ -359,7 +359,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
             with patch("shooter_detector.subprocess.run") as run:
-                run.return_value = SimpleNamespace(stdout="40\\n", returncode=0)
+                run.return_value = SimpleNamespace(stdout="40", returncode=0)
                 result = read_ammunition_with_status(
                     image, (0, 0, 100, 70), Path(directory) / "ocr.png"
                 )
@@ -559,7 +559,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
 
             with patch("shooter_detector.IMAGE", panel_path), \
                  patch("shooter_detector.OUTPUT", output_path), \
-                 patch("shooter_detector.read_ammunition", return_value=None), \
+                 patch("shooter_detector.read_ammunition_with_status", return_value={"value": None, "status": "TESSERACT_UNAVAILABLE"}), \
                  patch.object(Path, "read_bytes", read_then_replace), \
                  patch.object(sys, "argv", [
                      "shooter_detector.py", "--source-screenshot",
