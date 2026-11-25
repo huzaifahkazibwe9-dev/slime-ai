@@ -75,6 +75,60 @@ class IdentityAuditorTests(unittest.TestCase):
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
 
+    def test_current_frame_maps_visible_shooters_while_history_covers_all_slots(self):
+        board, visual, identity, calibration, detection = valid_bundle()
+        detection["visible_shooters"] = detection["visible_shooters"][:4]
+        current_positions = ["bottom_1", "bottom_2", "right_1", "right_2"]
+        current_ids = ["shooter-0", "shooter-1", "shooter-2", "shooter-3"]
+        current_frame = [
+            {
+                "frame_id": "current-frame",
+                "position_id": position,
+                "shooter_id": shooter_id,
+                "verified": True,
+            }
+            for position, shooter_id in zip(current_positions, current_ids)
+        ]
+        historical = [
+            ("right_2", "shooter-0"),
+            ("top_2", "shooter-0"),
+            ("left_1", "shooter-0"),
+            ("right_1", "shooter-1"),
+            ("top_1", "shooter-1"),
+            ("left_2", "shooter-1"),
+        ]
+        identity["current_frame_id"] = "current-frame"
+        identity["observations"] = current_frame + [
+            {
+                "frame_id": f"history-{index}",
+                "position_id": position,
+                "shooter_id": shooter_id,
+                "verified": True,
+            }
+            for index, (position, shooter_id) in enumerate(historical)
+        ]
+
+        report = audit_identity(
+            board, visual, identity, calibration, detection
+        )
+
+        self.assertTrue(report["identity_verified"])
+        self.assertEqual(report["known_shooters"], current_ids)
+        self.assertEqual(report["positions_checked"], 4)
+        self.assertEqual(
+            report["current_position_by_shooter"],
+            {
+                "shooter-0": "bottom_1",
+                "shooter-1": "bottom_2",
+                "shooter-2": "right_1",
+                "shooter-3": "right_2",
+            },
+        )
+        self.assertEqual(
+            set().union(*map(set, report["shooter_positions"].values())),
+            set(POSITIONS),
+        )
+
     def test_user_confirmation_is_required(self):
         board, visual, identity, calibration, detection = valid_bundle()
         identity["verified_by_user"] = False
