@@ -259,6 +259,7 @@ class ReachabilityAuditorTests(unittest.TestCase):
 
             report = json.loads(output_path.read_text())
             self.assertEqual(report["board_snapshot_id"], board_data["snapshot_id"])
+            self.assertEqual(report["board_source_kind"], "screenshot_observation")
             self.assertEqual(report["source_file_sha256"], {
                 "board_json": hashlib.sha256(board_path.read_bytes()).hexdigest(),
                 "conveyor_calibration_json": hashlib.sha256(
