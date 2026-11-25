@@ -163,7 +163,7 @@ class BoardLoaderConfidenceTests(unittest.TestCase):
         self.write_files()
         raw = self.vision_path.read_text()
         self.vision_path.write_text(
-            raw.replace('"grid_size": [3, 2]', '"grid_size": [3, 2], "grid_size": [2, 3]', 1)
+            raw.replace('"grid_size": [4, 4]', '"grid_size": [4, 4], "grid_size": [3, 3]', 1)
         )
         with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
             load_board(self.vision_path, self.confidence_path)
