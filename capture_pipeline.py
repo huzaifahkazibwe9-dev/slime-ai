@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -73,6 +74,22 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
         raise ValueError("Shooter capture timestamp does not match the requested timestamp")
     if provenance.get("verified") is not True:
         raise ValueError("Shooter capture provenance is not verified")
+
+    # Bonded relationships are sourced from a separate user-confirmed file.
+    # Require the detector to identify that source and fingerprint the exact
+    # bytes it parsed; otherwise the shooter record has incomplete provenance.
+    bonding_source = shooter.get("bonding_source")
+    bonding_digest = shooter.get("bonding_config_sha256")
+    if bonding_source not in {"user_confirmed", "not_user_confirmed", "not_configured"}:
+        raise ValueError("Shooter output has an invalid bonded-group source")
+    if bonding_source == "not_configured":
+        if bonding_digest is not None:
+            raise ValueError("Unconfigured bonded-group source must not have a digest")
+    elif (
+        not isinstance(bonding_digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", bonding_digest) is None
+    ):
+        raise ValueError("Bonded-group config is missing its exact SHA-256 provenance")
     return True
 
 
