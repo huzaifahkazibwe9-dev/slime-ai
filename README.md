@@ -8,7 +8,7 @@ When the project is ready to be installed on the phone, run from the cloned repo
 
 `bash deploy_termux.sh`
 
-The deployment script synchronises the latest GitHub version, checks that it is running in Termux with Python 3.10+ and working `pip`, validates required local screenshot inputs, installs the declared Python dependencies, and runs the build pipeline. It refuses non-Termux environments and never taps the game.
+The deployment script synchronises the latest GitHub version, checks that it is running in Termux with Python 3.10+, installs the Termux-native `python-numpy` and `python-pillow` packages (and Tesseract when OCR is required), verifies the installed library versions, validates required local screenshot inputs, and runs the build pipeline. It avoids replacing native Android builds with PyPI wheels, refuses non-Termux environments, and never taps the game.
 
 To run only the local diagnostics without synchronising or installing dependencies, use:
 
