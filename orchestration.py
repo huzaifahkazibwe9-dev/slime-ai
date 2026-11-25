@@ -68,7 +68,9 @@ def _read_json_artifact(path):
     return (value if isinstance(value, dict) else None), digest
 
 
-def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
+def _read_planning_evidence_bundle(data_dir, candidate_report_path=None,
+                                  pinned_shooter_data=None,
+                                  pinned_shooter_sha256=None):
     """Pin all non-capture reports consumed by one planning pass."""
     root = Path(data_dir)
     candidate_path, candidate_source = resolve_candidate_report_path(
@@ -96,7 +98,11 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
     values = {}
     digests = {}
     for name, path in paths.items():
-        values[name], digests[name] = _read_json_artifact(path)
+        if name == "shooter_detection_json" and pinned_shooter_data is not None:
+            values[name] = pinned_shooter_data
+            digests[name] = pinned_shooter_sha256
+        else:
+            values[name], digests[name] = _read_json_artifact(path)
     return {
         "vision_calibration": values["vision_calibration_json"],
         "conveyor_calibration": values["conveyor_calibration_json"],
@@ -681,7 +687,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     evidence_bundle = _read_planning_evidence_bundle(
-        root, candidate_report_path
+        root,
+        candidate_report_path,
+        pinned_shooter_data=shooter_observation,
+        pinned_shooter_sha256=pinned_capture["shooter_bytes_sha256"],
     )
     current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
     current_source_file_sha256["board_observation_json"] = (
