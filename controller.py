@@ -67,7 +67,10 @@ class SlimeController:
                         if isinstance(candidate_info, dict) else None
                     )
                     current_evidence = _read_planning_evidence_bundle(
-                        self.data_dir, candidate_path
+                        self.data_dir,
+                        candidate_path,
+                        pinned_shooter_data=pinned["shooter_data"],
+                        pinned_shooter_sha256=pinned["shooter_bytes_sha256"],
                     )
                     saved_evidence_hashes = report.get(
                         "planning_evidence_file_sha256"
