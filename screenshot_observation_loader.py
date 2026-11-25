@@ -183,13 +183,22 @@ def load_observed_level(
     observation_path=DEFAULT_OBSERVATION,
     shooter_path=DEFAULT_SHOOTERS,
     level=39,
+    observation_data=None,
+    shooter_data=None,
 ):
     observation_path = Path(observation_path)
     shooter_path = Path(shooter_path)
-    data = json.loads(observation_path.read_text())
+    # Use the exact parsed objects validated by orchestration when supplied.
+    # Path-based reads remain available for standalone diagnostic use.
+    data = (
+        observation_data
+        if observation_data is not None
+        else json.loads(observation_path.read_text())
+    )
     width, height, board, counts = _require_grid(data)
 
-    shooter_data = json.loads(shooter_path.read_text())
+    if shooter_data is None:
+        shooter_data = json.loads(shooter_path.read_text())
     if not isinstance(shooter_data, dict):
         raise ValueError("Shooter detection must be a JSON object")
     shooter_provenance = shooter_data.get("capture_provenance", {})
@@ -232,7 +241,7 @@ def load_observed_level(
         and normalized_shooter_session == normalized_board_session
         and normalized_shooter_timestamp == normalized_board_timestamp
     )
-    shooters = load_shooters(shooter_path)
+    shooters = load_shooters(shooter_path, data=shooter_data)
     state = GameState(
         board=[row[:] for row in board],
         shooters=shooters,
