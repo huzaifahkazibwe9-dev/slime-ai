@@ -414,5 +414,12 @@ class CombinedVisualReviewTests(unittest.TestCase):
             self._evaluate()
 
 
+    def test_json_artifacts_reject_duplicate_object_keys(self):
+        path = self.root / "duplicate.json"
+        path.write_text('{"source_sha256":"first","source_sha256":"second"}')
+        with self.assertRaisesRegex(ValueError, "not valid UTF-8 JSON"):
+            combined._read_json_object(path, "Test artifact")
+
+
 if __name__ == "__main__":
     unittest.main()
