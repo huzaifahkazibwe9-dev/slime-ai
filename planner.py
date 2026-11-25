@@ -85,6 +85,7 @@ def _source_provenance_matches(
         "conveyor_calibration_json",
         "planning_json",
         "identity_json",
+        "identity_observations_json",
         "snapshot_json",
         "candidate_json",
         "conveyor_observations_json",
@@ -100,7 +101,30 @@ def _source_provenance_matches(
     if not isinstance(snapshot, dict):
         return False
     if snapshot.get("board_source_kind") == "screenshot_observation":
-        expected_snapshot = {
+        expected_identity_sources = {
+        "board_observation_json": current_source_file_sha256[
+            "board_observation_json"
+        ],
+        "conveyor_visual_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+        "shooter_identity_observations_json": current_source_file_sha256[
+            "identity_observations_json"
+        ],
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+        "shooter_detection_json": current_source_file_sha256[
+            "shooter_detection_json"
+        ],
+    }
+    if (
+        not isinstance(identity.get("source_file_sha256"), dict)
+        or identity.get("source_file_sha256") != expected_identity_sources
+    ):
+        return False
+
+    expected_snapshot = {
             "board_observation_json": current_source_file_sha256[
                 "board_observation_json"
             ],
@@ -146,6 +170,13 @@ def _source_provenance_matches(
         ],
         "shooter_detection_json": current_source_file_sha256[
             "shooter_detection_json"
+        ],
+        "identity_audit_json": current_source_file_sha256["identity_json"],
+        "board_observation_json": current_source_file_sha256[
+            "board_observation_json"
+        ],
+        "shooter_identity_observations_json": current_source_file_sha256[
+            "identity_observations_json"
         ],
     }
     if (
