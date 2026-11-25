@@ -30,6 +30,37 @@ class SimulatorSnapshotTests(unittest.TestCase):
               s.selected, s.returned) for s in sim.shooters],
         )
 
+    def test_round_trip_preserves_unverified_observation_quality(self):
+        quality = {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+            "evidence_source": "detector_declared",
+        }
+        sim = create_simulator([{
+            "id": "a", "ammo": 3, "observation_quality": quality,
+        }])
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].observation_quality, quality)
+        self.assertEqual(
+            snapshot_simulator(restored)["shooters"][0]["observation_quality"],
+            quality,
+        )
+
+    def test_legacy_snapshot_defaults_observation_quality_to_unverified(self):
+        snapshot = snapshot_simulator(
+            create_simulator([{"id": "a", "ammo": 3}])
+        )
+        snapshot["shooters"][0].pop("observation_quality")
+        restored = restore_simulator(snapshot)
+        self.assertEqual(restored.shooters[0].observation_quality, {})
+        self.assertIs(
+            restored.shooters[0].observation_quality.get(
+                "colour_independently_verified", False
+            ),
+            False,
+        )
+
     def test_round_trip_preserves_failed_partial_tick_history(self):
         sim = create_simulator(
             [{"id": "first", "ammo": 0}, {"id": "second", "ammo": 0}],
