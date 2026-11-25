@@ -54,46 +54,103 @@ def _canonical_json_bytes(data):
 
 
 def verify_manifest(manifest):
-    """Verify manifest schema and its self-digest."""
+    """Verify the exact schema-v1 manifest structure and its self-digest."""
     if not isinstance(manifest, dict):
         raise ValueError("Review manifest must be a JSON object")
+    expected_fields = {
+        "schema_version",
+        "review_status",
+        "labelled_by_user",
+        "source_screenshot_sha256",
+        "source_screenshot_size",
+        "capture_session_id",
+        "captured_at",
+        "source_artifacts_sha256",
+        "review_templates",
+        "limitations",
+        "bundle_sha256",
+    }
+    if set(manifest) != expected_fields:
+        raise ValueError("Review manifest fields do not match schema-v1")
     if type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1:
         raise ValueError("Review manifest schema_version must be 1")
     if manifest.get("review_status") != "NOT_REVIEWED":
         raise ValueError("Review manifest review_status must remain NOT_REVIEWED")
     if manifest.get("labelled_by_user") is not False:
         raise ValueError("Review manifest must not claim human labels are complete")
+
+    screenshot_hash = manifest.get("source_screenshot_sha256")
+    if (
+        not isinstance(screenshot_hash, str)
+        or len(screenshot_hash) != 64
+        or any(character not in "0123456789abcdef" for character in screenshot_hash)
+    ):
+        raise ValueError("Review manifest source_screenshot_sha256 is invalid")
+    screenshot_size = manifest.get("source_screenshot_size")
+    if (
+        not isinstance(screenshot_size, list)
+        or len(screenshot_size) != 2
+        or any(type(value) is not int or value < 1 for value in screenshot_size)
+    ):
+        raise ValueError("Review manifest source_screenshot_size is invalid")
+    for field in ("capture_session_id", "captured_at"):
+        value = manifest.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Review manifest {field} is invalid")
+
+    limitations = manifest.get("limitations")
+    if (
+        not isinstance(limitations, list)
+        or not limitations
+        or any(not isinstance(item, str) or not item.strip() for item in limitations)
+    ):
+        raise ValueError("Review manifest limitations must be a non-empty list of strings")
+
     digest = manifest.get("bundle_sha256")
-    if not isinstance(digest, str) or len(digest) != 64:
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
         raise ValueError("Review manifest bundle_sha256 is invalid")
     unsigned = {key: value for key, value in manifest.items() if key != "bundle_sha256"}
     expected = _sha256(_canonical_json_bytes(unsigned))
     if digest != expected:
         raise ValueError("Review manifest bundle_sha256 does not match its contents")
+
     artifacts = manifest.get("source_artifacts_sha256")
-    if not isinstance(artifacts, dict):
-        raise ValueError("Review manifest source_artifacts_sha256 must be an object")
-    for key in (
+    expected_artifact_fields = {
         "board_observation_json",
         "shooter_detection_json",
         "source_pixel_audit_json",
-    ):
-        value = artifacts.get(key)
-        if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+    }
+    if not isinstance(artifacts, dict) or set(artifacts) != expected_artifact_fields:
+        raise ValueError("Review manifest source_artifacts_sha256 fields are invalid")
+    for key, value in artifacts.items():
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(character not in "0123456789abcdef" for character in value)
+        ):
             raise ValueError(f"Review manifest {key} digest is invalid")
+
     templates = manifest.get("review_templates")
-    if not isinstance(templates, dict):
-        raise ValueError("Review manifest review_templates must be an object")
-    for key in ("board_colour", "shooter_observation"):
-        entry = templates.get(key)
-        if not isinstance(entry, dict):
-            raise ValueError(f"Review manifest {key} template record is missing")
+    expected_template_fields = {"board_colour", "shooter_observation"}
+    if not isinstance(templates, dict) or set(templates) != expected_template_fields:
+        raise ValueError("Review manifest review_templates fields are invalid")
+    for key, entry in templates.items():
+        if not isinstance(entry, dict) or set(entry) != {"file", "sha256", "sample_count"}:
+            raise ValueError(f"Review manifest {key} template fields are invalid")
         filename = entry.get("file")
-        digest = entry.get("sha256")
+        template_digest = entry.get("sha256")
         count = entry.get("sample_count")
         if not isinstance(filename, str) or not filename or Path(filename).name != filename:
             raise ValueError(f"Review manifest {key} template filename is invalid")
-        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+        if (
+            not isinstance(template_digest, str)
+            or len(template_digest) != 64
+            or any(character not in "0123456789abcdef" for character in template_digest)
+        ):
             raise ValueError(f"Review manifest {key} template digest is invalid")
         if type(count) is not int or count < 1:
             raise ValueError(f"Review manifest {key} sample_count is invalid")
