@@ -52,14 +52,12 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
+            expected_config_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
             result = load_capture_config(path)
         self.assertEqual(result["panel_bounds"], [10, 20, 900, 600])
         self.assertEqual(result["capture_session_id"], "session-abc")
         self.assertEqual(result["captured_at"], "2026-11-23T12:30:00+03:00")
-        self.assertEqual(
-            result["config_sha256"],
-            hashlib.sha256(path.read_bytes()).hexdigest(),
-        )
+        self.assertEqual(result["config_sha256"], expected_config_sha256)
 
     def test_rejects_missing_session_id(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -90,6 +88,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
+            expected_config_sha256 = hashlib.sha256(config.read_bytes()).hexdigest()
             with patch("capture_pipeline.subprocess.run") as run, patch(
                 "capture_pipeline.validate_capture_outputs"
             ) as validate, patch("capture_pipeline.audit_capture_pixels") as audit:
@@ -103,7 +102,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertIn(flag, detector_args)
         self.assertIn("--extract-panel", detector_args)
         self.assertIn(
-            hashlib.sha256(config.read_bytes()).hexdigest(),
+            expected_config_sha256,
             detector_args,
         )
         self.assertIn("--capture-config-sha256", detector_args)
