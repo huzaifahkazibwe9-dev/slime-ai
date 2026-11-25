@@ -10,7 +10,15 @@ screenshots or observation files.
 
 ## Required JSON shape
 
-Create `data/shooter_identity_observations.json` with this structure. The
+The build pipeline first runs `prepare_identity_observations.py`. If the
+observation file is absent, the generator creates a blank, unverified template
+from the exact current board, conveyor observations, calibration and shooter
+detection files. It never overwrites an existing user file. The generator
+records those four source hashes in the template; the identity auditor checks
+them against the current files before accepting any records.
+
+Create or complete `data/shooter_identity_observations.json` with this
+structure. The
 identifiers and positions below are illustrative placeholders, not verified
 Level 39 values:
 
@@ -61,6 +69,7 @@ positions at once.
 | `verified_by_user` | `true` only after a person has checked the position-to-shooter mapping |
 | `current_frame_id` | Frame ID whose records describe the current conveyor arrangement |
 | `frame_id` | Groups records from one observed arrangement |
+| `source_file_sha256` | Exact board, conveyor-observation, calibration and shooter-detection hashes recorded by the template generator |
 | `position_id` | Exact ID from the conveyor calibration file |
 | `shooter_id` | Exact ID from the shooter detection file |
 | `verified` | `true` only when this individual mapping was visually checked |
@@ -81,9 +90,12 @@ mapped in that frame.
   timezone-aware and aligned within the auditor's 120-second limit.
 - The conveyor observations must explicitly confirm that they describe the
   same board state as the board screenshot.
-- The auditor fingerprints the exact bytes of the board, visual observations,
-  identity observations, conveyor calibration and shooter detection files.
-  A change to any of these inputs invalidates the identity report.
+- The template generator fingerprints the exact bytes of the board, visual
+  observations, conveyor calibration and shooter detection files. The auditor
+  compares those template hashes with the current inputs before accepting
+  records, then fingerprints the identity observation file itself.
+- A change to the board, visual observations, calibration or shooter detection
+  after template creation requires a new template or re-confirmation.
 - The matcher checks those hashes again before deriving candidate tracks.
 - A valid identity report confirms only the human-checked physical
   shooter-to-position relationship for that capture. It does **not** verify
