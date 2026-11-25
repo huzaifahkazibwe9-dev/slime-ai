@@ -259,6 +259,24 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ]
         self.assertEqual(len(return_events), 2)
 
+    def test_restore_rejects_bonded_group_larger_than_three(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a1", "group_id": "GROUP", "ammo": 2},
+            {"id": "a2", "group_id": "GROUP", "ammo": 2},
+            {"id": "a3", "group_id": "GROUP", "ammo": 2},
+        ]))
+        snapshot["shooters"].append({
+            "id": "a4",
+            "group_id": "GROUP",
+            "ammo": 2,
+            "position": 0,
+            "completed_laps": 0,
+            "selected": False,
+            "returned": False,
+        })
+        with self.assertRaisesRegex(ValueError, "maximum size of 3"):
+            restore_simulator(snapshot)
+
     def test_rejects_incomplete_bonded_group_reactivation_events(self):
         base = snapshot_simulator(create_simulator([
             {"id": "a1", "group_id": "PAIR", "ammo": 0,
