@@ -391,6 +391,7 @@ def create_simulator(shooter_records, storage_occupied=0, config=None):
                 completed_laps=item.get("completed_laps", 0),
                 selected=item.get("selected", False),
                 returned=item.get("returned", False),
+                observation_quality=item.get("observation_quality", {}),
             )
         )
     return ConveyorSimulator(
