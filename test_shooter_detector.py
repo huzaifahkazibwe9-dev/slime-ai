@@ -376,6 +376,17 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         self.assertIsNone(result["value"])
         self.assertEqual(result["status"], "AMBIGUOUS_OR_NON_INTEGER_OUTPUT")
 
+    def test_ammunition_ocr_status_rejects_multiline_output_without_raising(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40\\n20\\n", returncode=0)
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result["value"])
+        self.assertEqual(result["status"], "AMBIGUOUS_OR_NON_INTEGER_OUTPUT")
+
     def test_ammunition_ocr_status_distinguishes_missing_tesseract(self):
         with tempfile.TemporaryDirectory() as directory:
             image = Image.new("RGB", (120, 80), (255, 255, 255))
