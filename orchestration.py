@@ -291,29 +291,75 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
                 ) == planning_input_file_sha256.get("shooter_detection_json")
             )
         ),
+        "confidence_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("confidence_source_file_sha256"), dict)
+                and (
+                    (
+                        planning.get("upstream_source_kind") == "screenshot_observation"
+                        and planning.get("confidence_source_file_sha256") == {
+                            "reachability_audit_json": planning_input_file_sha256.get(
+                                "reachability_audit_json"
+                            ),
+                            "board_observation_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                        }
+                    )
+                    or (
+                        planning.get("upstream_source_kind") == "baseline_board"
+                        and planning.get("confidence_source_file_sha256") == {
+                            "reachability_audit_json": planning_input_file_sha256.get(
+                                "reachability_audit_json"
+                            ),
+                            "vision_level39_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "edge_confidence_json": planning_input_file_sha256.get(
+                                "edge_confidence_json"
+                            ),
+                        }
+                    )
+                )
+            )
+        ),
         "reachability_upstream_hashes_match": (
             planning_input_file_sha256 is None
             or (
                 isinstance(planning, dict)
                 and isinstance(planning.get("upstream_source_file_sha256"), dict)
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "reachability_audit_json"
-                ) == planning_input_file_sha256.get("reachability_audit_json")
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "vision_level39_json"
-                ) == planning_input_file_sha256.get("vision_calibration_json")
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "edge_confidence_json"
-                ) == planning_input_file_sha256.get("edge_confidence_json")
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "board_json"
-                ) == planning_input_file_sha256.get("vision_calibration_json")
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "conveyor_calibration_json"
-                ) == planning_input_file_sha256.get("conveyor_calibration_json")
-                and planning.get("upstream_source_file_sha256", {}).get(
-                    "conveyor_observations_json"
-                ) == planning_input_file_sha256.get("conveyor_observations_json")
+                and (
+                    (
+                        planning.get("upstream_source_kind") == "screenshot_observation"
+                        and planning.get("upstream_source_file_sha256") == {
+                            "board_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                            "conveyor_calibration_json": planning_input_file_sha256.get(
+                                "conveyor_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                    or (
+                        planning.get("upstream_source_kind") == "baseline_board"
+                        and planning.get("upstream_source_file_sha256") == {
+                            "board_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "conveyor_calibration_json": planning_input_file_sha256.get(
+                                "conveyor_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                )
             )
         ),
     }
