@@ -365,6 +365,42 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(status["gameplay_ready"])
         self.assertFalse(status["tap_enabled"])
 
+    def test_status_hides_plan_when_board_calibration_fingerprint_is_stale(self):
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": "PLACEHOLDER",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            board_path = Path(directory) / "board_observation_latest.json"
+            board = json.loads(board_path.read_text())
+            report["capture_provenance"]["captured_at"] = board["captured_at"]
+            # Model an older saved plan whose artifact hashes match its board
+            # file, but whose board calibration fingerprint no longer matches
+            # the currently pinned calibration input.
+            board["calibration_sha256"] = "f" * 64
+            board_path.write_text(json.dumps(board))
+            report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
+            report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
+            (Path(directory) / "orchestration_latest.json").write_text(
+                json.dumps(report)
+            )
+            status = SlimeController(data_dir=directory).status()
+
+        self.assertTrue(status["capture_evidence_valid"])
+        self.assertTrue(status["planning_evidence_matches_current_files"])
+        self.assertFalse(status["board_calibration_matches_current_config"])
+        self.assertFalse(status["capture_report_matches_current_capture"])
+        self.assertFalse(status["plan_available"])
+
     def test_status_uses_same_capture_object_after_source_file_replacement(self):
         from orchestration import _read_capture_bundle as read_bundle
 
