@@ -86,6 +86,12 @@ class PersistentTransitionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inside the screenshot"):
             persistent_transition(a, a, a)
 
+    def test_rejects_rgb_grid_that_disagrees_with_calibration(self):
+        a = obs(board())
+        a["grid_size"] = [4, 5]
+        with self.assertRaisesRegex(ValueError, "do not match calibrated"):
+            persistent_transition(a, a, a)
+
     def test_rejects_malformed_grid_dimensions(self):
         a = obs(board())
         a["grid_size"] = [True, 5]
