@@ -136,6 +136,19 @@ def observation_confidence(board):
     ]
 
 
+def validate_edge_confidence_source(confidence_data, board_sha256):
+    """Require the edge-confidence report to derive from this exact board file."""
+    if not isinstance(confidence_data, dict):
+        raise ValueError("Invalid confidence report")
+    provenance = confidence_data.get("source_file_sha256")
+    if (not isinstance(provenance, dict)
+            or provenance.get("vision_level39_json") != board_sha256):
+        raise ValueError(
+            "Edge-confidence report does not match the exact board source bytes"
+        )
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Annotate reachability lanes with conservative board confidence"
@@ -179,11 +192,13 @@ def main():
         confidence_bytes = Path(CONFIDENCE_FILE).read_bytes()
         board_source = json.loads(board_bytes)
         confidence_source = json.loads(confidence_bytes)
+        board_digest = hashlib.sha256(board_bytes).hexdigest()
+        validate_edge_confidence_source(confidence_source, board_digest)
         board_data = load_board(
             data=board_source,
             confidence_data=confidence_source,
         )
-        source_hashes["vision_level39_json"] = hashlib.sha256(board_bytes).hexdigest()
+        source_hashes["vision_level39_json"] = board_digest
         source_hashes["edge_confidence_json"] = hashlib.sha256(confidence_bytes).hexdigest()
         confidence_matrix = board_data.get("confidence")
 
