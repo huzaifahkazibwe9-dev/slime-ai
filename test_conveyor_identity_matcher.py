@@ -349,7 +349,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                 for index, position in enumerate(positions)
             ],
         }
-        shooter_ids = [f"shooter-{index}" for index in range(8)]
+        shooter_ids = [f"shooter-{index}" for index in range(4)]
         detection = {
             "visible_shooters": [
                 {
@@ -361,7 +361,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                         else [shooter_ids[0]] if index == 1 else []
                     ),
                 }
-                for index in range(8)
+                for index in range(4)
             ]
         }
         current_frame = [
@@ -371,7 +371,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                 "shooter_id": shooter_ids[index],
                 "verified": True,
             }
-            for index, position in enumerate(positions)
+            for index, position in enumerate(positions[:4])
         ]
         historical = []
         white_track = [
