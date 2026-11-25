@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 from collections import deque, Counter
 from pathlib import Path
 
@@ -88,7 +89,7 @@ def analyze_board(board):
 
 def audit_file(source_path="data/vision_level39.json",
                output_path="data/color_topology_latest.json"):
-    source = json.loads(Path(source_path).read_text())
+    source = strict_json_loads(Path(source_path).read_text())
     report = analyze_board(source["board"])
 
     saved_counts = source.get("counts", {})
