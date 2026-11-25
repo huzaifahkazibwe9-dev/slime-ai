@@ -175,7 +175,7 @@ class ShooterBatchReviewAgreementTests(unittest.TestCase):
                     },
                 ],
             }
-            with self.assertRaisesRegex(ValueError, "Source screenshot SHA-256"):
+            with self.assertRaisesRegex(ValueError, "Manifest repeats an identical source screenshot"):
                 evaluate_agreement_manifest(
                     manifest, root, "reviewer-a", "reviewer-b"
                 )
