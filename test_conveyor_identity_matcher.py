@@ -490,9 +490,18 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             ],
         }
         shooter_ids = [f"shooter-{index}" for index in range(4)]
+        bond_config = {
+            "verified_by_user": True,
+            "bonded_groups": [[shooter_ids[0], shooter_ids[1]]],
+        }
+        bond_config_bytes = json.dumps(
+            bond_config, separators=(",", ":")
+        ).encode()
+        bond_config_digest = hashlib.sha256(bond_config_bytes).hexdigest()
         detection = {
             "bonding_source": "user_confirmed",
-            "bonding_config_sha256": "f" * 64,
+            "bonding_config_sha256": bond_config_digest,
+            "bonded_groups": bond_config["bonded_groups"],
             "visible_shooters": [
                 {
                     "id": shooter_ids[index],
@@ -551,6 +560,7 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                 "shooter_detection.json": detection,
                 "conveyor_calibration.json": calibration,
                 "shooter_identity_observations.json": identity_observations,
+                "bonded_groups_confirmed.json": bond_config,
             }
             source_bytes = {}
             for name, payload in payloads.items():
@@ -590,6 +600,10 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             self.assertTrue(report["checks"]["current_snapshot_identified"])
             self.assertTrue(report["checks"]["identity_previously_verified"])
             self.assertTrue(report["checks"]["bond_source_user_confirmed"])
+            self.assertEqual(
+                report["source_file_sha256"]["bonded_groups_config_json"],
+                bond_config_digest,
+            )
             self.assertTrue(report["candidate_provenance_verified"])
             self.assertEqual(
                 [report["tracks"][name]["candidate_shooter"]
