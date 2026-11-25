@@ -89,7 +89,7 @@ class OrchestrationTests(unittest.TestCase):
         planning = {
             "upstream_source_kind": "screenshot_observation",
             "upstream_source_file_sha256": {
-                "board_json": "b" * 64,
+                "board_json": "d" * 64,
                 "conveyor_calibration_json": "e" * 64,
                 "conveyor_observations_json": "f" * 64,
             },
