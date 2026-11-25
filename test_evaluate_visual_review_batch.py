@@ -182,6 +182,32 @@ class VisualReviewBatchTests(unittest.TestCase):
         self.assertEqual(report["batch_sha256"], hashlib.sha256(
             self.batch_path.read_bytes()
         ).hexdigest())
+        self.assertTrue(batch.verify_batch_report(report))
+        unsigned = dict(report)
+        digest = unsigned.pop("evaluation_sha256")
+        self.assertEqual(
+            digest, hashlib.sha256(batch._canonical_json_bytes(unsigned)).hexdigest()
+        )
+
+    def test_rejects_modified_saved_batch_report(self):
+        with patch.object(
+            batch, "evaluate_visual_review_bundle",
+            side_effect=[_report(1), _report(2)],
+        ):
+            report = batch.evaluate_batch(self.batch_path)
+        report["interpretation"] += " modified"
+        with self.assertRaisesRegex(ValueError, "does not match evaluation_sha256"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_invalid_saved_batch_report_digest(self):
+        with patch.object(
+            batch, "evaluate_visual_review_bundle",
+            side_effect=[_report(1), _report(2)],
+        ):
+            report = batch.evaluate_batch(self.batch_path)
+        report["evaluation_sha256"] = "z" * 64
+        with self.assertRaisesRegex(ValueError, "evaluation_sha256 is invalid"):
+            batch.verify_batch_report(report)
 
     def test_rejects_duplicate_screenshot(self):
         first = _report(1)
