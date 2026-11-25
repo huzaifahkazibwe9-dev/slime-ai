@@ -140,7 +140,7 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
     """Require independently reproduced source pixels before accepting capture."""
     try:
         observation = strict_json_loads(Path(board_path).read_bytes())
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         raise ValueError("Board observation is missing or invalid for pixel audit") from exc
     report = audit_source_pixels(observation, source_image_bytes)
     # Bind the audit to this exact capture, not only its image hash. Identical
