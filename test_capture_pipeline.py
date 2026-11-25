@@ -215,5 +215,24 @@ class CapturePipelineConfigTests(unittest.TestCase):
                     audit_capture_pixels(board_path, b"source", Path(directory) / "audit.json")
 
 
+
+    def test_audit_capture_pixels_rejects_boolean_mismatch_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": True,
+                "extraction_fingerprint_match": True,
+                "label_mismatch_count": False,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                with self.assertRaisesRegex(ValueError, "labels do not match"):
+                    audit_capture_pixels(
+                        board_path, b"source", Path(directory) / "audit.json"
+                    )
+            self.assertFalse((Path(directory) / "audit.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
