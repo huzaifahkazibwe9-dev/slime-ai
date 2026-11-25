@@ -215,6 +215,10 @@ shooter-to-position mapping for one capture. It does not verify panel colour
 classification, ammunition OCR, firing behaviour, colour equivalence with
 board tiles, or gameplay. Live game taps and purchases remain disabled.
 
+## Supported Python versions
+
+The automated test matrix covers Python 3.10, 3.11, 3.12 and 3.14. Each CI job checks shell-script syntax, compiles the Python modules, and runs the full unit suite. This is host-CI coverage; actual Termux installation and Android-device behaviour still require separate validation.
+
 ## Validation scope
 
 The screenshot-mode level loader validates:
