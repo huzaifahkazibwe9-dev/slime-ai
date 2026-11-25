@@ -142,8 +142,11 @@ def validate_identity_audit(identity, board, visual, expected_positions,
         errors.append("Identity audit and conveyor observations use different board snapshots")
     if identity.get("capture_session_id") != visual.get("capture_session_id"):
         errors.append("Identity audit and conveyor observations use different capture sessions")
-    if identity.get("timestamp_identified") is not True:
-        errors.append("Identity audit timestamp is not explicitly identified")
+    if (
+        identity.get("timestamp_identified") is not True
+        or identity.get("timestamps_known") is not True
+    ):
+        errors.append("Identity audit timestamps are not fully identified")
 
     identity_time = identity.get("captured_at")
     board_time = board.get("captured_at")
@@ -489,6 +492,12 @@ def main():
         "snapshot_linked": (
             visual.get("board_snapshot_id") == board.get("snapshot_id")
         ),
+        "current_snapshot_identified": (
+            isinstance(board.get("snapshot_id"), str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", board["snapshot_id"]) is not None
+            and visual.get("board_snapshot_id") == board.get("snapshot_id")
+            and identity_report.get("board_snapshot_id") == board.get("snapshot_id")
+        ),
         "capture_session_linked": (
             visual.get("capture_session_id") == board.get("capture_session_id")
         ),
@@ -496,6 +505,9 @@ def main():
         "identity_sources_match_current_inputs": identity_verified,
     }
     report["candidate_pair"] = candidate_pair if candidate_pair_valid else []
+    report["current_snapshot_id"] = (
+        board.get("snapshot_id") if candidate_pair_valid else None
+    )
     report["candidate_provenance_verified"] = (
         identity_verified
         and all(
