@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 BASELINE = Path("data/vision_level39.json")
@@ -80,7 +81,7 @@ def audit_transition(before, after):
 
 
 def main():
-    baseline = json.loads(BASELINE.read_text())
+    baseline = strict_json_loads(BASELINE.read_text())
     report = {
         "observed_board_available": OBSERVED.exists(),
         "planning_allowed": False,
@@ -88,7 +89,7 @@ def main():
     }
 
     if OBSERVED.exists():
-        observed = json.loads(OBSERVED.read_text())
+        observed = strict_json_loads(OBSERVED.read_text())
         result = audit_transition(
             baseline["board"], observed["board"]
         )
