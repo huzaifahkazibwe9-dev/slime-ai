@@ -95,7 +95,7 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
         raise ValueError("Independent source-pixel audit found RGB sample mismatches")
     if report.get("extraction_fingerprint_match") is not True:
         raise ValueError("Independent source-pixel audit found a missing or mismatched extraction fingerprint")
-    if report.get("label_mismatch_count") != 0:
+    if type(report.get("label_mismatch_count")) is not int or report.get("label_mismatch_count") != 0:
         raise ValueError("Board labels do not match labels derived from source RGB samples")
     if report.get("colour_counts_match") is not True:
         raise ValueError("Board colour counts do not match the extracted board labels")
