@@ -113,13 +113,14 @@ remain disabled.
 
 The repository now includes a blank-label template builder, an offline
 evaluator for shooter-panel visibility assumptions, calibrated slot positions,
-colour classification and ammunition OCR, plus a multi-capture aggregator.
-Each labelled capture is bound to its exact detector JSON and original
-screenshot, and human labels remain separate from detector outputs. See
+colour classification and ammunition OCR, structured OCR failure statuses,
+plus a multi-capture aggregator. Each labelled capture is bound to its exact
+detector JSON and original screenshot, and human labels remain separate from
+detector outputs. See
 [docs/SHOOTER_OBSERVATION_EVALUATION.md](docs/SHOOTER_OBSERVATION_EVALUATION.md)
-for the review protocol, batch manifest and metric limitations. Synthetic unit
-tests cover the workflow; no real-game accuracy result is claimed until genuine
-captures are manually reviewed.
+for the review protocol, OCR status meanings, batch manifest and metric
+limitations. Synthetic unit tests cover the workflow; no real-game accuracy
+result is claimed until genuine captures are manually reviewed.
 
 ## Bonded-shooter confirmation
 
