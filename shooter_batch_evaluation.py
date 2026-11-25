@@ -102,8 +102,8 @@ def evaluate_manifest(manifest, base_dir="."):
             dataset, detection_bytes, screenshot_bytes
         )
         report = evaluate_dataset(dataset)
-        coverage_profile = coverage_profile(dataset)
-        coverage_profiles.append(coverage_profile)
+        profile = coverage_profile(dataset)
+        coverage_profiles.append(profile)
         provenance = dataset["capture_provenance"]
         session_id = provenance["capture_session_id"]
         detection_hash = verification["source_detection_sha256"]
@@ -158,8 +158,8 @@ def evaluate_manifest(manifest, base_dir="."):
             "confirmed_sample_count": report["confirmed_sample_count"],
             "ambiguous_sample_count": report["ambiguous_sample_count"],
             "metrics": metrics,
-            "coverage_profile": coverage_profile,
-            "review_follow_up": review_follow_up(coverage_profile),
+            "coverage_profile": profile,
+            "review_follow_up": review_follow_up(profile),
             "source_artifacts_verified": True,
         })
 
