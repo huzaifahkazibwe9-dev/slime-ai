@@ -54,6 +54,64 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                     conveyor_identity_matcher.user_confirmed_bond_source(invalid)
                 )
 
+    def test_bond_config_provenance_matches_exact_current_file(self):
+        config = {
+            "verified_by_user": True,
+            "bonded_groups": [["A", "B"]],
+        }
+        digest = "a" * 64
+        detection = {
+            "bonding_source": "user_confirmed",
+            "bonding_config_sha256": digest,
+            "bonded_groups": [["A", "B"]],
+        }
+        self.assertEqual(
+            conveyor_identity_matcher.validate_bond_config_provenance(
+                detection, config, digest
+            ),
+            (True, []),
+        )
+        self.assertFalse(
+            conveyor_identity_matcher.validate_bond_config_provenance(
+                detection, config, "b" * 64
+            )[0]
+        )
+
+    def test_bond_config_cannot_claim_user_confirmation_without_it(self):
+        config = {
+            "verified_by_user": False,
+            "bonded_groups": [["A", "B"]],
+        }
+        detection = {
+            "bonding_source": "user_confirmed",
+            "bonding_config_sha256": "a" * 64,
+            "bonded_groups": [["A", "B"]],
+        }
+        confirmed, errors = conveyor_identity_matcher.validate_bond_config_provenance(
+            detection, config, "a" * 64
+        )
+        self.assertFalse(confirmed)
+        self.assertTrue(any("not user-confirmed" in error for error in errors))
+
+    def test_unconfigured_bond_source_cannot_inject_bond_edges(self):
+        detection = {
+            "bonding_source": "not_configured",
+            "bonding_config_sha256": None,
+            "bonded_groups": [],
+        }
+        self.assertEqual(
+            conveyor_identity_matcher.validate_bond_config_provenance(
+                detection, {}, None
+            ),
+            (False, []),
+        )
+        detection["bonded_groups"] = [["A", "B"]]
+        confirmed, errors = conveyor_identity_matcher.validate_bond_config_provenance(
+            detection, {}, None
+        )
+        self.assertFalse(confirmed)
+        self.assertTrue(any("without a configured source" in error for error in errors))
+
     def test_reciprocal_bond_lists_do_not_pass_without_user_confirmed_source(self):
         shooters = {
             "A": {"bonded_ids": ["B"]},
