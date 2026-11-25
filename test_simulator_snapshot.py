@@ -55,6 +55,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
             "colour_independently_verified": False,
             "ammunition_independently_verified": False,
             "slot_mapping_independently_verified": False,
+            "ammunition_ocr_status": "NOT_REPORTED",
         }
         self.assertEqual(report["shooter_observation_quality"], [
             {"id": "a", **expected}
