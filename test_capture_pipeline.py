@@ -30,8 +30,17 @@ class CapturePipelineConfigTests(unittest.TestCase):
             "board_snapshot_id": "sha256:" + source_hash,
             "capture_session_id": session,
             "captured_at": captured_at,
+            "same_board_state_confirmed": False,
+            "gameplay_verified": False,
+            "vision_classification_verified": False,
+            "game_taps_enabled": False,
         }))
         shooter_path.write_text(json.dumps({
+            "observation_quality": {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+            },
             "capture_provenance": {
                 "verified": shooter_verified,
                 "source_sha256": source_hash,
@@ -125,6 +134,77 @@ class CapturePipelineConfigTests(unittest.TestCase):
             hashlib.sha256(b"placeholder").hexdigest(),
         )
         self.assertEqual(audit.call_args.args[1], b"placeholder")
+
+    def test_rejects_board_observation_with_any_verified_or_missing_flag(self):
+        flag_names = (
+            "same_board_state_confirmed",
+            "gameplay_verified",
+            "vision_classification_verified",
+            "game_taps_enabled",
+        )
+        for flag in flag_names:
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as directory:
+                board, shooter = self.write_outputs(directory, "a" * 64)
+                data = json.loads(board.read_text())
+                data[flag] = True
+                board.write_text(json.dumps(data))
+                with self.assertRaisesRegex(ValueError, flag):
+                    validate_capture_outputs(
+                        board, shooter, "a" * 64, "session-abc",
+                        "2026-11-23T12:30:00+03:00",
+                    )
+
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(board.read_text())
+            del data["gameplay_verified"]
+            board.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "gameplay_verified"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_shooter_observation_with_any_verified_or_missing_flag(self):
+        flag_names = (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        )
+        for flag in flag_names:
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as directory:
+                board, shooter = self.write_outputs(directory, "a" * 64)
+                data = json.loads(shooter.read_text())
+                data["observation_quality"][flag] = True
+                shooter.write_text(json.dumps(data))
+                with self.assertRaisesRegex(ValueError, flag):
+                    validate_capture_outputs(
+                        board, shooter, "a" * 64, "session-abc",
+                        "2026-11-23T12:30:00+03:00",
+                    )
+
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            del data["observation_quality"]["ammunition_independently_verified"]
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "ammunition_independently_verified"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_missing_shooter_observation_quality_object(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            del data["observation_quality"]
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "observation_quality"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
 
     def test_rejects_board_hash_that_differs_from_input_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
