@@ -127,6 +127,34 @@ class OrchestrationTests(unittest.TestCase):
             )
             self.assertEqual(source, "missing")
 
+    def test_snapshot_sync_source_hashes_must_match_current_inputs(self):
+        snapshot = {"source_file_sha256": {
+            "vision_level39_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+        }}
+        expected = {
+            "vision_calibration_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+        }
+        checks = evidence_status(
+            {}, None, snapshot, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["snapshot_source_hashes_match"])
+
+        expected["conveyor_observations_json"] = "c" * 64
+        checks = evidence_status(
+            {}, None, snapshot, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["snapshot_source_hashes_match"])
+
+        checks = evidence_status(
+            {}, None, {"source_file_sha256": {}}, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["snapshot_source_hashes_match"])
+
     def test_planning_report_input_hashes_must_match_pinned_files(self):
         planning = {"input_file_sha256": {
             "reachability_confidence_json": "a" * 64,
