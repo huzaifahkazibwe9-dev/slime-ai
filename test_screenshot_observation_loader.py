@@ -106,6 +106,8 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "ammunition_independently_verified": False,
             "slot_mapping_independently_verified": False,
         }
+        for shooter in self.shooters["visible_shooters"]:
+            shooter["ammo_observation_status"] = "PARSED_EXACT_DIGITS"
         self.write()
         state, audit = load_observed_level(
             self.observation_path, self.shooter_path
@@ -121,6 +123,12 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertIs(state.shooters["top_1"].observation_quality[
             "ammunition_independently_verified"
         ], False)
+        self.assertEqual(
+            state.shooters["top_1"].observation_quality[
+                "ammunition_ocr_status"
+            ],
+            "PARSED_EXACT_DIGITS",
+        )
 
     def test_matching_verified_shooter_capture_provenance_passes(self):
         self.shooters["capture_provenance"] = {
