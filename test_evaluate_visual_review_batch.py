@@ -544,16 +544,52 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown visibility label"):
             batch.verify_batch_report(report)
 
-    def test_rejects_invalid_shooter_coordinate_label_even_when_resealed(self):
+    def test_rejects_out_of_panel_shooter_coordinate_even_when_resealed(self):
         report = self._valid_report()
         matrix = report["shooter_observation_evaluation"]["metrics"][
             "slot_position_alignment"
         ]["confusion_matrix"]
-        matrix["invalid"] = matrix.pop("r1c3")
+        matrix["r9c3"] = matrix.pop("r1c3")
         for row in matrix.values():
-            row["invalid"] = row.pop("r1c3")
+            row["r9c3"] = row.pop("r1c3")
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "invalid coordinate label"):
+        with self.assertRaisesRegex(ValueError, "out-of-panel coordinate"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_unknown_visibility_coverage_bucket_even_when_resealed(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["review_coverage"][
+            "confirmed_visibility_counts"
+        ]["unknown"] = 1
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "unknown visibility label"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_unknown_sample_quality_bucket_even_when_resealed(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["review_coverage"][
+            "visible_sample_quality_status_counts"
+        ] = {"UNRECOGNIZED_STATUS": 1}
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "unknown status"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_unknown_ammunition_ocr_bucket_even_when_resealed(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["review_coverage"][
+            "visible_ammunition_ocr_status_counts"
+        ] = {"UNRECOGNIZED_OCR_STATUS": 1}
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "unknown OCR status"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_zero_frequency_coverage_bucket_even_when_resealed(self):
+        report = self._valid_report()
+        report["shooter_observation_evaluation"]["review_coverage"][
+            "visible_sample_quality_status_counts"
+        ]["DISTINCT_SAMPLE"] = 0
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "positive count"):
             batch.verify_batch_report(report)
 
 
