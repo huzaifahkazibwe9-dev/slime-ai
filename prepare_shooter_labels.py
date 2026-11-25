@@ -86,11 +86,10 @@ def _validate_detector_layout(detection, panel_size):
     columns = layout.get("columns")
     slot_count = layout.get("slot_count")
     if (type(rows) is not int or type(columns) is not int
-            or rows < 1 or columns < 1
-            or rows > 16 or columns > 16 or rows * columns > 256):
-        raise ValueError("panel_layout rows and columns must be positive and bounded")
-    if type(slot_count) is not int or slot_count != rows * columns:
-        raise ValueError("panel_layout slot_count must equal rows multiplied by columns")
+            or rows != 3 or columns != 4):
+        raise ValueError("This detector supports only the calibrated 3-row by 4-column panel")
+    if type(slot_count) is not int or slot_count != 12:
+        raise ValueError("panel_layout slot_count must be 12 for the calibrated panel")
 
     slots = detection.get("panel_slots")
     observations = detection.get("panel_slot_observations")
