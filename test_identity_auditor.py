@@ -264,7 +264,6 @@ class IdentityAuditorTests(unittest.TestCase):
             payloads = {
                 "board.json": board,
                 "visual.json": visual,
-                "identity.json": identity,
                 "calibration.json": calibration,
                 "detection.json": detection,
             }
@@ -275,10 +274,22 @@ class IdentityAuditorTests(unittest.TestCase):
                 raw[name] = json.dumps(payload, separators=(",", ":")).encode()
                 paths[name].write_bytes(raw[name])
 
+            identity["source_file_sha256"] = {
+                "board_observation_json": hashlib.sha256(raw["board.json"]).hexdigest(),
+                "conveyor_visual_observations_json": hashlib.sha256(raw["visual.json"]).hexdigest(),
+                "conveyor_calibration_json": hashlib.sha256(raw["calibration.json"]).hexdigest(),
+                "shooter_detection_json": hashlib.sha256(raw["detection.json"]).hexdigest(),
+            }
+            identity_path = root / "identity.json"
+            raw["identity.json"] = json.dumps(
+                identity, separators=(",", ":")
+            ).encode()
+            identity_path.write_bytes(raw["identity.json"])
+
             report = build_report(
                 board_path=paths["board.json"],
                 visual_path=paths["visual.json"],
-                identity_path=paths["identity.json"],
+                identity_path=identity_path,
                 calibration_path=paths["calibration.json"],
                 detection_path=paths["detection.json"],
             )
@@ -292,6 +303,44 @@ class IdentityAuditorTests(unittest.TestCase):
                 hashlib.sha256(raw["identity.json"]).hexdigest(),
             )
 
+    def test_build_report_rejects_template_for_previous_visual_observations(self):
+        board, visual, identity, calibration, detection = valid_bundle()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads = {
+                "board.json": board,
+                "visual.json": visual,
+                "calibration.json": calibration,
+                "detection.json": detection,
+            }
+            paths = {}
+            raw = {}
+            for name, payload in payloads.items():
+                paths[name] = root / name
+                raw[name] = json.dumps(payload, separators=(",", ":")).encode()
+                paths[name].write_bytes(raw[name])
+
+            identity["source_file_sha256"] = {
+                "board_observation_json": hashlib.sha256(raw["board.json"]).hexdigest(),
+                "conveyor_visual_observations_json": "f" * 64,
+                "conveyor_calibration_json": hashlib.sha256(raw["calibration.json"]).hexdigest(),
+                "shooter_detection_json": hashlib.sha256(raw["detection.json"]).hexdigest(),
+            }
+            identity_path = root / "identity.json"
+            identity_path.write_text(json.dumps(identity))
+
+            report = build_report(
+                board_path=paths["board.json"],
+                visual_path=paths["visual.json"],
+                identity_path=identity_path,
+                calibration_path=paths["calibration.json"],
+                detection_path=paths["detection.json"],
+            )
+            self.assertFalse(report["identity_verified"])
+            self.assertTrue(any(
+                "template source fingerprints" in error
+                for error in report["errors"]
+            ))
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
