@@ -71,6 +71,7 @@ class IdentityAuditorTests(unittest.TestCase):
         self.assertEqual(report["positions_checked"], 8)
         self.assertEqual(len(report["known_shooters"]), 8)
         self.assertEqual(report["errors"], [])
+        self.assertIs(report["timestamps_known"], True)
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
 
@@ -87,6 +88,22 @@ class IdentityAuditorTests(unittest.TestCase):
         report = audit_identity(board, visual, identity, calibration, detection)
         self.assertFalse(report["identity_verified"])
         self.assertTrue(any("not individually user-confirmed" in x for x in report["blockers"]))
+
+    def test_timestamps_known_requires_all_three_capture_timestamps(self):
+        for source in ("board", "visual", "identity"):
+            with self.subTest(source=source):
+                board, visual, identity, calibration, detection = valid_bundle()
+                if source == "board":
+                    board["timestamp_identified"] = False
+                elif source == "visual":
+                    visual["timestamp_identified"] = False
+                else:
+                    identity["timestamp_identified"] = False
+                report = audit_identity(
+                    board, visual, identity, calibration, detection
+                )
+                self.assertFalse(report["timestamps_known"])
+                self.assertFalse(report["identity_verified"])
 
     def test_board_snapshot_mismatch_blocks(self):
         board, visual, identity, calibration, detection = valid_bundle()
