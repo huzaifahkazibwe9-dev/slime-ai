@@ -285,3 +285,8 @@ state is changed. The planner produces separate use-readiness and purchase-eligi
 ### Reusing evolving-board search
 
 The orchestration pipeline shares one evolving-board search result with the capacity-aware scheduler instead of repeating the same bounded search. The scheduler validates that a supplied result preserves its source state, matches the current remaining-pixel count, and contains a structurally valid group sequence before reuse. This removes redundant search work while retaining separate scheduling and simulation diagnostics. It does not improve the search heuristic itself or establish real-device gameplay speed; live gameplay remains unverified and taps remain disabled.
+
+
+## Human visual review workflow
+
+Prepare board-colour and shooter-observation templates from one screenshot with `python prepare_visual_review.py path/to/original-screenshot.png --config data/shooter_capture_config.json`. After manually completing both templates, evaluate them together with `evaluate_visual_review_bundle.py`. The two stages and their provenance checks are documented in [docs/COMBINED_VISUAL_REVIEW.md](docs/COMBINED_VISUAL_REVIEW.md). The metrics remain separate and user-labelled; this workflow does not claim gameplay verification.
