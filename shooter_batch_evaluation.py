@@ -7,6 +7,7 @@ from strict_json import strict_json_loads
 from pathlib import Path
 
 from shooter_observation_evaluation import (
+    HUMAN_VISIBILITY_LABELS,
     evaluate_dataset,
     validate_dataset,
     verify_source_artifacts,
