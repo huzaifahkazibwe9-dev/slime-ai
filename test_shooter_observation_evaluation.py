@@ -146,6 +146,32 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "detector snapshot"):
             verify_source_artifacts(dataset, detection_bytes, screenshot_bytes)
 
+    def test_reports_ammunition_ocr_status_counts_and_per_sample_status(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["detector"]["ammunition_observation_status"] = (
+            "TESSERACT_TIMEOUT"
+        )
+        dataset["samples"][0]["detector"]["ammunition"] = None
+        report = evaluate_dataset(dataset)
+        self.assertEqual(
+            report["review_coverage"]["visible_ammunition_ocr_status_counts"][
+                "TESSERACT_TIMEOUT"
+            ],
+            1,
+        )
+        self.assertEqual(
+            report["sample_results"][0]["detected_ammunition_status"],
+            "TESSERACT_TIMEOUT",
+        )
+
+    def test_rejects_ammunition_value_with_inconsistent_ocr_status(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["samples"][0]["detector"]["ammunition_observation_status"] = (
+            "TESSERACT_TIMEOUT"
+        )
+        with self.assertRaisesRegex(ValueError, "non-success OCR status"):
+            validate_dataset(dataset)
+
     def test_evaluation_does_not_claim_source_artifacts_checked_without_verifier(self):
         dataset, _, _ = labelled_fixture()
         report = evaluate_dataset(dataset)
