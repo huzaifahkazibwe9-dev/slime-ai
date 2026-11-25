@@ -240,7 +240,8 @@ class CombinedVisualReviewTests(unittest.TestCase):
 
     def test_rejects_board_shooter_session_mismatch(self):
         self.shooter["capture_provenance"]["capture_session_id"] = "other-session"
-        self.shooter_path.write_bytes(encoded(self.shooter))
+        self.detection_bytes = encoded(self.shooter)
+        self.shooter_path.write_bytes(self.detection_bytes)
         self._write_manifest()
         with self.assertRaisesRegex(ValueError, "Shooter detection capture identity"):
             self._evaluate()
