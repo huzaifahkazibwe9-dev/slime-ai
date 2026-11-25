@@ -310,5 +310,114 @@ class VisualReviewBatchTests(unittest.TestCase):
                 batch.evaluate_batch(self.batch_path)
 
 
+def _reseal_report(report):
+    unsigned = {
+        key: value for key, value in report.items()
+        if key != "evaluation_sha256"
+    }
+    report["evaluation_sha256"] = hashlib.sha256(
+        batch._canonical_json_bytes(unsigned)
+    ).hexdigest()
+    return report
+
+
+class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
+    def _valid_report(self):
+        with patch.object(
+            batch, "evaluate_visual_review_bundle",
+            side_effect=[_report(1), _report(2)],
+        ):
+            return batch.evaluate_batch(self._batch_path())
+
+    def _batch_path(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        path = Path(temporary.name) / "batch.json"
+        path.write_bytes(_encoded({
+            "schema_version": 1,
+            "bundles": [
+                {
+                    "id": f"capture-{index}",
+                    "manifest": f"capture-{index}/manifest.json",
+                    "board_labels": f"capture-{index}/board-labels.json",
+                    "shooter_labels": f"capture-{index}/shooter-labels.json",
+                    "board_observation": f"capture-{index}/board.json",
+                    "shooter_detection": f"capture-{index}/detection.json",
+                    "pixel_audit": f"capture-{index}/audit.json",
+                    "source_screenshot": f"capture-{index}/source.png",
+                }
+                for index in (1, 2)
+            ],
+        }))
+        return path
+
+    def test_rejects_report_that_claims_gameplay_verified_even_when_resealed(self):
+        report = self._valid_report()
+        report["gameplay_verified"] = True
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "gameplay_verified must remain false"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_nested_independent_label_truth_claim_even_when_resealed(self):
+        report = self._valid_report()
+        report["board_colour_evaluation"][
+            "label_truth_independently_verified"
+        ] = True
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "label_truth_independently_verified"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_duplicate_capture_session_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][1]["capture_identity"]["capture_session_id"] = (
+            report["bundles"][0]["capture_identity"]["capture_session_id"]
+        )
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "duplicate capture session"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_duplicate_screenshot_in_saved_report(self):
+        report = self._valid_report()
+        screenshot_hash = report["bundles"][0]["capture_identity"][
+            "source_screenshot_sha256"
+        ]
+        report["bundles"][1]["capture_identity"][
+            "source_screenshot_sha256"
+        ] = screenshot_hash
+        report["bundles"][1]["source_artifacts_sha256"][
+            "source_screenshot"
+        ] = screenshot_hash
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "duplicate screenshot"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_screenshot_hash_mismatch_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["source_artifacts_sha256"][
+            "source_screenshot"
+        ] = "9" * 64
+        _reseal_report(report)
+        with self.assertRaisesRegex(
+            ValueError, "source screenshot hash disagrees with capture identity"
+        ):
+            batch.verify_batch_report(report)
+
+    def test_rejects_invalid_artifact_digest_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["review_artifacts_sha256"]["manifest_json"] = "z" * 64
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "invalid SHA-256 digest"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_boolean_screenshot_dimension_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["source_screenshot_size"] = [
+            True, 30
+        ]
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "screenshot dimensions are invalid"):
+            batch.verify_batch_report(report)
+
+
 if __name__ == "__main__":
     unittest.main()
