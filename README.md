@@ -122,6 +122,10 @@ for the review protocol, OCR status meanings, batch manifest and metric
 limitations. Synthetic unit tests cover the workflow; no real-game accuracy
 result is claimed until genuine captures are manually reviewed.
 
+## Multi-capture combined visual review
+
+The combined review pipeline can now re-verify and aggregate multiple completed board-and-shooter review bundles. It rejects duplicate screenshot hashes, duplicate capture sessions, duplicate bundle IDs, and paths that escape the batch-manifest directory. Board-colour and shooter metrics remain separate, with pooled sample support shown for each task. See [docs/COMBINED_VISUAL_REVIEW_BATCH.md](docs/COMBINED_VISUAL_REVIEW_BATCH.md). This workflow is for offline evaluation only; it does not enable live taps or purchases.
+
 ## Bonded-shooter confirmation
 
 The detector does not infer bonded relationships from fixed screen positions.
