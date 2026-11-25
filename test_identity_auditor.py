@@ -113,14 +113,19 @@ class IdentityAuditorTests(unittest.TestCase):
         identity["observations"][1]["shooter_id"] = "shooter-0"
         report = audit_identity(board, visual, identity, calibration, detection)
         self.assertFalse(report["identity_verified"])
-        self.assertTrue(any("multiple positions" in x for x in report["blockers"]))
+        self.assertTrue(any("duplicate shooter" in x for x in report["blockers"]))
 
-    def test_multiple_frames_cannot_be_mixed(self):
+    def test_multiple_frames_can_track_same_shooter_across_positions(self):
         board, visual, identity, calibration, detection = valid_bundle()
-        identity["observations"][1]["frame_id"] = "another-frame"
+        identity["observations"][0]["frame_id"] = "frame-2"
+        identity["observations"][0]["shooter_id"] = "shooter-7"
+        identity["observations"][1]["frame_id"] = "frame-2"
+        identity["observations"][1]["shooter_id"] = "shooter-6"
         report = audit_identity(board, visual, identity, calibration, detection)
-        self.assertFalse(report["identity_verified"])
-        self.assertTrue(any("exactly one capture frame" in x for x in report["blockers"]))
+        self.assertTrue(report["identity_verified"])
+        self.assertEqual(len(report["identity_frame_ids"]), 2)
+        self.assertIn("bottom_1", report["shooter_positions"]["shooter-7"])
+        self.assertIn("bottom_2", report["shooter_positions"]["shooter-6"])
 
     def test_unknown_shooter_blocks(self):
         board, visual, identity, calibration, detection = valid_bundle()
