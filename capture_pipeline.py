@@ -23,7 +23,10 @@ def load_capture_config(path):
     path = Path(path)
     config_bytes = path.read_bytes()
     config_sha256 = hashlib.sha256(config_bytes).hexdigest()
-    data = json.loads(config_bytes)
+    try:
+        data = json.loads(config_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Capture config is not valid UTF-8 JSON") from exc
     if not isinstance(data, dict):
         raise ValueError("Capture config must be a JSON object")
     bounds = data.get("panel_bounds")
@@ -51,7 +54,7 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
     try:
         board = json.loads(Path(board_path).read_text())
         shooter = json.loads(Path(shooter_path).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Capture pipeline outputs are missing or invalid JSON") from exc
 
     if not isinstance(board, dict) or not isinstance(shooter, dict):
