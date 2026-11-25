@@ -29,6 +29,33 @@ def _sha256(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def _canonical_json_bytes(data):
+    return json.dumps(data, indent=2, sort_keys=True).encode("utf-8")
+
+
+def verify_batch_report(report):
+    """Verify the self-digest and basic structure of a saved batch report."""
+    if not isinstance(report, dict):
+        raise ValueError("Batch evaluation report must be a JSON object")
+    if type(report.get("schema_version")) is not int or report["schema_version"] != SCHEMA_VERSION:
+        raise ValueError("Batch evaluation report schema_version is unsupported")
+    if report.get("evaluator") != "evaluate_visual_review_batch":
+        raise ValueError("Batch evaluation report evaluator identity is invalid")
+    digest = report.get("evaluation_sha256")
+    if (not isinstance(digest, str) or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)):
+        raise ValueError("Batch evaluation report evaluation_sha256 is invalid")
+    unsigned = {key: value for key, value in report.items() if key != "evaluation_sha256"}
+    if _sha256(_canonical_json_bytes(unsigned)) != digest:
+        raise ValueError("Batch evaluation report content does not match evaluation_sha256")
+    if type(report.get("bundle_count")) is not int or report["bundle_count"] < 2:
+        raise ValueError("Batch evaluation report bundle_count is invalid")
+    bundles = report.get("bundles")
+    if not isinstance(bundles, list) or len(bundles) != report["bundle_count"]:
+        raise ValueError("Batch evaluation report bundles do not match bundle_count")
+    return True
+
+
 def _read_batch(path):
     try:
         raw = Path(path).read_bytes()
@@ -402,7 +429,7 @@ def evaluate_batch(batch_path):
 
     board = _aggregate_board(reports)
     shooter = _aggregate_shooter(reports)
-    return {
+    report = {
         "schema_version": SCHEMA_VERSION,
         "evaluator": "evaluate_visual_review_batch",
         "batch_sha256": _sha256(batch_bytes),
@@ -422,6 +449,8 @@ def evaluate_batch(batch_path):
         "gameplay_verified": False,
         "game_taps_enabled": False,
     }
+    report["evaluation_sha256"] = _sha256(_canonical_json_bytes(report))
+    return report
 
 
 def main():
