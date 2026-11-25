@@ -204,6 +204,21 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
             and snapshot.get("synchronised") is True
             and snapshot.get("planning_allowed_by_sync") is True
         ),
+        "snapshot_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(snapshot, dict)
+                and isinstance(snapshot.get("source_file_sha256"), dict)
+                and snapshot.get("source_file_sha256") == {
+                    "vision_level39_json": planning_input_file_sha256.get(
+                        "vision_calibration_json"
+                    ),
+                    "conveyor_observations_json": planning_input_file_sha256.get(
+                        "conveyor_observations_json"
+                    ),
+                }
+            )
+        ),
         "evidence_bundle_synchronised": (
             isinstance(snapshot, dict)
             and isinstance(snapshot.get("bundle_synchronisation"), dict)
