@@ -209,6 +209,17 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
             or (
                 isinstance(snapshot, dict)
                 and isinstance(snapshot.get("source_file_sha256"), dict)
+                and all(
+                    isinstance(planning_input_file_sha256.get(key), str)
+                    and re.fullmatch(
+                        r"[0-9a-f]{64}",
+                        planning_input_file_sha256[key],
+                    ) is not None
+                    for key in (
+                        "vision_calibration_json",
+                        "conveyor_observations_json",
+                    )
+                )
                 and snapshot.get("source_file_sha256") == {
                     "vision_level39_json": planning_input_file_sha256.get(
                         "vision_calibration_json"
