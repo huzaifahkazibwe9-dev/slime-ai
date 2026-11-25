@@ -135,3 +135,22 @@ alignment, colour, and ammunition metrics.
 A combined report still does not prove that human labels are correct or that
 the captures represent every gameplay condition. Coverage adequacy and label
 truth remain explicitly unverified.
+
+
+## Ammunition OCR status diagnostics
+
+The detector now records a structured status beside each ammunition result.
+A successful exact-digit parse is marked PARSED_EXACT_DIGITS. Other statuses
+distinguish TESSERACT_UNAVAILABLE, TESSERACT_TIMEOUT, TESSERACT_PROCESS_ERROR,
+TESSERACT_EXECUTION_ERROR, TESSERACT_NONZERO_EXIT,
+INVALID_TESSERACT_OUTPUT, AMBIGUOUS_OR_NON_INTEGER_OUTPUT, NUMBER_TOO_LONG,
+and other process/conversion failures. Unrevealed or partially occluded rows
+are marked NOT_ATTEMPTED_UNVERIFIED_SLOT rather than being described as OCR
+failures.
+
+The template retains the detector status separately from the human-reviewed
+number. Evaluation reports include per-sample OCR status and counts by status
+for visible samples; batch reports aggregate those counts across captures.
+These diagnostics help distinguish missing OCR from ambiguous readings, but
+do not prove a correctly parsed number is accurate. Human comparison against
+legible source screenshots remains necessary.
