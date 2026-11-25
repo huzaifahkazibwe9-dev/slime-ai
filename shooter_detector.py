@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import time
 import math
+from collections import Counter
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -142,10 +143,11 @@ def identify_color(rgb):
         "hue_group": round(hue/15)*15 if s >= 0.16 else None
     }
 
-def read_ammunition(image, box, temp):
+def read_ammunition_with_status(image, box, temp):
+    """Return an exact OCR value plus a diagnostic status; never infer a value."""
     crop = image.crop(box).convert("L")
     crop = ImageOps.autocontrast(crop)
-    crop = crop.resize((600,405))
+    crop = crop.resize((600, 405))
     crop.save(temp)
 
     try:
@@ -157,22 +159,46 @@ def read_ammunition(image, box, temp):
             ],
             capture_output=True,
             text=True,
-            timeout=15
+            timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except FileNotFoundError:
+        return {"value": None, "status": "TESSERACT_UNAVAILABLE"}
+    except subprocess.TimeoutExpired:
+        return {"value": None, "status": "TESSERACT_TIMEOUT"}
+    except subprocess.SubprocessError:
+        return {"value": None, "status": "TESSERACT_PROCESS_ERROR"}
+    except OSError:
+        return {"value": None, "status": "TESSERACT_EXECUTION_ERROR"}
 
-    if result.returncode != 0 or not isinstance(result.stdout, str):
-        return None
+    if type(result.returncode) is not int:
+        return {"value": None, "status": "INVALID_PROCESS_RESULT"}
+    if result.returncode != 0:
+        return {
+            "value": None,
+            "status": "TESSERACT_NONZERO_EXIT",
+            "return_code": result.returncode,
+        }
+    if not isinstance(result.stdout, str):
+        return {"value": None, "status": "INVALID_TESSERACT_OUTPUT"}
 
-    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
+    match = re.fullmatch(r"\\s*(\\d+)\\s*", result.stdout)
     if match is None:
-        return None
+        return {"value": None, "status": "AMBIGUOUS_OR_NON_INTEGER_OUTPUT"}
+
+    digits = match.group(1)
+    if len(digits) > 128:
+        return {"value": None, "status": "NUMBER_TOO_LONG"}
     try:
-        return int(match.group(1))
+        value = int(digits)
     except ValueError:
-        # Python limits conversion of extremely long decimal strings.
-        return None
+        return {"value": None, "status": "NUMBER_CONVERSION_FAILED"}
+    return {"value": value, "status": "PARSED_EXACT_DIGITS"}
+
+
+def read_ammunition(image, box, temp):
+    """Backward-compatible value-only wrapper around the diagnostic OCR path."""
+    return read_ammunition_with_status(image, box, temp)["value"]
+
 
 def verify_panel_crop_bytes(source_bytes, panel_path, bounds,
                             mean_tolerance=14, percentile_tolerance=48):
@@ -388,6 +414,7 @@ def main():
     detection_started = time.perf_counter()
     ocr_seconds = 0.0
     ocr_calls = 0
+    ocr_status_counts = Counter()
 
     # Observe every row, but keep lower-row records non-selectable until verified.
     row_specs = [
@@ -418,15 +445,21 @@ def main():
             ammo = None
             if row_index == 1:
                 ocr_started = time.perf_counter()
-                ammo = read_ammunition(image, box, temp)
+                ammo_result = read_ammunition_with_status(image, box, temp)
                 ocr_seconds += time.perf_counter() - ocr_started
                 ocr_calls += 1
+                ammo = ammo_result["value"]
+                ammo_status = ammo_result["status"]
+            else:
+                ammo_status = "NOT_ATTEMPTED_UNVERIFIED_SLOT"
+            ocr_status_counts[ammo_status] += 1
             center = (round((box[0] + box[2]) / 2),
                       round((box[1] + box[3]) / 2))
             slot_observations.append({
                 "id": shooter_id, "row": row_index, "column": column,
                 "color_observation": color, "sample_quality": sample_quality,
                 "ammunition_observation": ammo,
+                "ammunition_observation_status": ammo_status,
                 "screen_center": list(center), "screen_box": list(box),
                 "screen_sample": [x, y], "status": row_status,
                 "verified": False, "selectable_candidate": False,
@@ -435,6 +468,7 @@ def main():
                 detected.append({
                     "id": shooter_id, "color": color,
                     "sample_quality": sample_quality, "ammo": ammo,
+                    "ammo_observation_status": ammo_status,
                     "screen_center": list(center), "screen_box": list(box),
                     "screen_sample": [x, y], "status": "visible", "verified": False
                 })
@@ -503,6 +537,7 @@ def main():
             "shooter_detection_seconds": round(detection_seconds, 6),
             "ammunition_ocr_seconds": round(ocr_seconds, 6),
             "ammunition_ocr_calls": ocr_calls,
+            "ammunition_ocr_status_counts": dict(sorted(ocr_status_counts.items())),
             "panel_slots_observed": len(slot_observations),
             "timing_clock": "perf_counter",
             "note": "Local processing measurements; not a device-wide gameplay latency benchmark.",
