@@ -251,7 +251,7 @@ class PlannerEvidenceTests(unittest.TestCase):
     def test_loaded_board_snapshot_mismatch_rejected(self):
         state = make_state()
         state.snapshot_id = "different-board"
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_loaded_board_snapshot_missing_rejected(self):
         state = make_state()
