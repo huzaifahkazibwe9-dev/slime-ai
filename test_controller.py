@@ -50,6 +50,8 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
     # Planning inputs are separate artifacts and are hashed independently.
     evidence_files = {
+        "reachability_confidence_latest.json": {"fixture": "reachability-confidence"},
+        "conveyor_calibration.json": {"fixture": "conveyor-calibration"},
         "planning_gate_latest.json": {"fixture": "planning"},
         "identity_audit_report.json": {"fixture": "identity"},
         "snapshot_sync_report.json": {"fixture": "snapshot"},
@@ -80,6 +82,8 @@ def capture_bundle_hashes(directory):
 def planning_evidence_hashes(directory):
     root = Path(directory)
     names = {
+        "reachability_confidence_json": "reachability_confidence_latest.json",
+        "conveyor_calibration_json": "conveyor_calibration.json",
         "planning_json": "planning_gate_latest.json",
         "identity_json": "identity_audit_report.json",
         "snapshot_json": "snapshot_sync_report.json",
@@ -440,9 +444,10 @@ class ControllerTests(unittest.TestCase):
             report_path = Path(directory) / "orchestration_latest.json"
             report_path.write_text(json.dumps(report))
 
-            # Alter one planning input while leaving capture and all metadata intact.
-            planning_path = Path(directory) / "planning_gate_latest.json"
-            planning_path.write_text(json.dumps({"fixture": "modified"}))
+            # Alter an upstream calibration input while leaving capture,
+            # derived reports, and all capture metadata intact.
+            calibration_path = Path(directory) / "conveyor_calibration.json"
+            calibration_path.write_text(json.dumps({"fixture": "modified"}))
             status = SlimeController(data_dir=directory).status()
 
         self.assertTrue(status["capture_evidence_valid"])
