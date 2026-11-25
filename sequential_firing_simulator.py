@@ -8,6 +8,7 @@ Never performs gameplay actions or modifies the source board.
 
 import copy
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 
@@ -420,7 +421,7 @@ def main():
         print("\nLevel 39 source board not found; synthetic tests completed.")
         return
 
-    data = json.loads(SOURCE.read_text())
+    data = strict_json_loads(SOURCE.read_text())
     board = data["board"]
 
     # Demonstration only. These are hypothetical shooters,
