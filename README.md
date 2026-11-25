@@ -113,8 +113,8 @@ remain disabled.
 
 The repository now includes a blank-label template builder, an offline
 evaluator for shooter-panel visibility assumptions, calibrated slot positions,
-colour classification and ammunition OCR, structured OCR failure statuses,
-plus a multi-capture aggregator. Each labelled capture is bound to its exact
+colour classification and ammunition OCR, structured OCR failure statuses
+with a fail-closed runtime loader, plus a multi-capture aggregator. Each labelled capture is bound to its exact
 detector JSON and original screenshot, and human labels remain separate from
 detector outputs. See
 [docs/SHOOTER_OBSERVATION_EVALUATION.md](docs/SHOOTER_OBSERVATION_EVALUATION.md)
