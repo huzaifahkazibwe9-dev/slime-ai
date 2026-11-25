@@ -189,6 +189,9 @@ class VisualReviewBatchTests(unittest.TestCase):
         second["capture_identity"]["source_screenshot_sha256"] = (
             first["capture_identity"]["source_screenshot_sha256"]
         )
+        second["source_artifacts_sha256"]["source_screenshot"] = (
+            first["source_artifacts_sha256"]["source_screenshot"]
+        )
         with patch.object(
             batch, "evaluate_visual_review_bundle", side_effect=[first, second]
         ):
