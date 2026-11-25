@@ -783,6 +783,14 @@ def _aggregate_shooter(reports):
                     absolute_errors.append(abs(detected_ammo - reviewed_ammo))
                 if type(item.get("ammunition_correct")) is not bool:
                     raise ValueError("Reviewed ammunition samples require a boolean correctness result")
+                expected_correct = (
+                    detected_ammo is not None and detected_ammo == reviewed_ammo
+                )
+                if item["ammunition_correct"] is not expected_correct:
+                    raise ValueError(
+                        "Reviewed ammunition correctness disagrees with the "
+                        "detected and reviewed ammunition values"
+                    )
                 ammo_correct += item["ammunition_correct"]
 
     return {
