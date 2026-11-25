@@ -424,6 +424,7 @@ def main(board_path=None, observations_path=OBS_FILE, output_path=OUTPUT):
     print("Game taps enabled:", report["game_taps_enabled"])
     print("Board source mode:", report["board_source_kind"])
     print("Report:", output_path)
+    return report
 
 
 if __name__ == "__main__":
