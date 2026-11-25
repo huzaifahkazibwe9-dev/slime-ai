@@ -22,6 +22,7 @@ def _metric(pairs):
             "correct_count": 0,
             "accuracy": None,
             "confusion_matrix": {},
+            "per_class": {},
         }
     labels = sorted(
         {actual for actual, _ in pairs}
@@ -38,11 +39,44 @@ def _metric(pairs):
         for actual in labels
     }
     correct = sum(actual == predicted for actual, predicted in pairs)
+    per_class = {}
+    for label in labels:
+        true_positive = matrix[label][label]
+        class_support = sum(matrix[label].values())
+        predicted_count = sum(matrix[actual][label] for actual in labels)
+        false_positive = predicted_count - true_positive
+        false_negative = class_support - true_positive
+        precision = (
+            round(true_positive / predicted_count, 6)
+            if predicted_count else None
+        )
+        recall = (
+            round(true_positive / class_support, 6)
+            if class_support else None
+        )
+        f1 = (
+            round(2 * precision * recall / (precision + recall), 6)
+            if precision is not None and recall is not None
+            and precision + recall else (
+                0.0 if precision is not None and recall == 0 else None
+            )
+        )
+        per_class[label] = {
+            "support": class_support,
+            "predicted_count": predicted_count,
+            "true_positive_count": true_positive,
+            "false_positive_count": false_positive,
+            "false_negative_count": false_negative,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
     return {
         "support": len(pairs),
         "correct_count": correct,
         "accuracy": round(correct / len(pairs), 6),
         "confusion_matrix": matrix,
+        "per_class": per_class,
     }
 
 
