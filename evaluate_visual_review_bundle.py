@@ -334,6 +334,10 @@ def evaluate_visual_review_bundle(
             "board_labels_json": _sha256(board_label_bytes),
             "shooter_labels_json": _sha256(shooter_label_bytes),
         },
+        "source_artifacts_sha256": {
+            **actual_artifact_hashes,
+            "source_screenshot": actual_screenshot_hash,
+        },
         "source_verification": {
             "manifest_hash_checked": True,
             "source_artifact_hashes_checked": True,
