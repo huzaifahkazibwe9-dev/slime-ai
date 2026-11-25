@@ -170,8 +170,13 @@ def validate_identity_audit(identity, board, visual, expected_positions,
     except (AttributeError, TypeError, ValueError):
         errors.append("Identity, board, and visual timestamps must all be timezone-aware")
 
-    if identity.get("positions_checked") != len(expected_positions):
-        errors.append("Identity audit did not check every calibrated position")
+    positions_checked = identity.get("positions_checked")
+    if (
+        type(positions_checked) is not int
+        or positions_checked < 1
+        or positions_checked > len(expected_positions)
+    ):
+        errors.append("Identity audit current-shooter count is invalid")
     if identity.get("verified_by_user") is not True:
         errors.append("Identity audit lacks explicit user confirmation")
 
@@ -231,13 +236,25 @@ def validate_identity_audit(identity, board, visual, expected_positions,
         errors.append("Identity audit current-position map is missing")
         current_positions = {}
     current_values = list(current_positions.values())
+    historical_positions = {
+        position
+        for known_positions in shooter_positions.values()
+        if isinstance(known_positions, list)
+        for position in known_positions
+    }
+    if historical_positions != expected_positions:
+        errors.append(
+            "Identity audit history does not cover every calibrated conveyor position"
+        )
     if (
-        any(shooter_id not in known for shooter_id in current_positions)
+        set(current_positions) != set(known)
+        or len(current_positions) != positions_checked
         or any(position not in expected_positions for position in current_values)
         or len(set(current_values)) != len(current_values)
-        or set(current_values) != set(expected_positions)
     ):
-        errors.append("Identity audit current frame does not map all calibrated positions to distinct known shooters")
+        errors.append(
+            "Identity audit current frame must map every detected shooter to one distinct calibrated position"
+        )
 
     return sorted(set(errors)), shooter_positions
 
