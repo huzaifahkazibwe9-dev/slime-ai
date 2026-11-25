@@ -157,6 +157,26 @@ class ShooterReviewAgreementTests(unittest.TestCase):
             provenance["reviewer_b_dataset_sha256"],
         )
 
+    def test_canonical_dataset_fingerprint_is_key_order_independent(self):
+        dataset_a, detection_bytes, screenshot_bytes = labelled_fixture()
+        dataset_b = json.loads(json.dumps(dataset_a, sort_keys=True))
+        first = evaluate_review_agreement(
+            dataset_a, dataset_a, "reviewer-a", "reviewer-b",
+            detection_bytes, screenshot_bytes,
+        )
+        second = evaluate_review_agreement(
+            dataset_b, dataset_b, "reviewer-a", "reviewer-b",
+            detection_bytes, screenshot_bytes,
+        )
+        self.assertEqual(
+            first["review_dataset_provenance"]["reviewer_a_dataset_sha256"],
+            second["review_dataset_provenance"]["reviewer_a_dataset_sha256"],
+        )
+        self.assertEqual(
+            first["review_dataset_provenance"]["reviewer_a_hash_mode"],
+            "canonical_json_content",
+        )
+
     def test_rejects_raw_dataset_bytes_that_do_not_match_parsed_content(self):
         dataset_a, detection_bytes, screenshot_bytes = labelled_fixture()
         dataset_b = copy.deepcopy(dataset_a)
