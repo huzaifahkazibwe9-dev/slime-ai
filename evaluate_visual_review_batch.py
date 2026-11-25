@@ -33,6 +33,90 @@ def _canonical_json_bytes(data):
     return json.dumps(data, indent=2, sort_keys=True).encode("utf-8")
 
 
+def _is_sha256(value):
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _require_unverified_flag(data, field, context):
+    if not isinstance(data, dict) or data.get(field) is not False:
+        raise ValueError(f"{context} {field} must remain false")
+
+
+def _verify_report_bundle_provenance(bundles):
+    required_review_hashes = {
+        "manifest_json", "board_labels_json", "shooter_labels_json"
+    }
+    required_source_hashes = {
+        "board_observation_json", "shooter_detection_json",
+        "source_pixel_audit_json", "source_screenshot",
+    }
+    seen_ids = set()
+    seen_screenshots = set()
+    seen_sessions = set()
+
+    for index, bundle in enumerate(bundles):
+        context = f"Batch report bundle {index}"
+        if not isinstance(bundle, dict):
+            raise ValueError(f"{context} must be an object")
+        if set(bundle) != {
+            "id", "capture_identity", "review_artifacts_sha256",
+            "source_artifacts_sha256",
+        }:
+            raise ValueError(f"{context} fields are invalid")
+
+        bundle_id = bundle.get("id")
+        if not isinstance(bundle_id, str) or not bundle_id.strip():
+            raise ValueError(f"{context} id is invalid")
+        if bundle_id in seen_ids:
+            raise ValueError(f"Batch report contains duplicate bundle id: {bundle_id}")
+        seen_ids.add(bundle_id)
+
+        identity = bundle.get("capture_identity")
+        if not isinstance(identity, dict):
+            raise ValueError(f"{context} capture_identity is invalid")
+        screenshot_hash = identity.get("source_screenshot_sha256")
+        session_id = identity.get("capture_session_id")
+        captured_at = identity.get("captured_at")
+        image_size = identity.get("source_screenshot_size")
+        if not _is_sha256(screenshot_hash):
+            raise ValueError(f"{context} screenshot hash is invalid")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError(f"{context} capture session ID is invalid")
+        if not isinstance(captured_at, str) or not captured_at.strip():
+            raise ValueError(f"{context} capture timestamp is invalid")
+        if (
+            not isinstance(image_size, list)
+            or len(image_size) != 2
+            or any(type(value) is not int or value < 1 for value in image_size)
+        ):
+            raise ValueError(f"{context} screenshot dimensions are invalid")
+        if screenshot_hash in seen_screenshots:
+            raise ValueError(f"Batch report contains duplicate screenshot: {screenshot_hash}")
+        if session_id in seen_sessions:
+            raise ValueError(f"Batch report contains duplicate capture session: {session_id}")
+        seen_screenshots.add(screenshot_hash)
+        seen_sessions.add(session_id)
+
+        for field, expected_keys in (
+            ("review_artifacts_sha256", required_review_hashes),
+            ("source_artifacts_sha256", required_source_hashes),
+        ):
+            hashes = bundle.get(field)
+            if not isinstance(hashes, dict) or set(hashes) != expected_keys:
+                raise ValueError(f"{context} {field} fields are invalid")
+            if any(not _is_sha256(value) for value in hashes.values()):
+                raise ValueError(f"{context} {field} contains an invalid SHA-256 digest")
+
+        if bundle["source_artifacts_sha256"]["source_screenshot"] != screenshot_hash:
+            raise ValueError(
+                f"{context} source screenshot hash disagrees with capture identity"
+            )
+
+
 def verify_batch_report(report):
     """Verify the self-digest and basic structure of a saved batch report."""
     if not isinstance(report, dict):
@@ -48,11 +132,40 @@ def verify_batch_report(report):
     unsigned = {key: value for key, value in report.items() if key != "evaluation_sha256"}
     if _sha256(_canonical_json_bytes(unsigned)) != digest:
         raise ValueError("Batch evaluation report content does not match evaluation_sha256")
+    if not _is_sha256(report.get("batch_sha256")):
+        raise ValueError("Batch evaluation report batch_sha256 is invalid")
     if type(report.get("bundle_count")) is not int or report["bundle_count"] < 2:
         raise ValueError("Batch evaluation report bundle_count is invalid")
     bundles = report.get("bundles")
     if not isinstance(bundles, list) or len(bundles) != report["bundle_count"]:
         raise ValueError("Batch evaluation report bundles do not match bundle_count")
+    _verify_report_bundle_provenance(bundles)
+
+    for field in (
+        "label_truth_independently_verified",
+        "calibration_alignment_verified",
+        "gameplay_verified",
+        "game_taps_enabled",
+    ):
+        _require_unverified_flag(report, field, "Batch report")
+
+    board = report.get("board_colour_evaluation")
+    if not isinstance(board, dict) or board.get("label_source") != "user_supplied":
+        raise ValueError("Batch report board-colour evaluation is invalid")
+    _require_unverified_flag(
+        board, "label_truth_independently_verified", "Board-colour evaluation"
+    )
+
+    shooter = report.get("shooter_observation_evaluation")
+    if not isinstance(shooter, dict) or shooter.get("label_source") != "user_supplied":
+        raise ValueError("Batch report shooter evaluation is invalid")
+    for field in (
+        "label_truth_independently_verified",
+        "slot_mapping_independently_verified",
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+    ):
+        _require_unverified_flag(shooter, field, "Shooter evaluation")
     return True
 
 
