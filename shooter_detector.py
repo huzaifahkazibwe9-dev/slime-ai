@@ -170,20 +170,20 @@ def read_ammunition_with_status(image, box, temp):
     except OSError:
         return {"value": None, "status": "TESSERACT_EXECUTION_ERROR"}
 
-    if type(result.returncode) is not int:
+    return_code = getattr(result, "returncode", None)
+    stdout = getattr(result, "stdout", None)
+    if type(return_code) is not int:
         return {"value": None, "status": "INVALID_PROCESS_RESULT"}
-    if result.returncode != 0:
+    if return_code != 0:
         return {
             "value": None,
             "status": "TESSERACT_NONZERO_EXIT",
-            "return_code": result.returncode,
+            "return_code": return_code,
         }
-    if not isinstance(result.stdout, str):
+    if not isinstance(stdout, str):
         return {"value": None, "status": "INVALID_TESSERACT_OUTPUT"}
 
-    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
-    if match is None:
-        return {"value": None, "status": "AMBIGUOUS_OR_NON_INTEGER_OUTPUT"}
+    match = re.fullmatch(r"\\s*(\\d+)\\s*", stdout)
 
     digits = match.group(1)
     if len(digits) > 128:
