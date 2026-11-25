@@ -114,6 +114,7 @@ def _source_provenance_matches(
         "candidate_json",
         "conveyor_observations_json",
         "shooter_detection_json",
+        "bonded_groups_config_json",
         "board_observation_json",
     )
     if any(
@@ -195,6 +196,9 @@ def _source_provenance_matches(
         ],
         "shooter_detection_json": current_source_file_sha256[
             "shooter_detection_json"
+        ],
+        "bonded_groups_config_json": current_source_file_sha256[
+            "bonded_groups_config_json"
         ],
         "identity_audit_json": current_source_file_sha256["identity_json"],
         "board_observation_json": current_source_file_sha256[
