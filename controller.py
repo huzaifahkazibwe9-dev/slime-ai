@@ -36,8 +36,89 @@ class SlimeController:
             isinstance(evidence, dict)
             and evidence.get("evidence_gate_passed") is True
         )
+        capture_evidence_valid = False
+        capture_report_matches = False
+        observation = self.data_dir / "board_observation_latest.json"
+        shooters = self.data_dir / "shooter_detection.json"
+        if observation.is_file() and shooters.is_file():
+            try:
+                from capture_preflight import validate_capture_pair
+                from orchestration import _read_capture_bundle
+                pinned = _read_capture_bundle(observation, shooters)
+                capture = validate_capture_pair(
+                    observation,
+                    shooters,
+                    board_data=pinned["board_data"],
+                    shooter_data=pinned["shooter_data"],
+                    pixel_audit_data=pinned["pixel_audit_data"],
+                )
+                capture_evidence_valid = capture.get("valid") is True
+                if capture_evidence_valid:
+                    # Compare both capture artifacts and every planning input
+                    # against the exact files consumed by the saved report.
+                    from orchestration import _read_planning_evidence_bundle
+                    candidate_info = report.get("candidate_report")
+                    candidate_path = (
+                        candidate_info.get("path")
+                        if isinstance(candidate_info, dict) else None
+                    )
+                    current_evidence = _read_planning_evidence_bundle(
+                        self.data_dir, candidate_path
+                    )
+                    saved_evidence_hashes = report.get(
+                        "planning_evidence_file_sha256"
+                    )
+                    current_evidence_hashes = current_evidence["file_sha256"]
+                    planning_evidence_matches = (
+                        isinstance(saved_evidence_hashes, dict)
+                        and all(
+                            isinstance(saved_evidence_hashes.get(key), str)
+                            and saved_evidence_hashes.get(key) == digest
+                            for key, digest in current_evidence_hashes.items()
+                        )
+                        and all(
+                            isinstance(value, str)
+                            for value in current_evidence_hashes.values()
+                        )
+                    )
+                    # Compare the saved report with the same board object that
+                    # passed preflight; never reopen a mutable capture path.
+                    board = capture["board_data"]
+                    provenance = report.get("capture_provenance")
+                    capture_fields = (
+                        "source_sha256", "capture_session_id", "captured_at",
+                        "snapshot_id", "board_snapshot_id",
+                    )
+                    report_artifacts = report.get("capture_bundle_file_sha256")
+                    pinned_artifacts = {
+                        "board_json": pinned.get("board_bytes_sha256"),
+                        "shooter_json": pinned.get("shooter_bytes_sha256"),
+                        "pixel_audit_json": pinned.get("pixel_audit_bytes_sha256"),
+                    }
+                    capture_report_matches = (
+                        planning_evidence_matches
+                        and isinstance(board, dict)
+                        and isinstance(provenance, dict)
+                        and all(
+                            isinstance(board.get(key), str)
+                            and provenance.get(key) == board.get(key)
+                            for key in capture_fields
+                        )
+                        and isinstance(report_artifacts, dict)
+                        and all(
+                            isinstance(report_artifacts.get(key), str)
+                            and report_artifacts.get(key) == digest
+                            for key, digest in pinned_artifacts.items()
+                            if isinstance(digest, str)
+                        )
+                        and all(isinstance(value, str) for value in pinned_artifacts.values())
+                    )
+            except Exception:
+                capture_evidence_valid = False
         verified_plan = (
-            evidence_gate_passed
+            capture_evidence_valid
+            and capture_report_matches
+            and evidence_gate_passed
             and report.get("decision")
             == "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED"
             and isinstance(planner, dict)
@@ -51,6 +132,12 @@ class SlimeController:
             "plan_available": verified_plan,
             "decision": report.get("decision", "NO_REPORT"),
             "evidence_gate_passed": evidence_gate_passed,
+            "capture_evidence_valid": capture_evidence_valid,
+            "capture_report_matches_current_capture": capture_report_matches,
+            "planning_evidence_matches_current_files": (
+                planning_evidence_matches
+                if capture_evidence_valid else False
+            ),
             "touch_injection": False,
             "gameplay_actions_performed": False,
         }
@@ -69,6 +156,30 @@ class SlimeController:
 
             observation = self.data_dir / "board_observation_latest.json"
             shooters = self.data_dir / "shooter_detection.json"
+            if not observation.is_file() or not shooters.is_file():
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": (
+                        "A fresh screenshot capture is required. Run the capture "
+                        "pipeline to create both board_observation_latest.json "
+                        "and shooter_detection.json."
+                    ),
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
+            from capture_preflight import validate_capture_pair
+            capture = validate_capture_pair(observation, shooters)
+            if capture.get("valid") is not True:
+                return {
+                    "accepted": False,
+                    "mode": "PLAN_ONLY",
+                    "reason": capture.get("reason", "Capture preflight failed."),
+                    "touch_events_sent": False,
+                    "live_execution_allowed": False,
+                    "gameplay_actions_performed": False,
+                }
             report = run_orchestration(
                 data_dir=str(self.data_dir),
                 observation_path=str(observation) if observation.is_file() else None,

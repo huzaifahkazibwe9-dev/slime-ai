@@ -1,4 +1,8 @@
 import unittest
+import hashlib
+import json
+import sys
+
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +18,11 @@ from shooter_detector import (
     scale_point,
     validate_panel_image_size,
     verify_panel_crop,
+    verify_panel_crop_bytes,
+
     extract_panel_crop,
+    extract_panel_crop_bytes,
+
     load_user_confirmed_bonded_groups,
     assess_color_sample,
 )
@@ -382,6 +390,75 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             path.write_text('{"verified_by_user": true, "bonded_groups": [["A", "B"], ["A", "C"]]}')
             with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
                 load_user_confirmed_bonded_groups(path, ["A", "B", "C"])
+
+
+
+    def test_byte_snapshot_extraction_and_verification_use_same_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = Image.new("RGB", (400, 300), (30, 80, 120))
+            buffer = root / "source.png"
+            source.save(buffer, format="PNG")
+            source_bytes = buffer.read_bytes()
+            output_path = root / "panel.jpg"
+            extract_panel_crop_bytes(
+                source_bytes, [20, 30, 327, 230], output_path
+            )
+            digest = verify_panel_crop_bytes(
+                source_bytes, output_path, [20, 30, 327, 230]
+            )
+            self.assertEqual(digest, hashlib.sha256(source_bytes).hexdigest())
+
+    def test_detector_hashes_and_crops_original_bytes_if_source_changes_after_read(self):
+        from shooter_detector import SHOOTERS, main
+        original_read_bytes = Path.read_bytes
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.png"
+            output_path = root / "detection.json"
+            panel_path = root / "panel.jpg"
+            original = Image.new("RGB", (400, 300), (30, 80, 120))
+            original_bytes_buffer = root / "original.png"
+            original.save(original_bytes_buffer, format="PNG")
+            original_bytes = original_bytes_buffer.read_bytes()
+            original.save(source_path)
+            replacement = Image.new("RGB", (400, 300), (180, 20, 40))
+            replacement.save(root / "replacement.png")
+            replacement_bytes = (root / "replacement.png").read_bytes()
+            changed = {"done": False}
+
+            def read_then_replace(path):
+                data = original_read_bytes(path)
+                if Path(path) == source_path and not changed["done"]:
+                    source_path.write_bytes(replacement_bytes)
+                    changed["done"] = True
+                return data
+
+            with patch("shooter_detector.IMAGE", panel_path), \
+                 patch("shooter_detector.OUTPUT", output_path), \
+                 patch("shooter_detector.read_ammunition", return_value=None), \
+                 patch.object(Path, "read_bytes", read_then_replace), \
+                 patch.object(sys, "argv", [
+                     "shooter_detector.py", "--source-screenshot",
+                     str(source_path), "--panel-bounds",
+                     "20", "30", "327", "230", "--extract-panel",
+                     "--capture-session-id", "snapshot-test",
+                     "--captured-at", "2026-11-24T12:00:00+01:00",
+                 ]):
+                main()
+
+            payload = json.loads(output_path.read_text())
+            self.assertTrue(changed["done"])
+            self.assertEqual(
+                payload["capture_provenance"]["source_sha256"],
+                hashlib.sha256(original_bytes).hexdigest(),
+            )
+            self.assertNotEqual(
+                payload["capture_provenance"]["source_sha256"],
+                hashlib.sha256(replacement_bytes).hexdigest(),
+            )
+            with Image.open(panel_path) as panel:
+                self.assertLess(panel.getpixel((10, 10))[0], 100)
 
 
 if __name__ == "__main__":

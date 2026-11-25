@@ -1,5 +1,6 @@
 """Build 11M: evidence-gated, dry-run-only orchestration."""
 import argparse
+import hashlib
 import json
 import re
 import time
@@ -37,6 +38,50 @@ def read_report(path):
         return data if isinstance(data, dict) else None
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def _read_json_artifact(path):
+    """Read one evidence artifact once, retaining its exact byte digest."""
+    path = Path(path)
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None, None
+    digest = hashlib.sha256(raw).hexdigest()
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        value = None
+    return (value if isinstance(value, dict) else None), digest
+
+
+def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
+    """Pin all non-capture reports consumed by one planning pass."""
+    root = Path(data_dir)
+    candidate_path, candidate_source = resolve_candidate_report_path(
+        root, candidate_report_path
+    )
+    paths = {
+        "planning_json": root / "planning_gate_latest.json",
+        "identity_json": root / "identity_audit_report.json",
+        "snapshot_json": root / "snapshot_sync_report.json",
+        "candidate_json": candidate_path,
+        "conveyor_observations_json": root / "conveyor_visual_observations.json",
+    }
+    values = {}
+    digests = {}
+    for name, path in paths.items():
+        values[name], digests[name] = _read_json_artifact(path)
+    return {
+        "planning": values["planning_json"],
+        "identity": values["identity_json"],
+        "snapshot": values["snapshot_json"],
+        "candidates": values["candidate_json"],
+        "conveyor_observation": values["conveyor_observations_json"],
+        "candidate_path": candidate_path,
+        "candidate_path_source": candidate_source,
+        "file_sha256": digests,
+    }
 
 
 def resolve_candidate_report_path(data_dir, explicit_path=None):
@@ -301,8 +346,59 @@ def run_capacity_aware_evolving_diagnostic(state, max_nodes=500, beam_width=40,
             "game_taps_enabled": False,
         }
 
+
+def _read_capture_bundle(observation_path, shooter_path, pixel_audit_path=None):
+    """Read each mutable capture artifact once and pin its parsed JSON objects."""
+    observation_path = Path(observation_path)
+    shooter_path = Path(shooter_path)
+    audit_path = (
+        Path(pixel_audit_path)
+        if pixel_audit_path is not None
+        else observation_path.parent / "source_pixel_audit_latest.json"
+    )
+    try:
+        board_bytes = observation_path.read_bytes()
+        shooter_bytes = shooter_path.read_bytes()
+        audit_bytes = audit_path.read_bytes()
+        board = json.loads(board_bytes)
+        shooters = json.loads(shooter_bytes)
+        pixel_audit = json.loads(audit_bytes)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Capture bundle is missing or invalid: {exc}") from exc
+    if not all(isinstance(item, dict) for item in (board, shooters, pixel_audit)):
+        raise ValueError("Capture bundle files must each contain a JSON object.")
+    return {
+        "board_data": board,
+        "shooter_data": shooters,
+        "pixel_audit_data": pixel_audit,
+        "board_bytes_sha256": hashlib.sha256(board_bytes).hexdigest(),
+        "shooter_bytes_sha256": hashlib.sha256(shooter_bytes).hexdigest(),
+        "pixel_audit_bytes_sha256": hashlib.sha256(audit_bytes).hexdigest(),
+    }
+
+
 def run_orchestration(data_dir="data", candidate_report_path=None,
                       observation_path=None, shooter_path=None):
+    if observation_path is None or shooter_path is None:
+        raise ValueError(
+            "Explicit board observation and shooter capture paths are required; "
+            "legacy baseline fallback is disabled for orchestration."
+        )
+    from capture_preflight import validate_capture_pair
+    pinned_capture = _read_capture_bundle(observation_path, shooter_path)
+    capture = validate_capture_pair(
+        observation_path,
+        shooter_path,
+        board_data=pinned_capture["board_data"],
+        shooter_data=pinned_capture["shooter_data"],
+        pixel_audit_data=pinned_capture["pixel_audit_data"],
+    )
+    if capture.get("valid") is not True:
+        raise ValueError(capture.get("reason", "Capture preflight failed."))
+    # All downstream stages use the validated in-memory objects, not paths.
+    board_observation = capture["board_data"]
+    shooter_observation = capture["shooter_data"]
+
     pipeline_started = time.perf_counter()
     timings = {}
     from level_loader import load_level
@@ -313,23 +409,25 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     state, level_audit = load_level(
         observation_path=observation_path,
         shooter_path=shooter_path,
+        observation_data=board_observation,
+        shooter_data=shooter_observation,
     )
     timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
-    planning = read_report(root / "planning_gate_latest.json")
-    identity = read_report(root / "identity_audit_report.json")
-    snapshot = read_report(root / "snapshot_sync_report.json")
-
-    candidate_path, candidate_path_source = resolve_candidate_report_path(
+    evidence_bundle = _read_planning_evidence_bundle(
         root, candidate_report_path
     )
-    candidates = read_report(candidate_path)
+    planning = evidence_bundle["planning"]
+    identity = evidence_bundle["identity"]
+    snapshot = evidence_bundle["snapshot"]
+    candidates = evidence_bundle["candidates"]
+    candidate_path = evidence_bundle["candidate_path"]
+    candidate_path_source = evidence_bundle["candidate_path_source"]
 
     # Cross-link every evidence source to one explicitly identified board
     # capture. Missing metadata blocks planning rather than being inferred.
     from snapshot_sync import synchronise_bundle
-    board_observation = read_report(root / "board_observation_latest.json")
-    conveyor_observation = read_report(root / "conveyor_visual_observations.json")
+    conveyor_observation = evidence_bundle["conveyor_observation"]
     bundle_sync = synchronise_bundle(
         board_observation,
         conveyor_observation,
@@ -429,6 +527,19 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
 
     report = {
         "build": "11M",
+        "capture_bundle_file_sha256": {
+            "board_json": pinned_capture["board_bytes_sha256"],
+            "shooter_json": pinned_capture["shooter_bytes_sha256"],
+            "pixel_audit_json": pinned_capture["pixel_audit_bytes_sha256"],
+        },
+        "planning_evidence_file_sha256": evidence_bundle["file_sha256"],
+        "capture_provenance": {
+            key: board_observation.get(key)
+            for key in (
+                "source_sha256", "capture_session_id", "captured_at",
+                "snapshot_id", "board_snapshot_id",
+            )
+        },
         "created_at": datetime.now(timezone.utc).isoformat(),
         "performance": {
             "timing_clock": "time.perf_counter",

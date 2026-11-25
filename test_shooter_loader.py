@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from shooter_loader import load_shooters
 
@@ -355,6 +356,26 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             "bonded_groups": [],
         }
         self.assertEqual(set(self.load_payload(payload)), {"A"})
+
+
+
+    def test_loader_uses_prevalidated_pinned_data_without_reopening_path(self):
+        payload = {
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        }
+        with patch.object(
+            Path, "read_text",
+            side_effect=AssertionError("pinned shooter data must not reread path"),
+        ):
+            shooters = load_shooters(
+                Path("capture-path-must-not-be-opened.json"),
+                data=payload,
+            )
+        self.assertEqual(set(shooters), {"A"})
+        self.assertEqual(shooters["A"].ammo, 5)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

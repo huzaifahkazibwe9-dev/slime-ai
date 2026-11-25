@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run board ingestion and shooter detection from one explicitly calibrated capture."""
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -10,6 +11,11 @@ from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
 )
+from source_pixel_audit import audit_source_pixels
+
+BOARD_OUTPUT = Path("data/board_observation_latest.json")
+SHOOTER_OUTPUT = Path("data/shooter_detection.json")
+PIXEL_AUDIT_OUTPUT = Path("data/source_pixel_audit_latest.json")
 
 
 def load_capture_config(path):
@@ -34,9 +40,80 @@ def load_capture_config(path):
     }
 
 
+def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
+                             expected_session_id, expected_captured_at):
+    """Fail closed unless both stages prove they processed the same source bytes."""
+    try:
+        board = json.loads(Path(board_path).read_text())
+        shooter = json.loads(Path(shooter_path).read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Capture pipeline outputs are missing or invalid JSON") from exc
+
+    if not isinstance(board, dict) or not isinstance(shooter, dict):
+        raise ValueError("Capture pipeline outputs must be JSON objects")
+    provenance = shooter.get("capture_provenance")
+    if not isinstance(provenance, dict):
+        raise ValueError("Shooter output is missing capture provenance")
+
+    if board.get("source_sha256") != expected_source_sha256:
+        raise ValueError("Board observation does not match the input screenshot snapshot")
+    if provenance.get("source_sha256") != expected_source_sha256:
+        raise ValueError("Shooter observation does not match the input screenshot snapshot")
+    if board.get("snapshot_id") != "sha256:" + expected_source_sha256:
+        raise ValueError("Board snapshot identifier does not match its source hash")
+    if board.get("board_snapshot_id") != "sha256:" + expected_source_sha256:
+        raise ValueError("Board snapshot identifier is inconsistent")
+    if board.get("capture_session_id") != expected_session_id:
+        raise ValueError("Board capture session does not match the requested session")
+    if provenance.get("capture_session_id") != expected_session_id:
+        raise ValueError("Shooter capture session does not match the requested session")
+    if board.get("captured_at") != expected_captured_at:
+        raise ValueError("Board capture timestamp does not match the requested timestamp")
+    if provenance.get("captured_at") != expected_captured_at:
+        raise ValueError("Shooter capture timestamp does not match the requested timestamp")
+    if provenance.get("verified") is not True:
+        raise ValueError("Shooter capture provenance is not verified")
+    return True
+
+
+def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT_OUTPUT):
+    """Require independently reproduced source pixels before accepting capture."""
+    try:
+        observation = json.loads(Path(board_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("Board observation is missing or invalid for pixel audit") from exc
+    report = audit_source_pixels(observation, source_image_bytes)
+    # Bind the audit to this exact capture, not only its image hash. Identical
+    # screenshot bytes can recur across separate capture sessions.
+    report.update({
+        "capture_session_id": observation.get("capture_session_id"),
+        "captured_at": observation.get("captured_at"),
+        "snapshot_id": observation.get("snapshot_id"),
+        "board_snapshot_id": observation.get("board_snapshot_id"),
+    })
+    if report.get("pixel_samples_reproduced") is not True:
+        raise ValueError("Independent source-pixel audit found RGB sample mismatches")
+    if report.get("extraction_fingerprint_match") is not True:
+        raise ValueError("Independent source-pixel audit found a missing or mismatched extraction fingerprint")
+    if type(report.get("label_mismatch_count")) is not int or report.get("label_mismatch_count") != 0:
+        raise ValueError("Board labels do not match labels derived from source RGB samples")
+    if report.get("colour_counts_match") is not True:
+        raise ValueError("Board colour counts do not match the extracted board labels")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    temporary.replace(output)
+    return report
+
+
 def run_capture_pipeline(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
+    # Preserve one immutable byte snapshot for hashing and independent audit.
+    source_image_bytes = Path(screenshot).read_bytes()
+    expected_source_sha256 = hashlib.sha256(source_image_bytes).hexdigest()
     common = [
         "--capture-session-id", config["capture_session_id"],
         "--captured-at", config["captured_at"],
@@ -55,6 +132,14 @@ def run_capture_pipeline(screenshot, config_path):
         ],
         check=True,
     )
+    validate_capture_outputs(
+        BOARD_OUTPUT,
+        SHOOTER_OUTPUT,
+        expected_source_sha256,
+        config["capture_session_id"],
+        config["captured_at"],
+    )
+    return audit_capture_pixels(BOARD_OUTPUT, source_image_bytes)
 
 
 def main():
@@ -66,7 +151,12 @@ def main():
         "--config", default="data/shooter_capture_config.json"
     )
     args = parser.parse_args()
-    run_capture_pipeline(args.screenshot, args.config)
+    report = run_capture_pipeline(args.screenshot, args.config)
+    print("Independent source-pixel audit passed:", report["pixel_samples_reproduced"])
+    print("Extraction fingerprint matched:", report["extraction_fingerprint_match"])
+    print("Calibration alignment verified: False")
+    print("Gameplay verified: False")
+    print("Game taps enabled: False")
 
 
 if __name__ == "__main__":
