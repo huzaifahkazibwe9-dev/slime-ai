@@ -26,7 +26,7 @@ class SlimeController:
         try:
             value = strict_json_loads(self.report_path.read_text(encoding="utf-8"))
             return value if isinstance(value, dict) else {}
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        except (OSError, UnicodeDecodeError, ValueError):
             return {}
 
     def status(self):

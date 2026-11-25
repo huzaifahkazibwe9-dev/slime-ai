@@ -168,6 +168,17 @@ class ControllerTests(unittest.TestCase):
             self.assertFalse(status["gameplay_ready"])
             self.assertFalse(status["tap_enabled"])
 
+    def test_status_fails_closed_on_duplicate_json_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "orchestration_latest.json").write_text(
+                '{"gameplay_ready":false,"gameplay_ready":true}'
+            )
+            status = SlimeController(data_dir=directory).status()
+            self.assertFalse(status["plan_available"])
+            self.assertFalse(status["gameplay_ready"])
+            self.assertFalse(status["tap_enabled"])
+
     def test_initial_status_is_plan_only_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
             controller = SlimeController(data_dir=directory)
