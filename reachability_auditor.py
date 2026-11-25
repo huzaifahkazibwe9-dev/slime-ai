@@ -335,6 +335,10 @@ def main():
         _require_grid(board_data)
 
     report = audit(board_data, calibration, observations)
+    report["board_source_kind"] = (
+        "screenshot_observation"
+        if "raw_rgb" in board_data else "baseline_board"
+    )
     report["source_file_sha256"] = {
         "board_json": hashlib.sha256(board_bytes).hexdigest(),
         "conveyor_calibration_json": hashlib.sha256(calibration_bytes).hexdigest(),
