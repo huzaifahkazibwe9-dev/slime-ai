@@ -25,6 +25,10 @@ from shooter_observation_evaluation import (
 )
 from prepare_colour_labels import build_template as build_colour_template
 from prepare_shooter_labels import build_template as build_shooter_template
+from capture_provenance import (
+    parse_aware_capture_timestamp,
+    validate_capture_session_id,
+)
 
 
 def _sha256(raw):
@@ -93,10 +97,20 @@ def verify_manifest(manifest):
         or any(type(value) is not int or value < 1 for value in screenshot_size)
     ):
         raise ValueError("Review manifest source_screenshot_size is invalid")
-    for field in ("capture_session_id", "captured_at"):
-        value = manifest.get(field)
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"Review manifest {field} is invalid")
+    session_id = manifest.get("capture_session_id")
+    try:
+        if validate_capture_session_id(session_id) != session_id:
+            raise ValueError("Capture session ID is not canonical")
+    except ValueError as exc:
+        raise ValueError("Review manifest capture_session_id is invalid") from exc
+    captured_at = manifest.get("captured_at")
+    try:
+        if parse_aware_capture_timestamp(captured_at) != captured_at:
+            raise ValueError("Capture timestamp is not canonical")
+    except ValueError as exc:
+        raise ValueError(
+            "Review manifest captured_at must be canonical ISO-8601 with a UTC offset"
+        ) from exc
 
     limitations = manifest.get("limitations")
     if (
