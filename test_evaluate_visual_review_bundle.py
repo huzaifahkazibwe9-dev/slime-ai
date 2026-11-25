@@ -184,6 +184,13 @@ class CombinedVisualReviewTests(unittest.TestCase):
         manifest["bundle_sha256"] = hashlib.sha256(encoded(manifest)).hexdigest()
         self.manifest_path.write_bytes(encoded(manifest))
 
+    def _reseal_manifest(self, mutate):
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        mutate(manifest)
+        manifest.pop("bundle_sha256", None)
+        manifest["bundle_sha256"] = hashlib.sha256(encoded(manifest)).hexdigest()
+        self.manifest_path.write_bytes(encoded(manifest))
+
     def _evaluate(self):
         return combined.evaluate_visual_review_bundle(
             self.manifest_path, self.board_labels_path, self.shooter_labels_path,
@@ -246,6 +253,47 @@ class CombinedVisualReviewTests(unittest.TestCase):
         with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
             with self.assertRaisesRegex(ValueError, "metadata changed outside human label fields"):
                 self._evaluate()
+
+    def test_rejects_unknown_top_level_manifest_field_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"untrusted_extension": "unexpected"})
+        )
+        with self.assertRaisesRegex(ValueError, "fields do not match schema-v1"):
+            self._evaluate()
+
+    def test_rejects_unknown_source_artifact_hash_field_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest["source_artifacts_sha256"].update(
+                {"untrusted_source": "a" * 64}
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "source_artifacts_sha256 fields"):
+            self._evaluate()
+
+    def test_rejects_unknown_review_template_record_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest["review_templates"].update(
+                {"untrusted_template": {}}
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "review_templates fields"):
+            self._evaluate()
+
+    def test_rejects_extra_template_entry_field_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest["review_templates"]["board_colour"].update(
+                {"untrusted_note": "unexpected"}
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "board_colour template fields"):
+            self._evaluate()
+
+    def test_rejects_invalid_manifest_limitations_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"limitations": ["", 12]})
+        )
+        with self.assertRaisesRegex(ValueError, "limitations must be a non-empty list"):
+            self._evaluate()
 
     def test_rejects_manifest_template_baseline_hash_mismatch(self):
         manifest = json.loads(self.manifest_path.read_text())
