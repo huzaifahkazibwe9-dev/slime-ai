@@ -114,6 +114,7 @@ def _simulate_conveyor_batch(original, state, groups):
             "ammo": shooter.ammo,
             "position": position,
             "selected": True,
+            "observation_quality": copy.deepcopy(shooter.observation_quality),
         })
 
     for group_id, positions in existing_group_positions.items():
@@ -167,6 +168,9 @@ def _simulate_conveyor_batch(original, state, groups):
                 "id": str(shooter_id),
                 "group_id": str(canonical_group_id),
                 "ammo": source_shooter.ammo,
+                "observation_quality": copy.deepcopy(
+                    source_shooter.observation_quality
+                ),
             })
 
     sim = create_simulator(
@@ -530,6 +534,7 @@ def _run_multi_batch_schedule_unchecked(state, batches, config=None, allow_stora
             "position": position,
             "selected": str(shooter_id) in conveyor_ids,
             "returned": str(shooter_id) in storage_ids,
+            "observation_quality": copy.deepcopy(shooter.observation_quality),
         })
 
     report = simulate_batch_schedule(
