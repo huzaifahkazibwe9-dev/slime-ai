@@ -1,5 +1,7 @@
+import hashlib
+import json
 import unittest
-from edge_confidence import analyze_board
+from edge_confidence import analyze_board, analyze_snapshot
 
 class EdgeConfidenceTests(unittest.TestCase):
     def setUp(self):
@@ -51,6 +53,15 @@ class EdgeConfidenceTests(unittest.TestCase):
         self.assertFalse(self.report["tile_removals_verified"])
         self.assertFalse(self.report["board_transition_verified"])
         self.assertFalse(self.report["game_taps_enabled"])
+
+    def test_snapshot_report_fingerprints_exact_board_bytes(self):
+        raw = json.dumps({"board": self.board, "grid_size": [4, 4]}).encode()
+        report = analyze_snapshot(raw, "board.json")
+        self.assertEqual(
+            report["source_file_sha256"]["vision_level39_json"],
+            hashlib.sha256(raw).hexdigest(),
+        )
+        self.assertEqual(report["source_grid_size"], [4, 4])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
