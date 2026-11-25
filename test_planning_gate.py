@@ -93,6 +93,13 @@ class PlanningGateTests(unittest.TestCase):
             self.assertEqual(value, {"value": 7})
             self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
 
+    def test_json_snapshot_rejects_unreadable_utf8_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
+                _read_json_snapshot(path)
+
     def test_json_snapshot_rejects_non_object_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "evidence.json"
