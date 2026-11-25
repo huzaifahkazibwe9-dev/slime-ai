@@ -132,7 +132,15 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
         _canonical_json_sha256,
         _read_planning_evidence_bundle,
     )
-    evidence_bundle = _read_planning_evidence_bundle(PROJECT_DIR / "data")
+    evidence_bundle = _read_planning_evidence_bundle(
+        PROJECT_DIR / "data",
+        pinned_shooter_data=(
+            pinned_capture["shooter_data"] if pinned_capture is not None else None
+        ),
+        pinned_shooter_sha256=(
+            pinned_capture["shooter_bytes_sha256"] if pinned_capture is not None else None
+        ),
+    )
     current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
     board_observation = (
         pinned_capture["board_data"] if pinned_capture is not None else None
@@ -193,6 +201,8 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
             if isinstance(board_observation, dict) else None
         ),
         current_calibration_sha256=current_calibration_sha256,
+        shooter_detection=evidence_bundle["shooter_detection"],
+        shooter_capture_config=evidence_bundle["shooter_capture_config"],
     )
 
     if errors:
