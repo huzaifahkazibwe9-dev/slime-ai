@@ -5,6 +5,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from snapshot_sync import (
+    main as run_snapshot_sync,
     read_input_snapshots, synchronise_audit, synchronise_bundle,
 )
 
@@ -53,6 +54,44 @@ class SnapshotSyncTests(unittest.TestCase):
                     observation_bytes
                 ).hexdigest(),
             })
+
+    def test_main_writes_blocked_report_for_unreadable_utf8_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            observations_path = root / "observations.json"
+            output_path = root / "snapshot_sync_report.json"
+            board_path.write_bytes(bytes((255, 254)))
+            observations_path.write_text(json.dumps({"observations": []}))
+
+            report = run_snapshot_sync(
+                board_path, observations_path, output_path
+            )
+
+            self.assertFalse(report["synchronised"])
+            self.assertFalse(report["planning_allowed_by_sync"])
+            self.assertIn("input_error", report)
+            self.assertFalse(report["game_taps_enabled"])
+            self.assertTrue(output_path.is_file())
+            self.assertEqual(json.loads(output_path.read_text()), report)
+
+    def test_main_writes_blocked_report_for_non_object_json_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            observations_path = root / "observations.json"
+            output_path = root / "snapshot_sync_report.json"
+            board_path.write_text("[]")
+            observations_path.write_text("{}")
+
+            report = run_snapshot_sync(
+                board_path, observations_path, output_path
+            )
+
+            self.assertFalse(report["synchronised"])
+            self.assertFalse(report["planning_allowed_by_sync"])
+            self.assertIn("JSON object", report["input_error"])
+            self.assertFalse(report["game_taps_enabled"])
 
     def test_input_snapshot_reader_rejects_non_object_payload(self):
         with tempfile.TemporaryDirectory() as directory:
