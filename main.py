@@ -96,18 +96,15 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
 
     section("PLANNER DIAGNOSTIC")
     resource_manager.set_mode("ANALYSE")
-    def read_evidence(filename):
-        path = PROJECT_DIR / "data" / filename
-        try:
-            value = json.loads(path.read_text())
-            return value if isinstance(value, dict) else None
-        except (OSError, json.JSONDecodeError):
-            return None
-
-    planning_report = read_evidence("planning_gate_latest.json")
-    identity_report = read_evidence("identity_audit_report.json")
-    candidate_report = read_evidence("conveyor_identity_candidates.json")
-    snapshot_report = read_evidence("snapshot_sync_report.json")
+    from orchestration import (
+        _canonical_json_sha256,
+        _read_planning_evidence_bundle,
+    )
+    evidence_bundle = _read_planning_evidence_bundle(PROJECT_DIR / "data")
+    planning_report = evidence_bundle["planning"]
+    identity_report = evidence_bundle["identity"]
+    candidate_report = evidence_bundle["candidates"]
+    snapshot_report = evidence_bundle["snapshot"]
 
     print("Planning report present:", planning_report is not None)
     print("Identity report present:", identity_report is not None)
@@ -127,6 +124,10 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
             identity_audit=identity_report,
             candidate_report=candidate_report,
             snapshot_report=snapshot_report,
+            current_source_file_sha256=evidence_bundle["file_sha256"],
+            current_calibration_sha256=_canonical_json_sha256(
+                evidence_bundle["vision_calibration"]
+            ),
         )
     else:
         move = None
