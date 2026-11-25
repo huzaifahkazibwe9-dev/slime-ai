@@ -37,6 +37,8 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "source_sha256": source_hash,
                 "capture_session_id": session,
                 "captured_at": captured_at,
+                "capture_config_sha256": "c" * 64,
+                "panel_bounds": [10, 20, 900, 600],
             },
             "bonding_source": "not_configured",
             "bonding_config_sha256": None,
@@ -54,6 +56,10 @@ class CapturePipelineConfigTests(unittest.TestCase):
         self.assertEqual(result["panel_bounds"], [10, 20, 900, 600])
         self.assertEqual(result["capture_session_id"], "session-abc")
         self.assertEqual(result["captured_at"], "2026-11-23T12:30:00+03:00")
+        self.assertEqual(
+            result["config_sha256"],
+            hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
 
     def test_rejects_missing_session_id(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -96,6 +102,11 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertIn(flag, ingestor_args)
             self.assertIn(flag, detector_args)
         self.assertIn("--extract-panel", detector_args)
+        self.assertIn(
+            hashlib.sha256(config.read_bytes()).hexdigest(),
+            detector_args,
+        )
+        self.assertIn("--capture-config-sha256", detector_args)
         self.assertEqual(
             detector_args[detector_args.index("--panel-bounds") + 1:
                           detector_args.index("--panel-bounds") + 5],
@@ -176,6 +187,28 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 validate_capture_outputs(
                     board, shooter, "a" * 64, "session-abc",
                     "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_capture_config_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            with self.assertRaisesRegex(ValueError, "config hash"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                    expected_config_sha256="d" * 64,
+                    expected_panel_bounds=[10, 20, 900, 600],
+                )
+
+    def test_rejects_panel_bounds_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            with self.assertRaisesRegex(ValueError, "panel bounds"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                    expected_config_sha256="c" * 64,
+                    expected_panel_bounds=[11, 20, 900, 600],
                 )
 
     def test_rejects_non_integer_crop_bounds(self):
