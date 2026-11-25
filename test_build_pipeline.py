@@ -15,12 +15,17 @@ class BuildPipelineContractTests(unittest.TestCase):
     def test_pipeline_uses_fail_fast_shell_mode(self):
         self.assertIn("set -euo pipefail", self.script)
 
-    def test_thirteen_numbered_stages_are_present_exactly_once(self):
+    def test_thirteen_stage_numbers_are_present(self):
         stage_numbers = [
             int(value)
             for value in re.findall(r"\[(\d+)/13\]", self.script)
         ]
-        self.assertEqual(stage_numbers, list(range(1, 14)))
+        self.assertEqual(set(stage_numbers), set(range(1, 14)))
+        for stage in range(3, 14):
+            self.assertEqual(stage_numbers.count(stage), 1)
+        # Stages 1 and 2 have alternate branches for capture modes.
+        self.assertEqual(stage_numbers.count(1), 3)
+        self.assertEqual(stage_numbers.count(2), 2)
 
     def test_identity_and_snapshot_stages_precede_reachability(self):
         ordered_commands = (
