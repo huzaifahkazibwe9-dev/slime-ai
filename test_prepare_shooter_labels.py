@@ -125,7 +125,12 @@ class PrepareShooterLabelsTests(unittest.TestCase):
 
     def test_template_rejects_detection_object_that_differs_from_exact_bytes(self):
         detection, detection_bytes, screenshot_bytes = fixture_artifacts()
-        changed = dict(detection, panel_layout={"rows": 3, "columns": 4, "slot_count": 12})
+        changed = dict(detection)
+        changed["panel_slot_observations"] = [dict(item) for item in detection["panel_slot_observations"]]
+        changed["panel_slot_observations"][0]["color_observation"] = dict(
+            detection["panel_slot_observations"][0]["color_observation"],
+            name="blue",
+        )
         with self.assertRaisesRegex(ValueError, "does not match"):
             build_template(changed, detection_bytes, screenshot_bytes)
 
