@@ -4,8 +4,7 @@ Python's standard JSON decoder silently accepts duplicate object names and keeps
 the last value. It also accepts NaN and Infinity by default, although those
 constants are outside the JSON specification. Very large valid exponents can
 overflow Python floats to infinity, while tiny nonzero values can underflow to
-zero. Evidence pipelines use this loader so
-accepted numbers remain finite and every object has one unambiguous interpretation.
+zero. Evidence pipelines use this loader so accepted numbers remain in the supported finite range and every object has one unambiguous interpretation.
 """
 import json
 import math
@@ -26,7 +25,7 @@ def _reject_nonstandard_constant(value):
 
 
 def _finite_float(value):
-    """Reject valid JSON exponents that overflow Python's float range."""
+    """Reject JSON float conversions that overflow or underflow."""
     number = float(value)
     if not math.isfinite(number):
         raise ValueError(
@@ -41,7 +40,7 @@ def _finite_float(value):
 
 
 def strict_json_loads(source):
-    """Decode UTF-8 JSON while rejecting duplicate keys and non-finite numbers."""
+    """Decode UTF-8 JSON while rejecting duplicate keys and lossy float ranges."""
     if isinstance(source, (bytes, bytearray)):
         source = bytes(source).decode("utf-8")
     elif not isinstance(source, str):
