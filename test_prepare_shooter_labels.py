@@ -67,7 +67,7 @@ def fixture_artifacts():
             "capture_config_sha256": "b" * 64,
             "capture_session_id": "session-abc",
             "captured_at": "2026-11-25T12:00:00+00:00",
-            "panel_bounds": [20, 30, 820, 620],
+            "panel_bounds": [20, 30, 820, 550],
         },
         "image_dimensions": [1536, 999],
         "panel_layout": {"rows": 3, "columns": 4, "slot_count": 12},
@@ -115,6 +115,20 @@ class PrepareShooterLabelsTests(unittest.TestCase):
         Image.new("RGB", (1080, 2220), (90, 80, 70)).save(other, format="PNG")
         with self.assertRaisesRegex(ValueError, "SHA-256 does not match"):
             build_template(detection, detection_bytes, other.getvalue())
+
+    def test_template_rejects_panel_bounds_outside_source_screenshot(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["capture_provenance"]["panel_bounds"] = [20, 30, 1200, 550]
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "outside the source screenshot"):
+            build_template(detection, raw, screenshot_bytes)
+
+    def test_template_rejects_panel_bounds_with_wrong_aspect_ratio(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["capture_provenance"]["panel_bounds"] = [20, 30, 820, 620]
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "aspect ratio"):
+            build_template(detection, raw, screenshot_bytes)
 
     def test_template_rejects_unverified_capture_provenance(self):
         detection, detection_bytes, screenshot_bytes = fixture_artifacts()
