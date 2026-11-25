@@ -247,6 +247,8 @@ def main(observation_path=None, shooter_path=None):
             snapshot_report=synchronized_snapshot,
             current_source_file_sha256=current_source_file_sha256,
             current_calibration_sha256=current_calibration_sha256,
+            current_identity_audit=identity_audit,
+            current_board_observation=board_observation if pinned_capture is not None else None,
         )
     manager.stop()
     result["planning_evidence_gate"] = gate
