@@ -256,7 +256,7 @@ class PlannerEvidenceTests(unittest.TestCase):
     def test_loaded_board_snapshot_missing_rejected(self):
         state = make_state()
         del state.snapshot_id
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_snapshot_id_mismatch_rejected(self):
         e = list(make_evidence())
@@ -299,7 +299,7 @@ class PlannerEvidenceTests(unittest.TestCase):
         state = make_state()
         state.shooters["A"].ammo = True
         self.assertTrue(state.validate())
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_unverified_ammunition_evidence_rejected(self):
         e = list(make_evidence())
