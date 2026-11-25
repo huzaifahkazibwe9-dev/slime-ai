@@ -50,11 +50,32 @@ def _valid_sha256(value):
 
 
 def _source_provenance_matches(
-    state, planning, candidates, snapshot,
+    state, identity, planning, candidates, snapshot,
     current_source_file_sha256, current_calibration_sha256,
+    current_identity_audit, current_board_observation,
 ):
     """Bind every planning report to the exact inputs pinned for this pass."""
     if not isinstance(current_source_file_sha256, dict):
+        return False
+    if (
+        not isinstance(identity, dict)
+        or not isinstance(current_identity_audit, dict)
+        or identity != current_identity_audit
+        or not isinstance(current_board_observation, dict)
+    ):
+        return False
+    current_board_snapshot_id = current_board_observation.get("snapshot_id")
+    current_board_source_sha256 = current_board_observation.get("source_sha256")
+    if (
+        not isinstance(current_board_source_sha256, str)
+        or not _valid_sha256(current_board_source_sha256)
+        or current_board_snapshot_id != "sha256:" + current_board_source_sha256
+        or getattr(state, "snapshot_id", None) != current_board_snapshot_id
+        or getattr(state, "capture_session_id", None)
+        != current_board_observation.get("capture_session_id")
+        or current_board_observation.get("calibration_sha256")
+        != getattr(state, "calibration_sha256", None)
+    ):
         return False
     required_inputs = (
         "vision_calibration_json",
@@ -355,6 +376,8 @@ def plan_next_move(
     snapshot_report=None,
     current_source_file_sha256=None,
     current_calibration_sha256=None,
+    current_identity_audit=None,
+    current_board_observation=None,
 ):
     """Return a group only when current source provenance also matches."""
     if state.validate():
@@ -363,11 +386,14 @@ def plan_next_move(
         return None
     if not _source_provenance_matches(
         state,
+        identity_audit,
         planning_report,
         candidate_report,
         snapshot_report,
         current_source_file_sha256,
         current_calibration_sha256,
+        current_identity_audit,
+        current_board_observation,
     ):
         return None
 
