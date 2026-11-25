@@ -167,6 +167,15 @@ not proof that the class must appear in the next capture. No sample quotas are
 imposed, and this section does not alter
 `coverage_adequacy_assessed = false`.
 
+## Paired review template preparation
+
+Use `prepare_shooter_review_pair.py` to create two separate blank templates
+and a matching multi-capture agreement manifest from one source-bound capture.
+Both templates start unlabelled and share the exact detector/screenshot source
+hashes. Existing files are preserved unless `--overwrite` is specified. See
+[`docs/BATCH_REVIEW_AGREEMENT.md`](BATCH_REVIEW_AGREEMENT.md) for the command
+and handoff workflow.
+
 ## Two-reviewer agreement audit
 
 For an additional consistency check, use
