@@ -1,4 +1,6 @@
 import copy
+import hashlib
+import json
 import unittest
 
 from shooter_review_agreement import (
@@ -123,6 +125,56 @@ class ShooterReviewAgreementTests(unittest.TestCase):
             report["per_slot_agreement"]["top_4"]["field_agreement"]["review_status"]["agreement_rate"],
             0.0,
         )
+
+    def test_fingerprints_exact_reviewer_dataset_file_bytes(self):
+        dataset_a, detection_bytes, screenshot_bytes = labelled_fixture()
+        dataset_b = copy.deepcopy(dataset_a)
+        raw_a = json.dumps(dataset_a, indent=2).encode("utf-8")
+        raw_b = json.dumps(dataset_b, separators=(",", ":")).encode("utf-8")
+        report = evaluate_review_agreement(
+            dataset_a,
+            dataset_b,
+            "reviewer-a",
+            "reviewer-b",
+            detection_bytes,
+            screenshot_bytes,
+            raw_a,
+            raw_b,
+        )
+        provenance = report["review_dataset_provenance"]
+        self.assertEqual(
+            provenance["reviewer_a_dataset_sha256"],
+            hashlib.sha256(raw_a).hexdigest(),
+        )
+        self.assertEqual(
+            provenance["reviewer_b_dataset_sha256"],
+            hashlib.sha256(raw_b).hexdigest(),
+        )
+        self.assertEqual(provenance["reviewer_a_hash_mode"], "raw_file_bytes")
+        self.assertEqual(provenance["reviewer_b_hash_mode"], "raw_file_bytes")
+        self.assertNotEqual(
+            provenance["reviewer_a_dataset_sha256"],
+            provenance["reviewer_b_dataset_sha256"],
+        )
+
+    def test_rejects_raw_dataset_bytes_that_do_not_match_parsed_content(self):
+        dataset_a, detection_bytes, screenshot_bytes = labelled_fixture()
+        dataset_b = copy.deepcopy(dataset_a)
+        raw_a = json.dumps(dataset_a).encode("utf-8")
+        changed = copy.deepcopy(dataset_b)
+        changed["samples"][0]["human"]["colour"] = "cyan"
+        raw_b = json.dumps(changed).encode("utf-8")
+        with self.assertRaisesRegex(ValueError, "do not match the parsed"):
+            evaluate_review_agreement(
+                dataset_a,
+                dataset_b,
+                "reviewer-a",
+                "reviewer-b",
+                detection_bytes,
+                screenshot_bytes,
+                raw_a,
+                raw_b,
+            )
 
     def test_rejects_same_reviewer_identifier_case_insensitively(self):
         dataset, detection_bytes, screenshot_bytes = labelled_fixture()
