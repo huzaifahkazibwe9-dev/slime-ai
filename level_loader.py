@@ -6,7 +6,8 @@ from shooter_loader import load_shooters
 from board_loader import load_board
 
 
-def load_level(level=39, observation_path=None, shooter_path=None):
+def load_level(level=39, observation_path=None, shooter_path=None,
+               observation_data=None, shooter_data=None):
     # Explicit screenshot mode consumes the latest ingested observation.
     # The legacy baseline loader remains the default for compatibility.
     if observation_path is not None:
@@ -16,6 +17,8 @@ def load_level(level=39, observation_path=None, shooter_path=None):
             observation_path=observation_path,
             shooter_path=shooter_path or Path("data/shooter_detection.json"),
             level=level,
+            observation_data=observation_data,
+            shooter_data=shooter_data,
         )
 
     vision_path = Path("data/vision_level39.json")
