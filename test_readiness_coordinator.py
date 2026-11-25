@@ -37,7 +37,9 @@ class ReadinessAssessTests(unittest.TestCase):
              "shooter_capture_provenance_verified": True},
             {"shooters": [{"id": "s1"}],
              "timing_calibrated_to_game": True, "verified_by_user": True},
-            {"identity_verified": True},
+            {"identity_verified": True, "verified_by_user": True,
+             "timestamps_known": True, "timestamp_identified": True,
+             "errors": [], "blockers": []},
             {"actual_firing_verified": True},
         )
 
@@ -294,6 +296,24 @@ class LearningSummaryTests(unittest.TestCase):
             connection.close()
             self.assertEqual(count, 3)
 
+
+    def test_physical_identity_requires_user_confirmation_and_timestamps(self):
+        state = FakeState()
+        for field, value in (
+            ("verified_by_user", False),
+            ("timestamps_known", False),
+            ("timestamp_identified", False),
+            ("errors", ["bad"]),
+            ("blockers", ["bad"]),
+        ):
+            identity = {
+                "identity_verified": True, "verified_by_user": True,
+                "timestamps_known": True, "timestamp_identified": True,
+                "errors": [], "blockers": [],
+            }
+            identity[field] = value
+            result = readiness.assess(state, {}, {}, identity, {})
+            self.assertFalse(result["checks"]["physical_shooter_identity_verified"])
 
 if __name__ == "__main__":
     unittest.main()
