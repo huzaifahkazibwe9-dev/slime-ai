@@ -37,7 +37,9 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "source_sha256": source_hash,
                 "capture_session_id": session,
                 "captured_at": captured_at,
-            }
+            },
+            "bonding_source": "not_configured",
+            "bonding_config_sha256": None,
         }))
         return board_path, shooter_path
 
@@ -145,6 +147,32 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 directory, "a" * 64, shooter_verified=False
             )
             with self.assertRaisesRegex(ValueError, "not verified"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_user_confirmed_bond_source_without_config_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            data["bonding_source"] = "user_confirmed"
+            data["bonding_config_sha256"] = None
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "exact SHA-256"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_malformed_bond_config_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            data["bonding_source"] = "not_user_confirmed"
+            data["bonding_config_sha256"] = "not-a-digest"
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "exact SHA-256"):
                 validate_capture_outputs(
                     board, shooter, "a" * 64, "session-abc",
                     "2026-11-23T12:30:00+03:00",
