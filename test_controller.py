@@ -419,6 +419,11 @@ if __name__ == "__main__":
 
 
 
+if __name__ == "__main__":
+    unittest.main()
+
+
+
     def test_status_hides_saved_plan_when_planning_evidence_file_changes(self):
         report = {
             "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
@@ -449,3 +454,5 @@ if __name__ == "__main__":
         self.assertTrue(status["capture_evidence_valid"])
         self.assertFalse(status["planning_evidence_matches_current_files"])
         self.assertFalse(status["plan_available"])
+
+
