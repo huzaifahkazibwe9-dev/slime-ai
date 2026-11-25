@@ -129,6 +129,18 @@ def read_optional_snapshot(name):
         return {}, None
 
 
+def user_confirmed_bond_source(detection):
+    """Require the exact, configured user-confirmed bond source."""
+    if not isinstance(detection, dict):
+        return False
+    digest = detection.get("bonding_config_sha256")
+    return (
+        detection.get("bonding_source") == "user_confirmed"
+        and isinstance(digest, str)
+        and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+    )
+
+
 def validate_identity_audit(identity, board, visual, expected_positions,
                              expected_source_file_sha256):
     """Require a current, user-confirmed identity map bound to exact inputs."""
@@ -610,8 +622,9 @@ def main():
         and all(isinstance(value, str) and value in shooters for value in candidate_pair)
         and len(set(candidate_pair)) == 2
     )
+    bond_source_user_confirmed = user_confirmed_bond_source(detection)
     bonded_pair_confirmed = False
-    if candidate_pair_valid:
+    if candidate_pair_valid and bond_source_user_confirmed:
         first, second = candidate_pair
         first_bonds = shooters[first].get("bonded_ids", [])
         second_bonds = shooters[second].get("bonded_ids", [])
@@ -632,6 +645,7 @@ def main():
         "two_candidate_tracks_supported": all(
             track["candidate_supported"] for track in report["tracks"].values()
         ),
+        "bond_source_user_confirmed": bond_source_user_confirmed,
         "candidate_pair_is_user_confirmed_bond": bonded_pair_confirmed,
         "timestamps_known": (
             visual.get("timestamp_identified") is True
