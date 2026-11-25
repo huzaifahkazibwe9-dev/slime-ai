@@ -183,8 +183,6 @@ def main():
         board_bytes = Path(args.board).read_bytes()
         source = json.loads(board_bytes)
         board_digest = hashlib.sha256(board_bytes).hexdigest()
-        validate_board_observation_source(report, board_digest)
-        source_hashes["board_observation_json"] = board_digest
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
         source_snapshot_id = source.get("snapshot_id")
@@ -199,6 +197,8 @@ def main():
             raise ValueError(
                 "Confidence screenshot snapshot does not match reachability audit"
             )
+        validate_board_observation_source(report, board_digest)
+        source_hashes["board_observation_json"] = board_digest
         confidence_matrix = observation_confidence(source["board"])
         confidence_snapshot_id = source_snapshot_id
         confidence_snapshot_match_verified = True
