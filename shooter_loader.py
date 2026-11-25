@@ -52,6 +52,10 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
     normalized_quality["evidence_source"] = (
         "detector_declared" if raw_quality else "legacy_or_unspecified"
     )
+    # Current detector output declares its OCR method and therefore must also
+    # provide a successful exact-digit status for every visible shooter.
+    # Legacy records remain loadable but explicitly unverified.
+    structured_ammo_status_required = bool(raw_quality)
 
     eligible = []
     low_confidence_ids = set()
@@ -60,6 +64,16 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             raise ValueError(f"Shooter entry {index} must be an object")
         if not isinstance(item.get("id"), str) or not item["id"]:
             raise ValueError(f"Shooter entry {index} has an invalid id")
+        if structured_ammo_status_required:
+            ammo_status = item.get("ammo_observation_status")
+            if ammo_status != "PARSED_EXACT_DIGITS":
+                raise ValueError(
+                    f"Shooter entry {index} ammunition OCR is not a successful exact-digit parse"
+                )
+            if type(item.get("ammo")) is not int or item["ammo"] < 0:
+                raise ValueError(
+                    f"Shooter entry {index} has an OCR success status without a valid ammunition count"
+                )
         quality = item.get("sample_quality")
         if quality is not None:
             if not isinstance(quality, dict):
