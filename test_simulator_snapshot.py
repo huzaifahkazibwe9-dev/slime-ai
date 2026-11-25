@@ -47,6 +47,23 @@ class SimulatorSnapshotTests(unittest.TestCase):
             quality,
         )
 
+    def test_simulator_report_exposes_visual_evidence_as_unverified(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        report = sim.report()
+        expected = {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+        }
+        self.assertEqual(report["shooter_observation_quality"], [
+            {"id": "a", **expected}
+        ])
+        sim.select_group("a")
+        self.assertEqual(
+            sim.report()["active_shooters"][0]["observation_quality"],
+            expected,
+        )
+
     def test_simulator_rejects_unsubstantiated_visual_verification(self):
         for flag in (
             "colour_independently_verified",
