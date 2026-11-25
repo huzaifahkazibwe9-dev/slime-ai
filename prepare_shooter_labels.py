@@ -111,6 +111,15 @@ def _validate_detector_layout(detection, panel_size):
         if (type(row) is not int or type(column) is not int
                 or not 1 <= row <= rows or not 1 <= column <= columns):
             raise ValueError(f"panel_slots[{index}] has invalid one-based row/column")
+        expected_slot_status = {
+            1: "readable",
+            2: "unrevealed",
+            3: "partially_occluded",
+        }.get(row)
+        if expected_slot_status is None or slot.get("status") != expected_slot_status:
+            raise ValueError(f"Panel slot {slot_id} has a status inconsistent with its calibrated row")
+        if slot.get("selectable_candidate") is not False:
+            raise ValueError(f"Panel slot {slot_id} cannot be marked selectable by this detector")
         position = (row, column)
         if slot_id in slot_by_id:
             raise ValueError(f"Duplicate panel slot id: {slot_id}")
@@ -148,6 +157,10 @@ def _validate_detector_layout(detection, panel_size):
             raise ValueError(f"Observation {slot_id} row/column does not match panel_slots")
         observed_positions.add((row, column))
 
+        if observation.get("selectable_candidate") is not False:
+            raise ValueError(f"Observation {slot_id} cannot be marked selectable")
+        if observation.get("verified") is not False:
+            raise ValueError(f"Observation {slot_id} cannot be marked verified")
         status = observation.get("status")
         if status not in DETECTOR_STATUS_TO_VISIBILITY:
             raise ValueError(f"Observation {slot_id} has an unsupported detector status")
