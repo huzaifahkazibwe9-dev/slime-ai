@@ -32,6 +32,28 @@ class SnapshotSyncTests(unittest.TestCase):
                 ).hexdigest(),
             })
 
+    def test_input_snapshot_hashes_screenshot_observation_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board_observation_latest.json"
+            observations_path = Path(directory) / "conveyor_visual_observations.json"
+            board_bytes = b'{"raw_rgb": [[[1, 2, 3]]], "snapshot_id": "sha256:' + b"1" * 64 + b'"}'
+            observation_bytes = b'{"observations": []}'
+            board_path.write_bytes(board_bytes)
+            observations_path.write_bytes(observation_bytes)
+
+            board, observations, hashes = read_input_snapshots(
+                board_path, observations_path
+            )
+
+            self.assertIn("raw_rgb", board)
+            self.assertEqual(observations["observations"], [])
+            self.assertEqual(hashes, {
+                "board_observation_json": hashlib.sha256(board_bytes).hexdigest(),
+                "conveyor_observations_json": hashlib.sha256(
+                    observation_bytes
+                ).hexdigest(),
+            })
+
     def test_input_snapshot_reader_rejects_non_object_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             board_path = Path(directory) / "board.json"
