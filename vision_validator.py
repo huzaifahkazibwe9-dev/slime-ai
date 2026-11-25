@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 import colorsys
 from collections import Counter
 from pathlib import Path
@@ -143,7 +144,7 @@ def main():
     if not VISION_FILE.exists():
         raise FileNotFoundError(VISION_FILE)
 
-    data = json.loads(VISION_FILE.read_text())
+    data = strict_json_loads(VISION_FILE.read_text())
     report = audit_data(data)
     REPORT_FILE.write_text(json.dumps(report, indent=2))
 
