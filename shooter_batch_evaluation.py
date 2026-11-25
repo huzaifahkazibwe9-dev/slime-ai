@@ -196,6 +196,11 @@ def evaluate_manifest(manifest, base_dir="."):
             "source_detection_hashes": sorted(detection_hashes),
             "source_screenshot_hashes": sorted(screenshot_hashes),
         },
+        "ammunition_ocr_status_counts": dict(Counter(
+            item.get("detected_ammunition_status", "NOT_REPORTED")
+            for item in sample_results
+            if item.get("reviewed_visibility") == "visible"
+        )),
         "coverage_adequacy_assessed": False,
         "label_source": "user_supplied",
         "label_truth_independently_verified": False,
