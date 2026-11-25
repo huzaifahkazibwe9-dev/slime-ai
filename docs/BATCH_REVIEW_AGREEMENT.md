@@ -4,6 +4,28 @@ This workflow aggregates two-reviewer consistency across a set of distinct,
 source-bound shooter screenshots. Each manifest capture contains two completed
 human-review datasets, the exact detector JSON, and the original screenshot.
 
+## Generate a paired blank-review pack
+
+To avoid accidental copying of labels between reviewers, generate the two
+separate blank templates from one verified detector JSON and screenshot:
+
+```text
+python prepare_shooter_review_pair.py detection.json original_screenshot.png \
+  --output-dir data/review-pair \
+  --reviewer-a-id reviewer-a \
+  --reviewer-b-id reviewer-b
+```
+
+The command writes `reviewer-a.json`, `reviewer-b.json`, and
+`review_manifest.json`. Both templates start with blank human labels and
+`labelled_by_user = false`; the source hashes and detector snapshot match.
+Existing files are not overwritten unless `--overwrite` is explicitly
+provided. Reviewer IDs are filename-safe labels, not authenticated identities.
+
+Give each blank dataset to its respective reviewer. Each reviewer must complete
+their file independently against the original screenshot before running the
+agreement audit.
+
 ## Manifest
 
 Create a UTF-8 JSON manifest:
