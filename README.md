@@ -134,57 +134,45 @@ actions.
 
 ## Manual workflow
 
-For a same-capture board/shooter run, create the local, ignored file
-`data/shooter_capture_config.json` with the actual shooter-panel bounds in
-full-screenshot coordinates, a session label, and the screenshot capture time:
+The one-command build pipeline runs these stages automatically and preserves
+the same screenshot/shooter capture bundle throughout. When diagnosing a
+single stage manually, use this order:
 
-```json
-{
-  "panel_bounds": [100, 100, 990, 680],
-  "capture_session_id": "level39-session-01",
-  "captured_at": "2026-11-23T12:30:00+03:00"
-}
-```
-
-The numeric bounds above are illustrative only; replace them with the actual crop coordinates. The timestamp
-must be the real capture time and include its UTC offset. The session label
-must identify that capture; do not reuse it for a different screenshot.
-When this file exists, the build pipeline ingests the board and generates the
-shooter panel from the same source screenshot. Without it, legacy detection is
-kept diagnostic-only and the evidence gate blocks planning.
-
-1. Ingest a complete game screenshot:
+1. Ingest the current game screenshot:
    `python screenshot_ingestor.py screenshots/level39.jpg`
-2. If the panel crop is available, refresh shooter detection:
-   `python shooter_detector.py`
-   This legacy invocation deliberately leaves shooter capture provenance
-   unverified. To bind the panel crop to the same full screenshot used in
-   step 1, supply the full screenshot, the exact crop bounds in that image,
-   and the same explicit session ID and offset-aware capture timestamp to
-   both ingestion and shooter detection. Example:
-   `python screenshot_ingestor.py screenshots/level39.jpg --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
-   `python shooter_detector.py --source-screenshot screenshots/level39.jpg --panel-bounds LEFT TOP RIGHT BOTTOM --extract-panel --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
-   Replace the four bounds with the actual full-screenshot crop coordinates.
-   `--extract-panel` creates the calibrated panel image from that screenshot,
-   then verifies its source region. The loader and readiness coordinator block
-   planning if the provenance does not match.
-3. Integrate the observation with shooter data:
-   `python level_loader.py --observation data/board_observation_latest.json`
-4. Build provisional colour regions:
-   `python observation_region_audit.py`
-5. If local conveyor calibration and visual-observation files exist, trace lanes:
+2. Capture the shooter panel from that same screenshot using the calibrated
+   full-image crop and the same capture session/timestamp. Legacy detector
+   invocation without source-screenshot provenance remains diagnostic-only.
+3. Integrate the explicit observation and matching shooter data:
+   `python level_loader.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+4. Build provisional board colour regions:
+   `python observation_region_audit.py --input data/board_observation_latest.json`
+5. Synchronise conveyor observations to the current board capture:
+   `python snapshot_sync.py --board data/board_observation_latest.json`
+6. Build the human-confirmed identity audit and candidate report:
+   `python identity_auditor.py --board data/board_observation_latest.json`
+   `python conveyor_identity_matcher.py`
+   The local `data/shooter_identity_observations.json` file must contain
+   independently user-confirmed records. Without it, identity and candidate
+   reports remain blocked; the program does not infer or fabricate labels.
+7. Trace reachability against the latest screenshot:
    `python reachability_auditor.py --board data/board_observation_latest.json`
-6. Apply confidence labels and the planning gate:
+8. Apply screenshot-derived confidence and planning gates:
    `python reachability_confidence.py --board data/board_observation_latest.json`
    `python planning_gate.py`
-7. Map lanes to regions:
+9. Map calibrated lanes to provisional colour regions:
    `python region_lane_mapper.py --board data/board_observation_latest.json`
-8. Run evidence-gated dry-run orchestration:
-   `python orchestration.py --observation data/board_observation_latest.json`
-9. Run central diagnostics:
-   `python main.py --observation data/board_observation_latest.json`
-10. Run all unit tests:
+10. Run evidence-gated dry-run orchestration:
+    `python orchestration.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+11. Run central diagnostics:
+    `python main.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+12. Assess readiness from the same evidence bundle:
+    `python readiness_coordinator.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+13. Run the complete unit-test suite:
     `python -m unittest discover -v`
+
+No stage taps the game or changes gold, inventory, or power-up state. A
+candidate recommendation remains a simulation-only result.
 
 ## Human-confirmed shooter identity
 
