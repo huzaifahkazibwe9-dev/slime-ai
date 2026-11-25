@@ -32,8 +32,12 @@ python shooter_review_agreement.py reviewer_a_labels.json reviewer_b_labels.json
 ```
 
 Both datasets are validated and independently source-checked against the
-provided detector JSON and screenshot bytes. A changed detector observation,
-mismatched screenshot, or different capture session is rejected.
+provided detector JSON and screenshot bytes. The report stores SHA-256
+fingerprints for both reviewer datasets. The CLI fingerprints the exact input
+file bytes; direct API calls without raw-byte arguments use a deterministic
+canonical-JSON content fingerprint. A changed detector observation,
+mismatched screenshot, different capture session, or mismatch between supplied
+parsed data and raw dataset bytes is rejected.
 
 ## Agreement fields and denominators
 
