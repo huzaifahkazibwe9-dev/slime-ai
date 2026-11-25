@@ -72,6 +72,10 @@ These checks establish internal consistency of stored samples against source byt
 - #52, #53 and #54 are sibling PRs. All three carry the same source-image verification implementation and shared test additions; #53 adds the test-matrix document, while #54 adds two compatibility tests. Consolidate the implementation once, then retain the unique documentation and compatibility tests in a single follow-up branch.
 - #1–#8 and #10 may contain changes already incorporated into later integrated PRs. Audit commit ancestry and file-level diffs before closing or merging; PR titles alone are not sufficient evidence of duplication.
 
+## Geometry foundation carried into the simulator branch
+
+The non-overlapping geometry foundation from #19 has been copied into #31: strict finite numeric validation for screen centres, image dimensions, board bounds and grid sizes; segment-side and span checks; and contextual error reporting for invalid calibration entries. Geometry adapter and coordinate-separation regression coverage was added to the existing simulator test module. This is a branch-level integration only; the exact combined candidate must pass CI before the geometry foundation is considered validated with the simulator.
+
 ## Bonded-state invariants carried into the simulator branch
 
 PR #21's stronger bonded-state checks have now been reconciled into the cumulative simulator branch (#31). The state model validates bond-list shape and member IDs, rejects invalid group IDs, requires reciprocal bond edges for selection, rejects inconsistent group IDs, and audits connected components independently so oversized groups are reported rather than silently treated as singles. Regression tests cover malformed metadata, asymmetric links, conflicting/non-string group IDs, and components larger than three. This is still a candidate-branch integration; combined CI is required before considering the reconciliation validated.
