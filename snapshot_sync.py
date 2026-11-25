@@ -391,7 +391,8 @@ def main(board_path=None, observations_path=OBS_FILE, output_path=OUTPUT):
     print("Synchronised:", report["synchronised"])
     print("Planning allowed by sync:", report["planning_allowed_by_sync"])
     print("Game taps enabled:", report["game_taps_enabled"])
-    print("Board source mode:", report["board_source_kind"])\n    print("Report:", output_path)
+    print("Board source mode:", report["board_source_kind"])
+    print("Report:", output_path)
 
 
 if __name__ == "__main__":
