@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -10,13 +11,11 @@ EXPECTED_ORDER = ["bottom", "right", "top", "left"]
 
 TRACKS = {
     "white": {
-        "shooter": "top_1",
         "keys": [
             "bottom_1", "right_2", "top_2", "left_1"
         ],
     },
     "blue_cyan": {
-        "shooter": "top_2",
         "keys": [
             "bottom_2", "right_1", "top_1", "left_2"
         ],
@@ -24,20 +23,34 @@ TRACKS = {
 }
 
 
-def load_json(path):
-    if not path.exists():
-        raise FileNotFoundError(f"Required file missing: {path}")
-    return json.loads(path.read_text())
+def read_json_snapshot(path):
+    raw = Path(path).read_bytes()
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Evidence file is not valid UTF-8 JSON: {path}") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"Evidence file must contain a JSON object: {path}")
+    return value, hashlib.sha256(raw).hexdigest()
 
 
-def main():
-    timeline = load_json(TIMELINE_FILE)
-    original_data = load_json(OBSERVATIONS_FILE)
+def build_consistency_report(timeline, original_data, source_file_sha256=None):
+    if not isinstance(timeline, dict) or not isinstance(original_data, dict):
+        raise ValueError("Timeline and observation inputs must be JSON objects")
+    observation_list = original_data.get("observations")
+    if not isinstance(observation_list, list):
+        raise ValueError("Original conveyor observations must be a list")
+    original = {}
+    for index, item in enumerate(observation_list):
+        if not isinstance(item, dict):
+            raise ValueError(f"Original observation {index} must be an object")
+        position_id = item.get("position_id")
+        if not isinstance(position_id, str) or not position_id:
+            raise ValueError(f"Original observation {index} has an invalid position ID")
+        if position_id in original:
+            raise ValueError(f"Duplicate original conveyor position: {position_id}")
+        original[position_id] = item
 
-    original = {
-        item["position_id"]: item
-        for item in original_data["observations"]
-    }
 
     errors = []
     warnings = []
@@ -163,7 +176,8 @@ def main():
             depletion = "zero_ammunition_not_observed"
 
         results[track_name] = {
-            "candidate_shooter": config["shooter"],
+            "candidate_shooter": None,
+            "identity_status": "UNRESOLVED_POSITION_SERIES_ONLY",
             "positions": positions,
             "ammunition": ammo_values,
             "ammunition_changes": deltas,
@@ -194,6 +208,7 @@ def main():
         "identity_verified": False,
         "gameplay_taps_enabled": False,
         "candidate_tracks": results,
+        "source_file_sha256": source_file_sha256 or {},
         "checks": {
             "timeline_has_four_stages": len(snapshots) == 4,
             "stage_order_valid": (
@@ -215,20 +230,61 @@ def main():
         ),
         "limitations": [
             "Screenshot timestamps are unknown.",
-            "Shooter identity has not been independently verified.",
+            "This report contains position-based ammunition trends only; no physical shooter identity is assigned.",
             "Ammunition consistency alone cannot prove physical identity.",
             "No live gameplay or firing behaviour was tested.",
         ],
     }
 
-    OUTPUT_FILE.write_text(json.dumps(report, indent=2))
+    return report
+
+
+def main(timeline_path=TIMELINE_FILE, observations_path=OBSERVATIONS_FILE,
+         output_path=OUTPUT_FILE):
+    try:
+        timeline, timeline_digest = read_json_snapshot(timeline_path)
+        original_data, observations_digest = read_json_snapshot(observations_path)
+        report = build_consistency_report(
+            timeline,
+            original_data,
+            {
+                "conveyor_timeline_json": timeline_digest,
+                "conveyor_visual_observations_json": observations_digest,
+            },
+        )
+    except (OSError, ValueError) as exc:
+        report = {
+            "report_type": "conveyor_consistency_audit",
+            "sequence": EXPECTED_ORDER,
+            "sequence_confirmed_by_user": False,
+            "timestamps_known": False,
+            "identity_verified": False,
+            "gameplay_taps_enabled": False,
+            "game_taps_enabled": False,
+            "candidate_tracks": {},
+            "source_file_sha256": {},
+            "checks": {},
+            "errors": [f"{type(exc).__name__}: {exc}"],
+            "warnings": [],
+            "overall_status": "EVIDENCE_UNAVAILABLE",
+            "limitations": [
+                "No physical shooter identity is assigned.",
+                "No live gameplay or firing behaviour was tested.",
+            ],
+        }
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_path.with_suffix(output_path.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    temporary.replace(output_path)
 
     print("=" * 52)
     print("SLIME AI — CONVEYOR CONSISTENCY AUDITOR")
     print("=" * 52)
 
     for name, result in results.items():
-        print(f"\n{name.upper()} — {result['candidate_shooter']}")
+        print(f"\n{name.upper()} — POSITION SERIES ONLY")
         print("Positions:", result["positions"])
         print("Ammunition:", result["ammunition"])
         print("Non-increasing:", result["non_increasing"])
@@ -255,8 +311,17 @@ def main():
     print("\nOverall:", report["overall_status"])
     print("Identity verified: False")
     print("Gameplay taps enabled: False")
-    print("Report:", OUTPUT_FILE)
+    print("Report:", output_path)
+    return report
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Audit position-based ammunition consistency without identity inference"
+    )
+    parser.add_argument("--timeline", default=str(TIMELINE_FILE))
+    parser.add_argument("--observations", default=str(OBSERVATIONS_FILE))
+    parser.add_argument("--output", default=str(OUTPUT_FILE))
+    args = parser.parse_args()
+    main(Path(args.timeline), Path(args.observations), Path(args.output))
