@@ -13,7 +13,7 @@ python evaluate_visual_review_bundle.py \
   --source-screenshot path/to/the/original-screenshot.png
 ```
 
-The evaluator verifies manifest integrity, exact source-artifact hashes, capture session and timestamp, screenshot dimensions, and the board's source-pixel audit. It reconstructs both original blank templates and checks that the completed files differ only in their intended human annotation fields. Board RGB values and cell coordinates must still match the original board observation; shooter detector records must still match the exact detector JSON.
+The evaluator verifies the exact schema-v1 manifest field sets (including nested source-hash and template records), its self-digest, exact source-artifact hashes, capture session and timestamp, screenshot dimensions, and the board's source-pixel audit. Unknown manifest fields are rejected even when the manifest checksum is recomputed. It reconstructs both original blank templates and checks that the completed files differ only in their intended human annotation fields. Board RGB values and cell coordinates must still match the original board observation; shooter detector records must still match the exact detector JSON.
 
 The evaluator then runs the board-colour and shooter-observation metrics and emits one combined report. It does not combine the two metrics into one accuracy number because they measure different tasks.
 
