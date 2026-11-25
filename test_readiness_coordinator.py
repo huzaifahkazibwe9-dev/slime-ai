@@ -315,7 +315,7 @@ class LearningSummaryTests(unittest.TestCase):
     def test_read_json_rejects_unreadable_utf8_payloads(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "invalid.json").write_bytes(b"\\xff\\xfe")
+            (root / "invalid.json").write_bytes(bytes((255, 254)))
             with patch.object(readiness, "DATA", root):
                 self.assertEqual(readiness.read_json("invalid.json", {}), {})
 
