@@ -406,6 +406,33 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
         self.assertEqual(result["status"], "TESSERACT_NONZERO_EXIT")
         self.assertEqual(result["return_code"], 2)
 
+    def test_ammunition_ocr_status_handles_missing_process_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            for malformed in (None, object(), SimpleNamespace(stdout="40")):
+                with self.subTest(malformed=type(malformed).__name__), \
+                     patch("shooter_detector.subprocess.run", return_value=malformed):
+                    result = read_ammunition_with_status(
+                        image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                    )
+                    self.assertEqual(result, {
+                        "value": None, "status": "INVALID_PROCESS_RESULT"
+                    })
+
+    def test_ammunition_ocr_status_rejects_non_string_stdout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(stdout=40, returncode=0),
+            ):
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result, {
+            "value": None, "status": "INVALID_TESSERACT_OUTPUT"
+        })
+
     def test_detector_records_ocr_status_for_every_panel_slot(self):
         from shooter_detector import SHOOTERS, main
         image = Image.new("RGB", (REF_W, REF_H), (120, 120, 120))
