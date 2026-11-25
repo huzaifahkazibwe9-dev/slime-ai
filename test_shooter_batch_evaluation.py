@@ -149,6 +149,28 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
             ],
         )
         self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertEqual(report["review_follow_up"]["panel_review_targets"], [])
+        self.assertEqual(
+            report["review_follow_up"][
+                "visibility_classes_with_zero_confirmed_support"
+            ],
+            ["empty"],
+        )
+        self.assertEqual(
+            report["review_follow_up"][
+                "visible_colour_classes_with_zero_confirmed_support"
+            ],
+            [
+                label for label in (
+                    "black", "white", "gray", "brown", "orange", "yellow",
+                    "green", "blue", "purple", "magenta",
+                )
+            ],
+        )
+        self.assertEqual(
+            report["captures"][0]["review_follow_up"]["panel_review_targets"],
+            [],
+        )
         self.assertEqual(
             report["captures"][0]["coverage_profile"][
                 "panel_positions_with_confirmed_labels"
@@ -201,6 +223,20 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
         )
         self.assertFalse(coverage["coverage_adequacy_assessed"])
         self.assertFalse(report["coverage_adequacy_assessed"])
+        targets = report["review_follow_up"]["panel_review_targets"]
+        self.assertEqual(targets[0], {
+            "position": "r1c1",
+            "status": "ambiguous_only",
+            "confirmed_count": 0,
+            "ambiguous_count": 1,
+        })
+        self.assertEqual(
+            report["review_follow_up"][
+                "visibility_classes_with_zero_confirmed_support"
+            ],
+            ["empty"],
+        )
+        self.assertFalse(report["review_follow_up"]["coverage_adequacy_assessed"])
 
     def test_rejects_duplicate_screenshot_evidence(self):
         with tempfile.TemporaryDirectory() as directory:

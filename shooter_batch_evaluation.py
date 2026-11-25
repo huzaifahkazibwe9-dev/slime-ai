@@ -163,6 +163,53 @@ def _aggregate_coverage_profiles(profiles):
     )
     return combined
 
+def _review_follow_up(coverage_profile):
+    """Identify observed review gaps without judging dataset adequacy."""
+    panel_targets = []
+    for position, counts in coverage_profile[
+        "detector_panel_position_review_counts"
+    ].items():
+        confirmed = counts["confirmed"]
+        ambiguous = counts["ambiguous"]
+        if confirmed == 0 and ambiguous == 0:
+            status = "not_reviewed"
+        elif confirmed == 0:
+            status = "ambiguous_only"
+        elif ambiguous:
+            status = "contains_ambiguous_samples"
+        else:
+            continue
+        panel_targets.append({
+            "position": position,
+            "status": status,
+            "confirmed_count": confirmed,
+            "ambiguous_count": ambiguous,
+        })
+
+    return {
+        "panel_review_targets": panel_targets,
+        "visibility_classes_with_zero_confirmed_support": [
+            label
+            for label, count in coverage_profile[
+                "human_visibility_class_support"
+            ].items()
+            if count == 0
+        ],
+        "visible_colour_classes_with_zero_confirmed_support": [
+            label
+            for label, count in coverage_profile[
+                "human_visible_colour_support"
+            ].items()
+            if count == 0
+        ],
+        "coverage_adequacy_assessed": False,
+        "interpretation": (
+            "These are observed gaps in the supplied review set, not required "
+            "quotas or a judgement that the dataset is inadequate."
+        ),
+    }
+
+
 def evaluate_manifest(manifest, base_dir="."):
     if not isinstance(manifest, dict):
         raise ValueError("Manifest must be a JSON object")
@@ -273,6 +320,7 @@ def evaluate_manifest(manifest, base_dir="."):
             "ambiguous_sample_count": report["ambiguous_sample_count"],
             "metrics": metrics,
             "coverage_profile": coverage_profile,
+            "review_follow_up": _review_follow_up(coverage_profile),
             "source_artifacts_verified": True,
         })
 
@@ -286,6 +334,7 @@ def evaluate_manifest(manifest, base_dir="."):
         abs(item["actual"] - item["predicted"])
         for item in detected_ammunition
     ]
+    aggregate_coverage_profile = _aggregate_coverage_profiles(coverage_profiles)
     return {
         "schema_version": 1,
         "evaluator": "shooter_batch_evaluation",
@@ -315,7 +364,8 @@ def evaluate_manifest(manifest, base_dir="."):
             },
         },
         "captures": capture_summaries,
-        "coverage_profile": _aggregate_coverage_profiles(coverage_profiles),
+        "coverage_profile": aggregate_coverage_profile,
+        "review_follow_up": _review_follow_up(aggregate_coverage_profile),
         "sample_results": sample_results,
         "source_provenance": {
             "all_source_artifacts_verified": True,
@@ -387,6 +437,16 @@ def main():
     ))
     print("Distinct legible ammunition values:", len(
         coverage["human_legible_ammunition_value_support"]
+    ))
+    follow_up = report["review_follow_up"]
+    print("Panel positions with review follow-up:", len(
+        follow_up["panel_review_targets"]
+    ))
+    print("Visibility classes with zero support:", len(
+        follow_up["visibility_classes_with_zero_confirmed_support"]
+    ))
+    print("Visible colour classes with zero support:", len(
+        follow_up["visible_colour_classes_with_zero_confirmed_support"]
     ))
     print("Coverage adequacy assessed: False")
     print("Independent label verification: False")
