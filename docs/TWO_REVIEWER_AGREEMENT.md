@@ -59,6 +59,19 @@ with no eligible comparisons reports null agreement. Cohen's kappa is null
 when its expected-agreement denominator is zero; `cohen_kappa_status`
 explains why.
 
+## Multi-capture aggregation
+
+For distinct source-bound screenshots, use
+`shooter_batch_review_agreement.py` with a manifest containing paired
+reviewer datasets plus each capture's detector JSON and original screenshot.
+It verifies every pair, rejects repeated session IDs and duplicate screenshot
+bytes, and aggregates exact agreement counts and eligible support across
+captures. Per-capture reports retain Cohen's kappa; the aggregate does not
+average kappa values because that is not equivalent to a pooled contingency
+table calculation. See
+[`docs/BATCH_REVIEW_AGREEMENT.md`](BATCH_REVIEW_AGREEMENT.md) for the manifest
+schema and command.
+
 ## Interpretation and limitations
 
 Agreement is not accuracy. Two reviewers can agree and both be wrong. Reviewer

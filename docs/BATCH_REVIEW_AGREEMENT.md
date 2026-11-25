@@ -1,0 +1,63 @@
+# Multi-capture two-reviewer agreement audit
+
+This workflow aggregates two-reviewer consistency across a set of distinct,
+source-bound shooter screenshots. Each manifest capture contains two completed
+human-review datasets, the exact detector JSON, and the original screenshot.
+
+## Manifest
+
+Create a UTF-8 JSON manifest:
+
+```json
+{
+  "schema_version": 1,
+  "captures": [
+    {
+      "reviewer_a_dataset": "capture-01-reviewer-a.json",
+      "reviewer_b_dataset": "capture-01-reviewer-b.json",
+      "detection": "capture-01-detection.json",
+      "screenshot": "capture-01.png"
+    },
+    {
+      "reviewer_a_dataset": "capture-02-reviewer-a.json",
+      "reviewer_b_dataset": "capture-02-reviewer-b.json",
+      "detection": "capture-02-detection.json",
+      "screenshot": "capture-02.png"
+    }
+  ]
+}
+```
+
+Paths are resolved relative to the manifest directory unless absolute. Every
+dataset must be completed and independently source-bound to its matching
+detector JSON and screenshot. The tool rejects duplicate capture sessions and
+repeated screenshot bytes.
+
+## Run
+
+```text
+python shooter_batch_review_agreement.py review_manifest.json \
+  --reviewer-a-id reviewer-a \
+  --reviewer-b-id reviewer-b \
+  --output data/shooter_batch_review_agreement.json
+```
+
+## Report
+
+The report includes pooled exact-agreement counts and rates for review status,
+visibility, panel position, colour, ammunition readability, and exact
+ammunition values. It includes per-slot pooled agreement, per-capture reports,
+and sample-level disagreements. Each field retains its own eligible support
+denominator.
+
+Cohen's kappa remains available in each per-capture report. The top-level
+aggregate does not average kappa values: a weighted average of per-capture
+kappa is not equivalent to computing kappa from pooled reviewer contingency
+counts. The aggregate explicitly sets kappa to null with
+`cohen_kappa_status = not_pooled_across_captures`.
+
+Reviewer identifiers are caller-supplied and not authenticated. Agreement is
+not accuracy; this workflow does not establish reviewer independence, label
+truth, detector quality, representativeness, or gameplay success. It does not
+change detector calibration or interact with the game. Game taps remain
+disabled.
