@@ -91,6 +91,19 @@ class ConveyorSimulator:
         ids = [s.shooter_id for s in self.shooters]
         if len(ids) != len(set(ids)):
             raise ValueError("Shooter IDs must be unique")
+        group_sizes = {}
+        for shooter in self.shooters:
+            group_sizes[shooter.group_id] = (
+                group_sizes.get(shooter.group_id, 0) + 1
+            )
+        oversized = [
+            group_id for group_id, size in group_sizes.items() if size > 3
+        ]
+        if oversized:
+            raise ValueError(
+                "Bonded group exceeds maximum size of 3: "
+                + ", ".join(sorted(oversized))
+            )
         for shooter in self.shooters:
             if shooter.position >= self.config.ticks_per_lap:
                 raise ValueError("Shooter position is outside the configured lap")
