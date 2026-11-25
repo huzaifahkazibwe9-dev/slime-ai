@@ -251,6 +251,7 @@ def load_observed_level(
     state.colour_mappings = {}
     state.colour_mappings_verified = False
     state.snapshot_id = data["snapshot_id"]
+    state.calibration_sha256 = data.get("calibration_sha256")
     state.capture_session_id = data.get("capture_session_id")
     state.timestamp_identified = data.get("timestamp_identified") is True
     state.shooter_capture_provenance_verified = board_capture_matches
@@ -258,8 +259,49 @@ def load_observed_level(
     if errors:
         raise ValueError("Invalid integrated game state: " + "; ".join(errors))
 
+    shooter_quality_counts = {}
+    for shooter in shooters.values():
+        quality_status = shooter.observation_quality.get(
+            "sample_quality_status", "NOT_RECORDED"
+        )
+        shooter_quality_counts[quality_status] = (
+            shooter_quality_counts.get(quality_status, 0) + 1
+        )
+    ammunition_ocr_status_counts = {}
+    for shooter in shooters.values():
+        ocr_status = shooter.observation_quality.get(
+            "ammunition_ocr_status", "NOT_REPORTED"
+        )
+        ammunition_ocr_status_counts[ocr_status] = (
+            ammunition_ocr_status_counts.get(ocr_status, 0) + 1
+        )
+    shooter_observation_quality = {
+        "colour_independently_verified": all(
+            shooter.observation_quality.get(
+                "colour_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "ammunition_independently_verified": all(
+            shooter.observation_quality.get(
+                "ammunition_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "slot_mapping_independently_verified": all(
+            shooter.observation_quality.get(
+                "slot_mapping_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "shooters_loaded": len(shooters),
+        "sample_quality_counts": shooter_quality_counts,
+        "ammunition_ocr_status_counts": ammunition_ocr_status_counts,
+        "interpretation": (
+            "Detector outputs are observations for simulation only; "
+            "colour, ammunition and slot mapping are not independently verified."
+        ),
+    }
     audit = {
         "source": "screenshot_observation",
+        "shooter_observation_quality": shooter_observation_quality,
         "snapshot_id": data["snapshot_id"],
         "image_size": data["image_size"],
         "grid_size": [width, height],

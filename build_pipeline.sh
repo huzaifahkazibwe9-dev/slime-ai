@@ -20,6 +20,9 @@ if [[ ! -f "$SCREENSHOT" ]]; then
     exit 2
 fi
 
+echo "[Setup] Creating a blank unverified bond config only when missing"
+python prepare_bonded_groups_config.py
+
 if [[ ! -f "data/shooter_capture_config.json" ]]; then
     echo "[Calibration] Creating a coordinate-grid preview for manual shooter-panel bounds"
     python calibrate_shooter_panel.py "$SCREENSHOT" \
@@ -29,16 +32,16 @@ fi
 
 
 if [[ -f "data/shooter_capture_config.json" ]]; then
-    echo "[1/11] Ingesting board and shooter panel from one calibrated capture"
+    echo "[1/13] Ingesting board and shooter panel from one calibrated capture"
     python capture_pipeline.py "$SCREENSHOT"
 elif [[ -f "$SHOOTER_DATA" ]]; then
-    echo "[1/11] Ingesting board screenshot without overwriting existing shooter evidence"
+    echo "[1/13] Ingesting board screenshot without overwriting existing shooter evidence"
     python screenshot_ingestor.py "$SCREENSHOT"
-    echo "[2/11] Preserving existing shooter detection; capture provenance will be rechecked"
+    echo "[2/13] Preserving existing shooter detection; capture provenance will be rechecked"
 elif [[ -f "$SHOOTER_PANEL" ]]; then
-    echo "[1/11] Ingesting board screenshot"
+    echo "[1/13] Ingesting board screenshot"
     python screenshot_ingestor.py "$SCREENSHOT"
-    echo "[2/11] Running legacy shooter detection (provenance remains unverified)"
+    echo "[2/13] Running legacy shooter detection (provenance remains unverified)"
     python shooter_detector.py
 else
     echo "ERROR: Need data/shooter_capture_config.json, $SHOOTER_PANEL, or $SHOOTER_DATA." >&2
@@ -46,45 +49,55 @@ else
 fi
 
 echo
-echo "[3/11] Integrating screenshot and shooter data"
+echo "[3/13] Integrating screenshot and shooter data"
 python level_loader.py --observation "$OBSERVATION"
 
 echo
-echo "[4/11] Building provisional colour-region analysis"
+echo "[4/13] Building provisional colour-region analysis"
 python observation_region_audit.py --input "$OBSERVATION"
 
 if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observations.json" ]]; then
     echo
-    echo "[5/11] Auditing reachability against the latest screenshot"
+    echo "[5/13] Synchronising conveyor observations to this screenshot"
+    python snapshot_sync.py --board "$OBSERVATION"
+
+    echo
+    echo "[6/13] Preparing and validating user-confirmed identity evidence"
+    python prepare_identity_observations.py --board "$OBSERVATION"
+    python identity_auditor.py --board "$OBSERVATION"
+    python conveyor_identity_matcher.py
+
+    echo
+    echo "[7/13] Auditing reachability against the latest screenshot"
     python reachability_auditor.py --board "$OBSERVATION"
 
     echo
-    echo "[6/11] Applying screenshot-derived confidence and planning gates"
+    echo "[8/13] Applying screenshot-derived confidence and planning gates"
     python reachability_confidence.py --board "$OBSERVATION"
     python planning_gate.py
 
     echo
-    echo "[7/11] Mapping lanes onto colour regions"
+    echo "[9/13] Mapping lanes onto colour regions"
     python region_lane_mapper.py --board "$OBSERVATION"
 else
     echo
-    echo "[5-7/11] Skipping conveyor analysis: local calibration/observation files are missing"
+    echo "[7-9/13] Skipping conveyor analysis: local calibration/observation files are missing"
 fi
 
 echo
-echo "[8/11] Running evidence-gated dry-run orchestration"
+echo "[10/13] Running evidence-gated dry-run orchestration"
 python orchestration.py --observation "$OBSERVATION"
 
 echo
-echo "[9/11] Running central diagnostics"
+echo "[11/13] Running central diagnostics"
 python main.py --observation "$OBSERVATION"
 
 echo
-echo "[10/11] Assessing readiness from the same screenshot evidence"
+echo "[12/13] Assessing readiness from the same screenshot evidence"
 python readiness_coordinator.py --observation "$OBSERVATION" --shooters "$SHOOTER_DATA"
 
 echo
-echo "[11/11] Running the complete unit-test suite"
+echo "[13/13] Running the complete unit-test suite"
 python -m unittest discover -q
 
 echo

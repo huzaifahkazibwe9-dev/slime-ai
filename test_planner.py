@@ -3,6 +3,42 @@ from game_state import GameState, Shooter
 from planner import plan_next_move
 
 
+def current_source_hashes():
+    return {
+        "vision_calibration_json": "1" * 64,
+        "edge_confidence_json": "2" * 64,
+        "reachability_audit_json": "3" * 64,
+        "reachability_confidence_json": "4" * 64,
+        "conveyor_calibration_json": "5" * 64,
+        "planning_json": "6" * 64,
+        "identity_json": "7" * 64,
+        "snapshot_json": "8" * 64,
+        "candidate_json": "9" * 64,
+        "conveyor_observations_json": "a" * 64,
+        "shooter_detection_json": "b" * 64,
+        "bonded_groups_config_json": "c" * 64,
+        "board_observation_json": "d" * 64,
+        "identity_observations_json": "e" * 64,
+    }
+
+
+def current_calibration_sha256():
+    return "c" * 64
+
+
+SNAPSHOT_ID = "sha256:" + "d" * 64
+
+
+def current_board_observation():
+    return {
+        "source_sha256": "d" * 64,
+        "snapshot_id": SNAPSHOT_ID,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "calibration_sha256": current_calibration_sha256(),
+    }
+
+
 def make_state():
     state = GameState(
         board=[["red", "blue"], ["green", "red"]],
@@ -13,13 +49,31 @@ def make_state():
             "C": Shooter("C", "green", 10, accessible=False),
         },
     )
-    state.snapshot_id = "snap-39"
+    state.snapshot_id = SNAPSHOT_ID
+    state.capture_session_id = "session-1"
+    state.calibration_sha256 = current_calibration_sha256()
     state.shooter_capture_provenance_verified = True
     return state
 
 
 def make_evidence():
+    source_hashes = current_source_hashes()
     planning = {
+        "input_file_sha256": {
+            "reachability_confidence_json": source_hashes["reachability_confidence_json"],
+            "candidate_json": source_hashes["candidate_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+        },
+        "upstream_source_kind": "screenshot_observation",
+        "confidence_source_file_sha256": {
+            "reachability_audit_json": source_hashes["reachability_audit_json"],
+            "board_observation_json": source_hashes["board_observation_json"],
+        },
+        "upstream_source_file_sha256": {
+            "board_json": source_hashes["board_observation_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "conveyor_observations_json": source_hashes["conveyor_observations_json"],
+        },
         "level": 39,
         "planning_evidence_verified": True,
         "gameplay_verified": False,
@@ -46,10 +100,22 @@ def make_evidence():
     }
 
     identity = {
-        "positions_checked": 8,
+        "source_file_sha256": {
+            "board_observation_json": source_hashes["board_observation_json"],
+            "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
+            "shooter_identity_observations_json": source_hashes["identity_observations_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "shooter_detection_json": source_hashes["shooter_detection_json"],
+        },
+        "positions_checked": 2,
         "known_shooters": ["A", "B"],
+        "current_position_by_shooter": {"A": "pA", "B": "pB"},
         "timestamps_known": True,
         "identity_verified": True,
+        "verified_by_user": True,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "captured_at": "2026-11-25T08:00:00+00:00",
         "errors": [],
         "blockers": [],
     }
@@ -79,14 +145,41 @@ def make_evidence():
             "ammo_non_increasing": True,
             "panel_colour_match": True,
             "observed_colour_consistent": True,
+            "board_snapshot_id": SNAPSHOT_ID,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-25T08:00:00+00:00",
+            "timestamp_identified": True,
             "observations": [
-                {"position_id": position, "colour": colour, "ammo": ammo}
+                {
+                    "position_id": position, "colour": colour, "ammo": ammo,
+                    "board_snapshot_id": SNAPSHOT_ID,
+                    "capture_session_id": "session-1",
+                    "captured_at": "2026-11-25T08:00:00+00:00",
+                    "timestamp_identified": True,
+                }
             ],
         }
 
     candidates = {
+        "source_file_sha256": {
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
+            "shooter_detection_json": source_hashes["shooter_detection_json"],
+            "bonded_groups_config_json": source_hashes[
+                "bonded_groups_config_json"
+            ],
+            "identity_audit_json": source_hashes["identity_json"],
+            "board_observation_json": source_hashes["board_observation_json"],
+            "shooter_identity_observations_json": source_hashes[
+                "identity_observations_json"
+            ],
+        },
         "identity_verified": True,
-        "current_snapshot_id": "snap-39",
+        "current_snapshot_id": SNAPSHOT_ID,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "captured_at": "2026-11-25T08:00:00+00:00",
+        "timestamp_identified": True,
         "checks": candidate_checks,
         "tracks": tracks,
     }
@@ -106,33 +199,115 @@ def make_evidence():
     }
 
     snapshot = {
+        "board_source_kind": "screenshot_observation",
+        "source_file_sha256": {
+            "board_observation_json": source_hashes["board_observation_json"],
+            "conveyor_observations_json": source_hashes["conveyor_observations_json"],
+        },
         "synchronised": True,
         "planning_allowed_by_sync": True,
-        "board_snapshot_id": "snap-39",
-        "observation_board_snapshot_id": "snap-39",
+        "board_snapshot_id": SNAPSHOT_ID,
+        "observation_board_snapshot_id": SNAPSHOT_ID,
         "checks": sync_checks,
     }
 
     return planning, identity, candidates, snapshot
 
 
-def run_plan(evidence):
-    return plan_next_move(make_state(), *evidence)
+def run_plan(
+    evidence, state=None, source_hashes=None, calibration_sha256=None,
+    identity_audit=None, board_observation=None,
+):
+    return plan_next_move(
+        make_state() if state is None else state,
+        *evidence,
+        current_source_file_sha256=(
+            current_source_hashes() if source_hashes is None else source_hashes
+        ),
+        current_calibration_sha256=(
+            current_calibration_sha256()
+            if calibration_sha256 is None else calibration_sha256
+        ),
+        current_identity_audit=(
+            evidence[1] if identity_audit is None else identity_audit
+        ),
+        current_board_observation=(
+            current_board_observation()
+            if board_observation is None else board_observation
+        ),
+    )
 
 
 class PlannerEvidenceTests(unittest.TestCase):
+    def test_missing_current_source_hashes_fail_closed(self):
+        self.assertIsNone(plan_next_move(make_state(), *make_evidence()))
+
+    def test_stale_snapshot_source_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[3]["source_file_sha256"]["conveyor_observations_json"] = "d" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_stale_confidence_source_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["confidence_source_file_sha256"]["board_observation_json"] = "e" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_stale_reachability_upstream_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["upstream_source_file_sha256"]["conveyor_calibration_json"] = "e" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_unknown_upstream_source_kind_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[0]["upstream_source_kind"] = "unknown"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_identity_object_must_match_pinned_identity(self):
+        evidence = make_evidence()
+        self.assertIsNone(run_plan(
+            evidence,
+            identity_audit={"identity_verified": True},
+        ))
+
+    def test_board_object_must_match_loaded_state_identity(self):
+        board = current_board_observation()
+        board["snapshot_id"] = "sha256:" + "e" * 64
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            board_observation=board,
+        ))
+
+    def test_board_snapshot_digest_shape_is_required(self):
+        board = current_board_observation()
+        board["source_sha256"] = "not-a-digest"
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            board_observation=board,
+        ))
+
+    def test_malformed_current_source_hash_fails_closed(self):
+        hashes = current_source_hashes()
+        hashes["edge_confidence_json"] = "not-a-sha256"
+        self.assertIsNone(run_plan(make_evidence(), source_hashes=hashes))
+
+    def test_stale_board_calibration_hash_fails_closed(self):
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            calibration_sha256="d" * 64,
+        ))
+
     def test_complete_verified_evidence_accepts_group(self):
         self.assertEqual(run_plan(make_evidence()), ("A", "B"))
 
     def test_unbound_shooter_capture_rejected_even_with_other_verified_evidence(self):
         state = make_state()
         state.shooter_capture_provenance_verified = False
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_missing_shooter_capture_provenance_rejected(self):
         state = make_state()
         del state.shooter_capture_provenance_verified
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_missing_identity_audit_rejected(self):
         e = list(make_evidence())
@@ -159,6 +334,54 @@ class PlannerEvidenceTests(unittest.TestCase):
         e[2]["identity_verified"] = False
         self.assertIsNone(run_plan(e))
 
+    def test_candidate_must_be_user_confirmed(self):
+        evidence = list(make_evidence())
+        evidence[1]["verified_by_user"] = False
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_capture_session_must_match_identity(self):
+        evidence = list(make_evidence())
+        evidence[2]["capture_session_id"] = "other-session"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_track_capture_metadata_must_match_report(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["capture_session_id"] = "other-session"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_observation_timestamp_must_be_identified(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["observations"][0][
+            "timestamp_identified"
+        ] = False
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_and_identity_timestamps_must_align(self):
+        evidence = list(make_evidence())
+        evidence[2]["captured_at"] = "2026-11-25T08:10:00+00:00"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_position_must_match_human_confirmed_current_map(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["current_position_id"] = "pB"
+        evidence[2]["tracks"]["red"]["observations"][0]["position_id"] = "pB"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_confirmed_identity_map_must_cover_all_checked_positions(self):
+        evidence = list(make_evidence())
+        evidence[1]["positions_checked"] = 3
+        self.assertIsNone(run_plan(evidence))
+
+    def test_confirmed_identity_map_must_use_distinct_positions(self):
+        evidence = list(make_evidence())
+        evidence[1]["current_position_by_shooter"]["B"] = "pA"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_missing_human_confirmed_current_position_map_rejected(self):
+        evidence = list(make_evidence())
+        evidence[1].pop("current_position_by_shooter")
+        self.assertIsNone(run_plan(evidence))
+
     def test_missing_current_position_rejected(self):
         e = list(make_evidence())
         del e[2]["tracks"]["red"]["current_position_id"]
@@ -178,12 +401,12 @@ class PlannerEvidenceTests(unittest.TestCase):
     def test_loaded_board_snapshot_mismatch_rejected(self):
         state = make_state()
         state.snapshot_id = "different-board"
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_loaded_board_snapshot_missing_rejected(self):
         state = make_state()
         del state.snapshot_id
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_snapshot_id_mismatch_rejected(self):
         e = list(make_evidence())
@@ -226,7 +449,7 @@ class PlannerEvidenceTests(unittest.TestCase):
         state = make_state()
         state.shooters["A"].ammo = True
         self.assertTrue(state.validate())
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_unverified_ammunition_evidence_rejected(self):
         e = list(make_evidence())

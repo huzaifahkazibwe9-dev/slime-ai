@@ -37,7 +37,9 @@ class ReadinessAssessTests(unittest.TestCase):
              "shooter_capture_provenance_verified": True},
             {"shooters": [{"id": "s1"}],
              "timing_calibrated_to_game": True, "verified_by_user": True},
-            {"identity_verified": True},
+            {"identity_verified": True, "verified_by_user": True,
+             "timestamps_known": True, "timestamp_identified": True,
+             "errors": [], "blockers": []},
             {"actual_firing_verified": True},
         )
 
@@ -294,6 +296,53 @@ class LearningSummaryTests(unittest.TestCase):
             connection.close()
             self.assertEqual(count, 3)
 
+
+    def test_malformed_evidence_shapes_fail_closed_without_crashing(self):
+        result = readiness.assess(
+            FakeState(),
+            ["not", "an", "object"],
+            {"shooters": {"not": "a list"}, "timing_calibrated_to_game": True,
+             "verified_by_user": True},
+            ["not", "an", "object"],
+            ["not", "an", "object"],
+        )
+        self.assertFalse(result["checks"]["initial_occupancy_user_confirmed"])
+        self.assertFalse(result["checks"]["conveyor_calibration_present"])
+        self.assertFalse(result["checks"]["conveyor_timing_calibrated"])
+        self.assertFalse(result["checks"]["physical_shooter_identity_verified"])
+        self.assertFalse(result["checks"]["actual_firing_verified"])
+
+    def test_read_json_rejects_unreadable_utf8_payloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "invalid.json").write_bytes(bytes((255, 254)))
+            with patch.object(readiness, "DATA", root):
+                self.assertEqual(readiness.read_json("invalid.json", {}), {})
+
+    def test_read_json_rejects_non_object_top_level_payloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "array.json").write_text("[]")
+            with patch.object(readiness, "DATA", root):
+                self.assertEqual(readiness.read_json("array.json", {}), {})
+
+    def test_physical_identity_requires_user_confirmation_and_timestamps(self):
+        state = FakeState()
+        for field, value in (
+            ("verified_by_user", False),
+            ("timestamps_known", False),
+            ("timestamp_identified", False),
+            ("errors", ["bad"]),
+            ("blockers", ["bad"]),
+        ):
+            identity = {
+                "identity_verified": True, "verified_by_user": True,
+                "timestamps_known": True, "timestamp_identified": True,
+                "errors": [], "blockers": [],
+            }
+            identity[field] = value
+            result = readiness.assess(state, {}, {}, identity, {})
+            self.assertFalse(result["checks"]["physical_shooter_identity_verified"])
 
 if __name__ == "__main__":
     unittest.main()

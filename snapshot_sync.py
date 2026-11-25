@@ -1,3 +1,5 @@
+import argparse
+import hashlib
 import json
 import math
 from datetime import datetime, timezone
@@ -338,12 +340,75 @@ def synchronise_bundle(board, conveyor, identity, candidates, planning=None):
     }
 
 
-def main():
-    board = json.loads(BOARD_FILE.read_text())
-    observations = json.loads(OBS_FILE.read_text())
 
-    report = synchronise_audit(board, observations)
-    OUTPUT.write_text(json.dumps(report, indent=2))
+def read_input_snapshots(board_path=BOARD_FILE, observations_path=OBS_FILE):
+    """Parse each input from the exact bytes whose SHA-256 is recorded."""
+    board_bytes = Path(board_path).read_bytes()
+    observation_bytes = Path(observations_path).read_bytes()
+    board = json.loads(board_bytes)
+    observations = json.loads(observation_bytes)
+    if not isinstance(board, dict) or not isinstance(observations, dict):
+        raise ValueError("Snapshot-sync inputs must each contain a JSON object")
+    board_source_kind = (
+        "screenshot_observation" if "raw_rgb" in board else "baseline_board"
+    )
+    board_hash_key = (
+        "board_observation_json"
+        if board_source_kind == "screenshot_observation"
+        else "vision_level39_json"
+    )
+    source_hashes = {
+        board_hash_key: hashlib.sha256(board_bytes).hexdigest(),
+        "conveyor_observations_json": hashlib.sha256(observation_bytes).hexdigest(),
+    }
+    return board, observations, source_hashes
+
+
+def main(board_path=None, observations_path=OBS_FILE, output_path=OUTPUT):
+    board_path = BOARD_FILE if board_path is None else Path(board_path)
+    observations_path = Path(observations_path)
+    output_path = Path(output_path)
+    input_error = None
+    try:
+        board, observations, source_hashes = read_input_snapshots(
+            board_path, observations_path
+        )
+        report = synchronise_audit(board, observations)
+        report["board_source_kind"] = (
+            "screenshot_observation" if "raw_rgb" in board else "baseline_board"
+        )
+        report["source_file_sha256"] = source_hashes
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        input_error = f"{type(exc).__name__}: {exc}"
+        report = {
+            "synchronised": False,
+            "planning_allowed_by_sync": False,
+            "checks": {
+                "input_files_valid": False,
+                "board_observation_available": board_path.is_file(),
+                "conveyor_observations_available": observations_path.is_file(),
+            },
+            "board_snapshot_id": None,
+            "artifact_snapshot_ids": {},
+            "board_capture_session": None,
+            "artifact_capture_sessions": {},
+            "board_captured_at": None,
+            "timestamp_alignment_limit_seconds": 120,
+            "source_file_sha256": {},
+            "board_source_kind": None,
+            "input_error": input_error,
+            "game_taps_enabled": False,
+            "actions_performed": False,
+            "warning": (
+                "Snapshot synchronization failed because one or more source "
+                "artifacts could not be read as JSON objects. Planning is blocked."
+            ),
+        }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_path.with_suffix(output_path.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2))
+    temporary.replace(output_path)
 
     print("SLIME AI — SNAPSHOT SYNCHRONISATION")
     print("=" * 48)
@@ -352,11 +417,22 @@ def main():
         print(f"[{'PASS' if passed else 'PENDING'}] {name}")
 
     print()
+    if input_error:
+        print("Input error:", input_error)
     print("Synchronised:", report["synchronised"])
     print("Planning allowed by sync:", report["planning_allowed_by_sync"])
     print("Game taps enabled:", report["game_taps_enabled"])
-    print("Report:", OUTPUT)
+    print("Board source mode:", report["board_source_kind"])
+    print("Report:", output_path)
+    return report
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Synchronise conveyor observations with one board capture"
+    )
+    parser.add_argument("--board", default=str(BOARD_FILE))
+    parser.add_argument("--observations", default=str(OBS_FILE))
+    parser.add_argument("--output", default=str(OUTPUT))
+    args = parser.parse_args()
+    main(args.board, args.observations, args.output)

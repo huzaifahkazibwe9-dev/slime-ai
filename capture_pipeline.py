@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,7 +21,12 @@ PIXEL_AUDIT_OUTPUT = Path("data/source_pixel_audit_latest.json")
 
 def load_capture_config(path):
     path = Path(path)
-    data = json.loads(path.read_text())
+    config_bytes = path.read_bytes()
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+    try:
+        data = json.loads(config_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Capture config is not valid UTF-8 JSON") from exc
     if not isinstance(data, dict):
         raise ValueError("Capture config must be a JSON object")
     bounds = data.get("panel_bounds")
@@ -37,16 +43,18 @@ def load_capture_config(path):
         "panel_bounds": bounds,
         "capture_session_id": session,
         "captured_at": captured_at,
+        "config_sha256": config_sha256,
     }
 
 
 def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
-                             expected_session_id, expected_captured_at):
+                             expected_session_id, expected_captured_at,
+                             expected_config_sha256=None, expected_panel_bounds=None):
     """Fail closed unless both stages prove they processed the same source bytes."""
     try:
         board = json.loads(Path(board_path).read_text())
         shooter = json.loads(Path(shooter_path).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Capture pipeline outputs are missing or invalid JSON") from exc
 
     if not isinstance(board, dict) or not isinstance(shooter, dict):
@@ -73,6 +81,28 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
         raise ValueError("Shooter capture timestamp does not match the requested timestamp")
     if provenance.get("verified") is not True:
         raise ValueError("Shooter capture provenance is not verified")
+    if expected_config_sha256 is not None:
+        if provenance.get("capture_config_sha256") != expected_config_sha256:
+            raise ValueError("Shooter capture config hash does not match the parsed config bytes")
+    if expected_panel_bounds is not None:
+        if provenance.get("panel_bounds") != expected_panel_bounds:
+            raise ValueError("Shooter panel bounds do not match the parsed capture config")
+
+    # Bonded relationships are sourced from a separate user-confirmed file.
+    # Require the detector to identify that source and fingerprint the exact
+    # bytes it parsed; otherwise the shooter record has incomplete provenance.
+    bonding_source = shooter.get("bonding_source")
+    bonding_digest = shooter.get("bonding_config_sha256")
+    if bonding_source not in {"user_confirmed", "not_user_confirmed", "not_configured"}:
+        raise ValueError("Shooter output has an invalid bonded-group source")
+    if bonding_source == "not_configured":
+        if bonding_digest is not None:
+            raise ValueError("Unconfigured bonded-group source must not have a digest")
+    elif (
+        not isinstance(bonding_digest, str)
+        or re.fullmatch(r"[0-9a-f]{64}", bonding_digest) is None
+    ):
+        raise ValueError("Bonded-group config is missing its exact SHA-256 provenance")
     return True
 
 
@@ -80,7 +110,7 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
     """Require independently reproduced source pixels before accepting capture."""
     try:
         observation = json.loads(Path(board_path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Board observation is missing or invalid for pixel audit") from exc
     report = audit_source_pixels(observation, source_image_bytes)
     # Bind the audit to this exact capture, not only its image hash. Identical
@@ -128,6 +158,7 @@ def run_capture_pipeline(screenshot, config_path):
             "--source-screenshot", screenshot,
             "--panel-bounds", *map(str, config["panel_bounds"]),
             "--extract-panel",
+            "--capture-config-sha256", config["config_sha256"],
             *common,
         ],
         check=True,
@@ -138,6 +169,8 @@ def run_capture_pipeline(screenshot, config_path):
         expected_source_sha256,
         config["capture_session_id"],
         config["captured_at"],
+        config["config_sha256"],
+        config["panel_bounds"],
     )
     return audit_capture_pixels(BOARD_OUTPUT, source_image_bytes)
 

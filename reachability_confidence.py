@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -135,6 +136,33 @@ def observation_confidence(board):
     ]
 
 
+def validate_board_observation_source(report, board_sha256):
+    """Require confidence analysis to use the exact board bytes traced upstream."""
+    if not isinstance(report, dict):
+        raise ValueError("Reachability report must be a JSON object")
+    provenance = report.get("source_file_sha256")
+    if (
+        not isinstance(provenance, dict)
+        or provenance.get("board_json") != board_sha256
+    ):
+        raise ValueError(
+            "Board observation bytes do not match the reachability audit source"
+        )
+    return True
+
+def validate_edge_confidence_source(confidence_data, board_sha256):
+    """Require the edge-confidence report to derive from this exact board file."""
+    if not isinstance(confidence_data, dict):
+        raise ValueError("Invalid confidence report")
+    provenance = confidence_data.get("source_file_sha256")
+    if (not isinstance(provenance, dict)
+            or provenance.get("vision_level39_json") != board_sha256):
+        raise ValueError(
+            "Edge-confidence report does not match the exact board source bytes"
+        )
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Annotate reachability lanes with conservative board confidence"
@@ -144,11 +172,17 @@ def main():
     parser.add_argument("--output", default=str(OUTPUT_FILE))
     args = parser.parse_args()
 
-    report = json.loads(Path(args.input).read_text())
+    report_bytes = Path(args.input).read_bytes()
+    report = json.loads(report_bytes)
+    source_hashes = {
+        "reachability_audit_json": hashlib.sha256(report_bytes).hexdigest(),
+    }
     confidence_snapshot_id = None
     confidence_snapshot_match_verified = False
     if args.board:
-        source = json.loads(Path(args.board).read_text())
+        board_bytes = Path(args.board).read_bytes()
+        source = json.loads(board_bytes)
+        board_digest = hashlib.sha256(board_bytes).hexdigest()
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
         source_snapshot_id = source.get("snapshot_id")
@@ -163,17 +197,40 @@ def main():
             raise ValueError(
                 "Confidence screenshot snapshot does not match reachability audit"
             )
+        validate_board_observation_source(report, board_digest)
+        source_hashes["board_observation_json"] = board_digest
         confidence_matrix = observation_confidence(source["board"])
         confidence_snapshot_id = source_snapshot_id
         confidence_snapshot_match_verified = True
     else:
-        board_data = load_board()
+        from board_loader import VISION_FILE, CONFIDENCE_FILE
+        board_bytes = Path(VISION_FILE).read_bytes()
+        confidence_bytes = Path(CONFIDENCE_FILE).read_bytes()
+        board_source = json.loads(board_bytes)
+        confidence_source = json.loads(confidence_bytes)
+        board_digest = hashlib.sha256(board_bytes).hexdigest()
+        validate_board_observation_source(report, board_digest)
+        validate_edge_confidence_source(confidence_source, board_digest)
+        board_data = load_board(
+            data=board_source,
+            confidence_data=confidence_source,
+        )
+        source_hashes["vision_level39_json"] = board_digest
+        source_hashes["edge_confidence_json"] = hashlib.sha256(confidence_bytes).hexdigest()
         confidence_matrix = board_data.get("confidence")
 
     if confidence_matrix is None:
         raise ValueError("No board confidence data is available")
 
+    upstream_source_file_sha256 = report.get("source_file_sha256")
+    upstream_source_kind = report.get("board_source_kind")
     report = annotate_report(report, confidence_matrix)
+    report["upstream_source_file_sha256"] = (
+        dict(upstream_source_file_sha256)
+        if isinstance(upstream_source_file_sha256, dict) else None
+    )
+    report["upstream_source_kind"] = upstream_source_kind
+    report["source_file_sha256"] = source_hashes
     report["confidence_audit"]["source_snapshot_id"] = confidence_snapshot_id
     report["confidence_audit"]["snapshot_match_verified"] = (
         confidence_snapshot_match_verified

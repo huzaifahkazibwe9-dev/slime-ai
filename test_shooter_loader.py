@@ -265,6 +265,109 @@ class ShooterLoaderStructureTests(unittest.TestCase):
                         "bonded_groups": [],
                     })
 
+    def test_loader_carries_explicit_unverified_observation_quality(self):
+        shooters = self.load_payload({
+            "observation_quality": {
+                "colour_method": "fixed_panel_sample_hsv_thresholds",
+                "ammunition_method": "tesseract_exact_digit_ocr",
+                "slot_mapping_method": "fixed_panel_calibration",
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+            },
+            "visible_shooters": [{
+                "id": "A", "color": {"name": "red"}, "ammo": 5,
+                "ammo_observation_status": "PARSED_EXACT_DIGITS",
+                "sample_quality": {"status": "DISTINCT_SAMPLE"},
+            }],
+            "bonded_groups": [],
+        })
+        quality = shooters["A"].observation_quality
+        self.assertIs(quality["colour_independently_verified"], False)
+        self.assertIs(quality["ammunition_independently_verified"], False)
+        self.assertIs(quality["slot_mapping_independently_verified"], False)
+        self.assertEqual(quality["sample_quality_status"], "DISTINCT_SAMPLE")
+        self.assertEqual(
+            quality["ammunition_ocr_status"], "PARSED_EXACT_DIGITS"
+        )
+
+    def test_modern_detector_record_requires_successful_ammunition_ocr_status(self):
+        with self.assertRaisesRegex(ValueError, "not a successful exact-digit parse"):
+            self.load_payload({
+                "observation_quality": {
+                    "ammunition_method": "tesseract_exact_digit_ocr",
+                    "ammunition_independently_verified": False,
+                },
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 5}
+                ],
+                "bonded_groups": [],
+            })
+
+    def test_modern_detector_record_rejects_value_with_ocr_failure_status(self):
+        with self.assertRaisesRegex(ValueError, "not a successful exact-digit parse"):
+            self.load_payload({
+                "observation_quality": {
+                    "ammunition_method": "tesseract_exact_digit_ocr",
+                    "ammunition_independently_verified": False,
+                },
+                "visible_shooters": [{
+                    "id": "A", "color": {"name": "red"}, "ammo": 5,
+                    "ammo_observation_status": "TESSERACT_TIMEOUT",
+                }],
+                "bonded_groups": [],
+            })
+
+    def test_modern_detector_record_rejects_success_status_without_ammo(self):
+        with self.assertRaisesRegex(ValueError, "success status without a valid"):
+            self.load_payload({
+                "observation_quality": {
+                    "ammunition_method": "tesseract_exact_digit_ocr",
+                    "ammunition_independently_verified": False,
+                },
+                "visible_shooters": [{
+                    "id": "A", "color": {"name": "red"}, "ammo": None,
+                    "ammo_observation_status": "PARSED_EXACT_DIGITS",
+                }],
+                "bonded_groups": [],
+            })
+
+    def test_rejects_unsubstantiated_true_verification_claim(self):
+        with self.assertRaisesRegex(ValueError, "without independent validation"):
+            self.load_payload({
+                "observation_quality": {
+                    "colour_independently_verified": True
+                },
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 5}
+                ],
+                "bonded_groups": [],
+            })
+
+    def test_legacy_shooter_quality_defaults_to_unverified(self):
+        shooters = self.load_payload({
+            "visible_shooters": [
+                {"id": "A", "color": {"name": "red"}, "ammo": 5}
+            ],
+            "bonded_groups": [],
+        })
+        quality = shooters["A"].observation_quality
+        self.assertEqual(quality["evidence_source"], "legacy_or_unspecified")
+        self.assertIs(quality["colour_independently_verified"], False)
+        self.assertIs(quality["ammunition_independently_verified"], False)
+
+    def test_rejects_non_boolean_observation_quality_flag(self):
+        with self.assertRaisesRegex(ValueError, "must be a boolean"):
+            self.load_payload({
+                "observation_quality": {
+                    "ammunition_independently_verified": 1
+                },
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 5}
+                ],
+                "bonded_groups": [],
+            })
+
     def test_loader_preserves_each_shooters_ammunition_count(self):
         shooters = self.load_payload({
             "visible_shooters": [

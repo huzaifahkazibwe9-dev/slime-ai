@@ -21,9 +21,10 @@ def read_json(name, default=None):
     if not path.exists():
         return default
     try:
-        return json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
+        value = json.loads(path.read_text())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return default
+    return value if isinstance(value, dict) else default
 
 def learning_summary():
     db = DATA / "learning.db"
@@ -54,6 +55,12 @@ def learning_summary():
         return {"available": False, "error": str(error)}
 
 def assess(state, audit, calibration, identity, firing):
+    # Evidence artifacts are external JSON inputs; malformed top-level shapes
+    # should produce unavailable checks, not crash readiness reporting.
+    audit = audit if isinstance(audit, dict) else {}
+    calibration = calibration if isinstance(calibration, dict) else {}
+    identity = identity if isinstance(identity, dict) else {}
+    firing = firing if isinstance(firing, dict) else {}
     errors = state.validate()
     mapping_verified = bool(state.colour_mappings_verified)
     accessible = len(state.accessible_shooters())
@@ -78,15 +85,25 @@ def assess(state, audit, calibration, identity, firing):
         "colour_mappings_gameplay_verified": mapping_verified,
         "at_least_one_accessible_shooter": accessible > 0,
         "conveyor_calibration_present": bool(
-            calibration and calibration.get("shooters")
+            calibration
+            and isinstance(calibration.get("shooters"), list)
+            and calibration["shooters"]
         ),
         "conveyor_timing_calibrated": bool(
             calibration
+            and isinstance(calibration.get("shooters"), list)
+            and calibration["shooters"]
             and calibration.get("timing_calibrated_to_game") is True
             and calibration.get("verified_by_user") is True
         ),
         "physical_shooter_identity_verified": bool(
-            identity and identity.get("identity_verified") is True
+            identity
+            and identity.get("identity_verified") is True
+            and identity.get("verified_by_user") is True
+            and identity.get("timestamps_known") is True
+            and identity.get("timestamp_identified") is True
+            and identity.get("errors") == []
+            and identity.get("blockers") == []
         ),
         "actual_firing_verified": bool(
             firing and firing.get("actual_firing_verified") is True
@@ -126,20 +143,75 @@ def main(observation_path=None, shooter_path=None):
     print("SLIME AI — READINESS COORDINATOR")
     print("=" * 55)
 
-    state, audit = load_level(
-        level=39,
-        observation_path=observation_path,
-        shooter_path=shooter_path,
+    from orchestration import (
+        _canonical_json_sha256,
+        _read_capture_bundle,
+        _read_planning_evidence_bundle,
     )
-    calibration = read_json("conveyor_calibration.json", {})
-    identity = read_json("identity_audit_report.json", {})
+    pinned_capture = None
+    if observation_path is not None:
+        board_path = Path(observation_path)
+        shooter_file = Path(shooter_path or "data/shooter_detection.json")
+        pixel_audit_path = board_path.parent / "source_pixel_audit_latest.json"
+        if (
+            board_path.is_file()
+            and shooter_file.is_file()
+            and pixel_audit_path.is_file()
+        ):
+            pinned_capture = _read_capture_bundle(board_path, shooter_file)
+            from capture_preflight import validate_capture_pair
+            capture = validate_capture_pair(
+                board_path,
+                shooter_file,
+                board_data=pinned_capture["board_data"],
+                shooter_data=pinned_capture["shooter_data"],
+                pixel_audit_data=pinned_capture["pixel_audit_data"],
+            )
+            if capture.get("valid") is not True:
+                raise ValueError(capture.get("reason", "Capture preflight failed."))
+            state, audit = load_level(
+                level=39,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+                observation_data=capture["board_data"],
+                shooter_data=capture["shooter_data"],
+            )
+            board_observation = capture["board_data"]
+        else:
+            # Preserve the diagnostic report when a capture artifact is
+            # incomplete; the planner remains blocked without pinned bytes.
+            state, audit = load_level(
+                level=39,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+            )
+            board_observation = {}
+    else:
+        state, audit = load_level(level=39)
+        board_observation = read_json("board_observation_latest.json", {})
+
+    evidence_bundle = _read_planning_evidence_bundle(
+        DATA,
+        pinned_shooter_data=(
+            pinned_capture["shooter_data"] if pinned_capture is not None else None
+        ),
+        pinned_shooter_sha256=(
+            pinned_capture["shooter_bytes_sha256"] if pinned_capture is not None else None
+        ),
+    )
+    current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    if pinned_capture is not None:
+        current_source_file_sha256["board_observation_json"] = (
+            pinned_capture["board_bytes_sha256"]
+        )
+    calibration = evidence_bundle["conveyor_calibration"] or {}
+    identity = evidence_bundle["identity"] or {}
     firing = read_json("firing_observations.json", {})
-    planning = read_json("planning_gate_latest.json")
-    identity_audit = read_json("identity_audit_report.json")
-    candidate_report = read_json("conveyor_identity_candidates.json")
-    snapshot_report = read_json("snapshot_sync_report.json")
-    board_observation = read_json("board_observation_latest.json")
-    conveyor_observation = read_json("conveyor_visual_observations.json")
+    planning = evidence_bundle["planning"]
+    identity_audit = evidence_bundle["identity"]
+    candidate_report = evidence_bundle["candidates"]
+    snapshot_report = evidence_bundle["snapshot"]
+    conveyor_observation = evidence_bundle["conveyor_observation"]
     learning = learning_summary()
 
     result = assess(
@@ -170,11 +242,22 @@ def main(observation_path=None, shooter_path=None):
         and bundle_sync["planning_allowed_by_sync"]
     )
     synchronized_snapshot["bundle_synchronisation"] = bundle_sync
+    current_calibration_sha256 = _canonical_json_sha256(
+        evidence_bundle["vision_calibration"]
+    )
     gate = evidence_status(
         planning, identity_audit, synchronized_snapshot, candidate_report,
         shooter_capture_verified=(
             audit.get("shooter_capture_provenance_verified") is True
         ),
+        planning_input_file_sha256=current_source_file_sha256,
+        board_calibration_sha256=(
+            board_observation.get("calibration_sha256")
+            if isinstance(board_observation, dict) else None
+        ),
+        current_calibration_sha256=current_calibration_sha256,
+        shooter_detection=evidence_bundle["shooter_detection"],
+        shooter_capture_config=evidence_bundle["shooter_capture_config"],
     )
 
     shooter_capture_verified = (
@@ -189,6 +272,10 @@ def main(observation_path=None, shooter_path=None):
             identity_audit=identity_audit,
             candidate_report=candidate_report,
             snapshot_report=synchronized_snapshot,
+            current_source_file_sha256=current_source_file_sha256,
+            current_calibration_sha256=current_calibration_sha256,
+            current_identity_audit=identity_audit,
+            current_board_observation=board_observation if pinned_capture is not None else None,
         )
     manager.stop()
     result["planning_evidence_gate"] = gate

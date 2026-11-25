@@ -17,6 +17,7 @@ class Shooter:
     completed_laps: int = 0
     selected: bool = False
     returned: bool = False
+    observation_quality: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if (not isinstance(self.shooter_id, str) or not self.shooter_id
@@ -37,6 +38,24 @@ class Shooter:
             raise ValueError("Completed laps cannot be negative")
         if not isinstance(self.selected, bool) or not isinstance(self.returned, bool):
             raise ValueError("Selected and returned flags must be booleans")
+        if not isinstance(self.observation_quality, dict):
+            raise ValueError("Observation quality must be an object")
+        for flag in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            if flag in self.observation_quality and (
+                type(self.observation_quality[flag]) is not bool
+                or self.observation_quality[flag] is not False
+            ):
+                raise ValueError("Shooter visual verification requires independent evidence")
+        if (
+            self.observation_quality.get("evidence_source") == "detector_declared"
+            and self.observation_quality.get("ammunition_ocr_status")
+            != "PARSED_EXACT_DIGITS"
+        ):
+            raise ValueError("Detector-declared shooter requires successful ammunition OCR")
 
 
 @dataclass
@@ -366,8 +385,28 @@ class ConveyorSimulator:
                     "ammo": s.ammo,
                     "position": s.position,
                     "completed_laps": s.completed_laps,
+                    "observation_quality": {
+                        "colour_independently_verified": False,
+                        "ammunition_independently_verified": False,
+                        "slot_mapping_independently_verified": False,
+                        "ammunition_ocr_status": s.observation_quality.get(
+                            "ammunition_ocr_status", "NOT_REPORTED"
+                        ),
+                    },
                 }
                 for s in self.active
+            ],
+            "shooter_observation_quality": [
+                {
+                    "id": s.shooter_id,
+                    "colour_independently_verified": False,
+                    "ammunition_independently_verified": False,
+                    "slot_mapping_independently_verified": False,
+                    "ammunition_ocr_status": s.observation_quality.get(
+                        "ammunition_ocr_status", "NOT_REPORTED"
+                    ),
+                }
+                for s in self.shooters
             ],
             "returned_shooters": list(self.returned_ids),
             "events": list(self.events),
@@ -391,6 +430,7 @@ def create_simulator(shooter_records, storage_occupied=0, config=None):
                 completed_laps=item.get("completed_laps", 0),
                 selected=item.get("selected", False),
                 returned=item.get("returned", False),
+                observation_quality=item.get("observation_quality", {}),
             )
         )
     return ConveyorSimulator(

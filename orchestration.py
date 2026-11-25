@@ -8,6 +8,19 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 
+def _canonical_json_sha256(value):
+    """Match screenshot_ingestor's canonical calibration payload fingerprint."""
+    if not isinstance(value, dict):
+        return None
+    try:
+        encoded = json.dumps(
+            value, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return None
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _valid_snapshot_fingerprint(value):
     return (
         isinstance(value, str)
@@ -36,7 +49,7 @@ def read_report(path):
     try:
         data = json.loads(Path(path).read_text())
         return data if isinstance(data, dict) else None
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
 
 
@@ -55,29 +68,52 @@ def _read_json_artifact(path):
     return (value if isinstance(value, dict) else None), digest
 
 
-def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
+def _read_planning_evidence_bundle(data_dir, candidate_report_path=None,
+                                  pinned_shooter_data=None,
+                                  pinned_shooter_sha256=None):
     """Pin all non-capture reports consumed by one planning pass."""
     root = Path(data_dir)
     candidate_path, candidate_source = resolve_candidate_report_path(
         root, candidate_report_path
     )
     paths = {
+        # Pin the direct inputs used to produce the planning gate as well
+        # as the derived gate itself. Otherwise an upstream calibration or
+        # reachability change could leave a stale planning report looking current.
+        "vision_calibration_json": root / "vision_level39.json",
+        "edge_confidence_json": root / "edge_confidence_latest.json",
+        "reachability_audit_json": root / "reachability_audit.json",
+        "reachability_confidence_json": root / "reachability_confidence_latest.json",
+        "conveyor_calibration_json": root / "conveyor_calibration.json",
         "planning_json": root / "planning_gate_latest.json",
         "identity_json": root / "identity_audit_report.json",
+        "identity_observations_json": root / "shooter_identity_observations.json",
         "snapshot_json": root / "snapshot_sync_report.json",
         "candidate_json": candidate_path,
         "conveyor_observations_json": root / "conveyor_visual_observations.json",
+        "shooter_detection_json": root / "shooter_detection.json",
+        "shooter_capture_config_json": root / "shooter_capture_config.json",
+        "bonded_groups_config_json": root / "bonded_groups_confirmed.json",
     }
     values = {}
     digests = {}
     for name, path in paths.items():
-        values[name], digests[name] = _read_json_artifact(path)
+        if name == "shooter_detection_json" and pinned_shooter_data is not None:
+            values[name] = pinned_shooter_data
+            digests[name] = pinned_shooter_sha256
+        else:
+            values[name], digests[name] = _read_json_artifact(path)
     return {
+        "vision_calibration": values["vision_calibration_json"],
+        "conveyor_calibration": values["conveyor_calibration_json"],
         "planning": values["planning_json"],
         "identity": values["identity_json"],
+        "identity_observations": values["identity_observations_json"],
         "snapshot": values["snapshot_json"],
         "candidates": values["candidate_json"],
         "conveyor_observation": values["conveyor_observations_json"],
+        "shooter_detection": values["shooter_detection_json"],
+        "shooter_capture_config": values["shooter_capture_config_json"],
         "candidate_path": candidate_path,
         "candidate_path_source": candidate_source,
         "file_sha256": digests,
@@ -128,11 +164,68 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
             return False
     return True
 
-def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False):
+def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False,
+                    planning_input_file_sha256=None, board_calibration_sha256=None,
+                    current_calibration_sha256=None, shooter_detection=None,
+                    shooter_capture_config=None):
     checks = {
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
+        "shooter_capture_config_matches_detection": (
+            planning_input_file_sha256 is None
+            or "shooter_capture_config_json" not in planning_input_file_sha256
+            or (
+                isinstance(shooter_detection, dict)
+                and isinstance(shooter_detection.get("capture_provenance"), dict)
+                and isinstance(shooter_capture_config, dict)
+                and isinstance(
+                    planning_input_file_sha256.get("shooter_capture_config_json"), str
+                )
+                and re.fullmatch(
+                    r"[0-9a-f]{64}",
+                    planning_input_file_sha256["shooter_capture_config_json"],
+                ) is not None
+                and shooter_detection["capture_provenance"].get(
+                    "capture_config_sha256"
+                ) == planning_input_file_sha256["shooter_capture_config_json"]
+                and shooter_detection["capture_provenance"].get("panel_bounds")
+                == shooter_capture_config.get("panel_bounds")
+                and shooter_detection["capture_provenance"].get("capture_session_id")
+                == shooter_capture_config.get("capture_session_id")
+                and shooter_detection["capture_provenance"].get("captured_at")
+                == shooter_capture_config.get("captured_at")
+            )
+        ),
         "planning_report_present": isinstance(planning, dict),
         "identity_report_present": isinstance(identity, dict),
+        "identity_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(identity, dict)
+                and isinstance(identity.get("source_file_sha256"), dict)
+                and identity.get("source_file_sha256") == {
+                    "board_observation_json": planning_input_file_sha256.get(
+                        "board_observation_json"
+                    ),
+                    "conveyor_visual_observations_json": planning_input_file_sha256.get(
+                        "conveyor_observations_json"
+                    ),
+                    "shooter_identity_observations_json": planning_input_file_sha256.get(
+                        "identity_observations_json"
+                    ),
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                    "shooter_detection_json": planning_input_file_sha256.get(
+                        "shooter_detection_json"
+                    ),
+                }
+                and all(
+                    isinstance(value, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+                    for value in identity["source_file_sha256"].values()
+                )
+            )
+        ),
         "snapshot_report_present": isinstance(snapshot, dict),
         "candidate_report_present": isinstance(candidates, dict),
         "planning_conveyor_timing_calibrated": (
@@ -179,6 +272,53 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
             and snapshot.get("synchronised") is True
             and snapshot.get("planning_allowed_by_sync") is True
         ),
+        "snapshot_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(snapshot, dict)
+                and isinstance(snapshot.get("source_file_sha256"), dict)
+                and (
+                    (
+                        snapshot.get("board_source_kind") == "screenshot_observation"
+                        and isinstance(
+                            planning_input_file_sha256.get("board_observation_json"),
+                            str,
+                        )
+                        and re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            planning_input_file_sha256["board_observation_json"],
+                        ) is not None
+                        and snapshot.get("source_file_sha256") == {
+                            "board_observation_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                    or (
+                        snapshot.get("board_source_kind") == "baseline_board"
+                        and isinstance(
+                            planning_input_file_sha256.get("vision_calibration_json"),
+                            str,
+                        )
+                        and re.fullmatch(
+                            r"[0-9a-f]{64}",
+                            planning_input_file_sha256["vision_calibration_json"],
+                        ) is not None
+                        and snapshot.get("source_file_sha256") == {
+                            "vision_level39_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                )
+            )
+        ),
         "evidence_bundle_synchronised": (
             isinstance(snapshot, dict)
             and isinstance(snapshot.get("bundle_synchronisation"), dict)
@@ -197,6 +337,138 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
         ),
         "all_evidence_sources_share_capture": _capture_metadata_matches(
             planning, identity, snapshot, candidates
+        ),
+        "board_calibration_matches_current_config": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(board_calibration_sha256, str)
+                and re.fullmatch(r"[0-9a-f]{64}", board_calibration_sha256) is not None
+                and isinstance(current_calibration_sha256, str)
+                and re.fullmatch(r"[0-9a-f]{64}", current_calibration_sha256) is not None
+                and board_calibration_sha256 == current_calibration_sha256
+            )
+        ),
+        "planning_report_input_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("input_file_sha256"), dict)
+                and planning.get("input_file_sha256") == {
+                    "reachability_confidence_json": planning_input_file_sha256.get(
+                        "reachability_confidence_json"
+                    ),
+                    "candidate_json": planning_input_file_sha256.get("candidate_json"),
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                }
+            )
+        ),
+        "candidate_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(candidates, dict)
+                and isinstance(candidates.get("source_file_sha256"), dict)
+                and candidates.get("source_file_sha256") == {
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                    "conveyor_visual_observations_json": planning_input_file_sha256.get(
+                        "conveyor_observations_json"
+                    ),
+                    "shooter_detection_json": planning_input_file_sha256.get(
+                        "shooter_detection_json"
+                    ),
+                    "identity_audit_json": planning_input_file_sha256.get(
+                        "identity_json"
+                    ),
+                    "board_observation_json": planning_input_file_sha256.get(
+                        "board_observation_json"
+                    ),
+                    "shooter_identity_observations_json": planning_input_file_sha256.get(
+                        "identity_observations_json"
+                    ),
+                    "bonded_groups_config_json": planning_input_file_sha256.get(
+                        "bonded_groups_config_json"
+                    ),
+                }
+                and all(
+                    isinstance(value, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+                    for value in candidates["source_file_sha256"].values()
+                )
+            )
+        ),
+        "confidence_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("confidence_source_file_sha256"), dict)
+                and (
+                    (
+                        planning.get("upstream_source_kind") == "screenshot_observation"
+                        and planning.get("confidence_source_file_sha256") == {
+                            "reachability_audit_json": planning_input_file_sha256.get(
+                                "reachability_audit_json"
+                            ),
+                            "board_observation_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                        }
+                    )
+                    or (
+                        planning.get("upstream_source_kind") == "baseline_board"
+                        and planning.get("confidence_source_file_sha256") == {
+                            "reachability_audit_json": planning_input_file_sha256.get(
+                                "reachability_audit_json"
+                            ),
+                            "vision_level39_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "edge_confidence_json": planning_input_file_sha256.get(
+                                "edge_confidence_json"
+                            ),
+                        }
+                    )
+                )
+            )
+        ),
+        "reachability_upstream_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(planning, dict)
+                and isinstance(planning.get("upstream_source_file_sha256"), dict)
+                and (
+                    (
+                        planning.get("upstream_source_kind") == "screenshot_observation"
+                        and planning.get("upstream_source_file_sha256") == {
+                            "board_json": planning_input_file_sha256.get(
+                                "board_observation_json"
+                            ),
+                            "conveyor_calibration_json": planning_input_file_sha256.get(
+                                "conveyor_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                    or (
+                        planning.get("upstream_source_kind") == "baseline_board"
+                        and planning.get("upstream_source_file_sha256") == {
+                            "board_json": planning_input_file_sha256.get(
+                                "vision_calibration_json"
+                            ),
+                            "conveyor_calibration_json": planning_input_file_sha256.get(
+                                "conveyor_calibration_json"
+                            ),
+                            "conveyor_observations_json": planning_input_file_sha256.get(
+                                "conveyor_observations_json"
+                            ),
+                        }
+                    )
+                )
+            )
         ),
     }
     return {
@@ -415,7 +687,14 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
     timings["level_loading_seconds"] = round(time.perf_counter() - stage_started, 6)
 
     evidence_bundle = _read_planning_evidence_bundle(
-        root, candidate_report_path
+        root,
+        candidate_report_path,
+        pinned_shooter_data=shooter_observation,
+        pinned_shooter_sha256=pinned_capture["shooter_bytes_sha256"],
+    )
+    current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    current_source_file_sha256["board_observation_json"] = (
+        pinned_capture["board_bytes_sha256"]
     )
     planning = evidence_bundle["planning"]
     identity = evidence_bundle["identity"]
@@ -452,6 +731,13 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         shooter_capture_verified=(
             level_audit.get("shooter_capture_provenance_verified") is True
         ),
+        planning_input_file_sha256=current_source_file_sha256,
+        board_calibration_sha256=board_observation.get("calibration_sha256"),
+        current_calibration_sha256=_canonical_json_sha256(
+            evidence_bundle["vision_calibration"]
+        ),
+        shooter_detection=evidence_bundle["shooter_detection"],
+        shooter_capture_config=evidence_bundle["shooter_capture_config"],
     )
     timings["evidence_gate_seconds"] = round(time.perf_counter() - stage_started, 6)
 
@@ -467,6 +753,12 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
                 identity_audit=identity,
                 candidate_report=candidates,
                 snapshot_report=snapshot,
+                current_source_file_sha256=current_source_file_sha256,
+                current_calibration_sha256=_canonical_json_sha256(
+                    evidence_bundle["vision_calibration"]
+                ),
+                current_identity_audit=identity,
+                current_board_observation=board_observation,
             )
         except Exception as exc:
             planner_error = f"{type(exc).__name__}: {exc}"
@@ -532,7 +824,7 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
             "shooter_json": pinned_capture["shooter_bytes_sha256"],
             "pixel_audit_json": pinned_capture["pixel_audit_bytes_sha256"],
         },
-        "planning_evidence_file_sha256": evidence_bundle["file_sha256"],
+        "planning_evidence_file_sha256": current_source_file_sha256,
         "capture_provenance": {
             key: board_observation.get(key)
             for key in (
@@ -548,6 +840,19 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         },
         "level": getattr(state, "level", None),
         "level_audit": level_audit,
+        "shooter_observation_quality": level_audit.get(
+            "shooter_observation_quality",
+            {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+                "interpretation": "Shooter visual quality metadata is unavailable.",
+            },
+        ),
+        "plan_verification_status": (
+            "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+            if recommended_group else "NO_CANDIDATE_PLAN"
+        ),
         "candidate_report": {
             "path": str(candidate_path),
             "selection_source": candidate_path_source,
@@ -558,6 +863,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "planner": {
             "recommended_group": (
                 list(recommended_group) if recommended_group else None
+            ),
+            "recommendation_status": (
+                "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+                if recommended_group else "NO_CANDIDATE_PLAN"
             ),
             "error": planner_error,
         },

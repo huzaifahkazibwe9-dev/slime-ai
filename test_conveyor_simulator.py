@@ -158,6 +158,18 @@ class ConveyorSimulatorTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     Shooter(**values)
 
+    def test_detector_declared_simulator_shooter_requires_successful_ammunition_ocr(self):
+        for status in (None, "TESSERACT_TIMEOUT", "AMBIGUOUS_OR_NON_INTEGER_OUTPUT"):
+            with self.subTest(status=status):
+                quality = {
+                    "evidence_source": "detector_declared",
+                    "ammunition_ocr_status": status,
+                }
+                with self.assertRaisesRegex(ValueError, "successful ammunition OCR"):
+                    create_simulator([{
+                        "id": "a", "ammo": 3, "observation_quality": quality,
+                    }])
+
     def test_simulator_rejects_position_outside_configured_lap(self):
         shooter = Shooter("s", "g", 3, position=5)
         with self.assertRaises(ValueError):

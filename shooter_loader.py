@@ -26,6 +26,37 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
     # New detector records include a sample-quality assessment. A weak sample
     # must not be converted into a Shooter colour. Older diagnostic files
     # without this optional field retain their legacy loading behaviour.
+    raw_quality = data.get("observation_quality", {})
+    if not isinstance(raw_quality, dict):
+        raise ValueError("observation_quality must be an object")
+    quality_fields = (
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+        "slot_mapping_independently_verified",
+    )
+    for field_name in quality_fields:
+        value = raw_quality.get(field_name, False)
+        if type(value) is not bool:
+            raise ValueError(
+                f"observation_quality.{field_name} must be a boolean"
+            )
+        if value is not False:
+            raise ValueError(
+                f"observation_quality.{field_name} cannot be true "
+                "without independent validation evidence"
+            )
+    normalized_quality = {
+        field_name: raw_quality.get(field_name, False)
+        for field_name in quality_fields
+    }
+    normalized_quality["evidence_source"] = (
+        "detector_declared" if raw_quality else "legacy_or_unspecified"
+    )
+    # Current detector output declares its OCR method and therefore must also
+    # provide a successful exact-digit status for every visible shooter.
+    # Legacy records remain loadable but explicitly unverified.
+    structured_ammo_status_required = bool(raw_quality)
+
     eligible = []
     low_confidence_ids = set()
     for index, item in enumerate(detected):
@@ -33,6 +64,16 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             raise ValueError(f"Shooter entry {index} must be an object")
         if not isinstance(item.get("id"), str) or not item["id"]:
             raise ValueError(f"Shooter entry {index} has an invalid id")
+        if structured_ammo_status_required:
+            ammo_status = item.get("ammo_observation_status")
+            if ammo_status != "PARSED_EXACT_DIGITS":
+                raise ValueError(
+                    f"Shooter entry {index} ammunition OCR is not a successful exact-digit parse"
+                )
+            if type(item.get("ammo")) is not int or item["ammo"] < 0:
+                raise ValueError(
+                    f"Shooter entry {index} has an OCR success status without a valid ammunition count"
+                )
         quality = item.get("sample_quality")
         if quality is not None:
             if not isinstance(quality, dict):
@@ -144,6 +185,17 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             # Detection coordinates belong to the selection panel.
             panel_center=tuple(center) if center else None,
             panel_box=tuple(box) if box else None,
+            observation_quality={
+                **normalized_quality,
+                "ammunition_ocr_status": item.get(
+                    "ammo_observation_status", "NOT_REPORTED"
+                ),
+                "sample_quality_status": (
+                    item.get("sample_quality", {}).get("status", "NOT_RECORDED")
+                    if isinstance(item.get("sample_quality"), dict)
+                    else "NOT_RECORDED"
+                ),
+            },
             # Conveyor coordinates are assigned separately.
             screen_center=None,
             screen_box=None,

@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import time
 import math
+from collections import Counter
 
 IMAGE = Path("screenshots/shooter_panel.jpg")
 OUTPUT = Path("data/shooter_detection.json")
@@ -142,10 +143,11 @@ def identify_color(rgb):
         "hue_group": round(hue/15)*15 if s >= 0.16 else None
     }
 
-def read_ammunition(image, box, temp):
+def read_ammunition_with_status(image, box, temp):
+    """Return an exact OCR value plus a diagnostic status; never infer a value."""
     crop = image.crop(box).convert("L")
     crop = ImageOps.autocontrast(crop)
-    crop = crop.resize((600,405))
+    crop = crop.resize((600, 405))
     crop.save(temp)
 
     try:
@@ -157,22 +159,48 @@ def read_ammunition(image, box, temp):
             ],
             capture_output=True,
             text=True,
-            timeout=15
+            timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except FileNotFoundError:
+        return {"value": None, "status": "TESSERACT_UNAVAILABLE"}
+    except subprocess.TimeoutExpired:
+        return {"value": None, "status": "TESSERACT_TIMEOUT"}
+    except subprocess.SubprocessError:
+        return {"value": None, "status": "TESSERACT_PROCESS_ERROR"}
+    except OSError:
+        return {"value": None, "status": "TESSERACT_EXECUTION_ERROR"}
 
-    if result.returncode != 0 or not isinstance(result.stdout, str):
-        return None
+    return_code = getattr(result, "returncode", None)
+    stdout = getattr(result, "stdout", None)
+    if type(return_code) is not int:
+        return {"value": None, "status": "INVALID_PROCESS_RESULT"}
+    if return_code != 0:
+        return {
+            "value": None,
+            "status": "TESSERACT_NONZERO_EXIT",
+            "return_code": return_code,
+        }
+    if not isinstance(stdout, str):
+        return {"value": None, "status": "INVALID_TESSERACT_OUTPUT"}
 
-    match = re.fullmatch(r"\s*(\d+)\s*", result.stdout)
+    match = re.fullmatch(r"\s*(\d+)\s*", stdout)
     if match is None:
-        return None
+        return {"value": None, "status": "AMBIGUOUS_OR_NON_INTEGER_OUTPUT"}
+
+    digits = match.group(1)
+    if len(digits) > 128:
+        return {"value": None, "status": "NUMBER_TOO_LONG"}
     try:
-        return int(match.group(1))
+        value = int(digits)
     except ValueError:
-        # Python limits conversion of extremely long decimal strings.
-        return None
+        return {"value": None, "status": "NUMBER_CONVERSION_FAILED"}
+    return {"value": value, "status": "PARSED_EXACT_DIGITS"}
+
+
+def read_ammunition(image, box, temp):
+    """Backward-compatible value-only wrapper around the diagnostic OCR path."""
+    return read_ammunition_with_status(image, box, temp)["value"]
+
 
 def verify_panel_crop_bytes(source_bytes, panel_path, bounds,
                             mean_tolerance=14, percentile_tolerance=48):
@@ -262,17 +290,20 @@ def extract_panel_crop(source_path, bounds, output_path=IMAGE):
     return extract_panel_crop_bytes(source_bytes, bounds, output_path)
 
 
-def load_user_confirmed_bonded_groups(path, shooter_ids):
-    """Load bonds only from an explicit, user-confirmed local config."""
+def load_user_confirmed_bonded_groups_with_provenance(path, shooter_ids):
+    """Load user-confirmed bonds and fingerprint the exact bytes parsed."""
     path = Path(path)
-    if not path.is_file():
-        return [], "not_configured"
+    try:
+        config_bytes = path.read_bytes()
+    except FileNotFoundError:
+        return [], "not_configured", None
 
-    data = json.loads(path.read_text())
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+    data = json.loads(config_bytes)
     if not isinstance(data, dict):
         raise ValueError("Bonded-group config must be a JSON object")
     if data.get("verified_by_user") is not True:
-        return [], "not_user_confirmed"
+        return [], "not_user_confirmed", config_sha256
 
     groups = data.get("bonded_groups")
     if not isinstance(groups, list):
@@ -301,7 +332,15 @@ def load_user_confirmed_bonded_groups(path, shooter_ids):
                 + ", ".join(sorted(overlap))
             )
         grouped_ids.update(group)
-    return groups, "user_confirmed"
+    return groups, "user_confirmed", config_sha256
+
+
+def load_user_confirmed_bonded_groups(path, shooter_ids):
+    """Compatibility wrapper preserving the original two-value return."""
+    groups, source, _ = load_user_confirmed_bonded_groups_with_provenance(
+        path, shooter_ids
+    )
+    return groups, source
 
 
 def build_panel_slot_inventory(image_width, image_height):
@@ -348,6 +387,7 @@ def main():
     parser.add_argument("--panel-bounds", nargs=4, type=int)
     parser.add_argument("--capture-session-id")
     parser.add_argument("--captured-at")
+    parser.add_argument("--capture-config-sha256")
     parser.add_argument("--extract-panel", action="store_true")
     args = parser.parse_args()
 
@@ -376,6 +416,7 @@ def main():
     detection_started = time.perf_counter()
     ocr_seconds = 0.0
     ocr_calls = 0
+    ocr_status_counts = Counter()
 
     # Observe every row, but keep lower-row records non-selectable until verified.
     row_specs = [
@@ -406,15 +447,21 @@ def main():
             ammo = None
             if row_index == 1:
                 ocr_started = time.perf_counter()
-                ammo = read_ammunition(image, box, temp)
+                ammo_result = read_ammunition_with_status(image, box, temp)
                 ocr_seconds += time.perf_counter() - ocr_started
                 ocr_calls += 1
+                ammo = ammo_result["value"]
+                ammo_status = ammo_result["status"]
+            else:
+                ammo_status = "NOT_ATTEMPTED_UNVERIFIED_SLOT"
+            ocr_status_counts[ammo_status] += 1
             center = (round((box[0] + box[2]) / 2),
                       round((box[1] + box[3]) / 2))
             slot_observations.append({
                 "id": shooter_id, "row": row_index, "column": column,
                 "color_observation": color, "sample_quality": sample_quality,
                 "ammunition_observation": ammo,
+                "ammunition_observation_status": ammo_status,
                 "screen_center": list(center), "screen_box": list(box),
                 "screen_sample": [x, y], "status": row_status,
                 "verified": False, "selectable_candidate": False,
@@ -423,15 +470,18 @@ def main():
                 detected.append({
                     "id": shooter_id, "color": color,
                     "sample_quality": sample_quality, "ammo": ammo,
+                    "ammo_observation_status": ammo_status,
                     "screen_center": list(center), "screen_box": list(box),
                     "screen_sample": [x, y], "status": "visible", "verified": False
                 })
 
     # Bond relationships are never inferred from fixed screen positions.
     # They are loaded only from a separate, explicit user-confirmed file.
-    bonded_groups, bonding_source = load_user_confirmed_bonded_groups(
-        "data/bonded_groups_confirmed.json",
-        [shooter["id"] for shooter in detected],
+    bonded_groups, bonding_source, bonding_config_sha256 = (
+        load_user_confirmed_bonded_groups_with_provenance(
+            "data/bonded_groups_confirmed.json",
+            [shooter["id"] for shooter in detected],
+        )
     )
 
     for shooter in detected:
@@ -455,6 +505,8 @@ def main():
         "source_sha256": None,
         "capture_session_id": None,
         "captured_at": None,
+        "capture_config_sha256": None,
+        "panel_bounds": None,
     }
     if args.source_screenshot:
         from capture_provenance import (
@@ -466,11 +518,17 @@ def main():
         )
         session_id = validate_capture_session_id(args.capture_session_id)
         captured_at = parse_aware_capture_timestamp(args.captured_at)
+        config_hash = args.capture_config_sha256
+        if (config_hash is not None
+                and re.fullmatch(r"[0-9a-f]{64}", config_hash) is None):
+            raise ValueError("Capture config SHA-256 must be 64 lowercase hexadecimal characters")
         provenance = {
             "verified": bool(session_id and captured_at),
             "source_sha256": source_hash,
             "capture_session_id": session_id,
             "captured_at": captured_at,
+            "capture_config_sha256": config_hash,
+            "panel_bounds": list(args.panel_bounds),
         }
 
     panel_slots = build_panel_slot_inventory(image.width, image.height)
@@ -481,6 +539,7 @@ def main():
             "shooter_detection_seconds": round(detection_seconds, 6),
             "ammunition_ocr_seconds": round(ocr_seconds, 6),
             "ammunition_ocr_calls": ocr_calls,
+            "ammunition_ocr_status_counts": dict(sorted(ocr_status_counts.items())),
             "panel_slots_observed": len(slot_observations),
             "timing_clock": "perf_counter",
             "note": "Local processing measurements; not a device-wide gameplay latency benchmark.",
@@ -498,6 +557,15 @@ def main():
         "visible_shooters": detected,
         "bonded_groups": bonded_groups,
         "bonding_source": bonding_source,
+        "bonding_config_sha256": bonding_config_sha256,
+        "observation_quality": {
+            "colour_method": "fixed_panel_sample_hsv_thresholds",
+            "colour_independently_verified": False,
+            "ammunition_method": "tesseract_exact_digit_ocr",
+            "ammunition_independently_verified": False,
+            "slot_mapping_method": "fixed_panel_calibration",
+            "slot_mapping_independently_verified": False,
+        },
         "unrevealed_shooters": [
             {
                 "id": f"question_{i}",

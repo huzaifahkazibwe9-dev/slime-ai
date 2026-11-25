@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from collections import Counter
@@ -320,16 +321,29 @@ def main():
     args = parser.parse_args()
 
     board_path = Path(args.board)
-    board_data = json.loads(board_path.read_text())
+    board_bytes = board_path.read_bytes()
+    board_data = json.loads(board_bytes)
+    calibration_path = Path(args.calibration)
+    calibration_bytes = calibration_path.read_bytes()
+    calibration = json.loads(calibration_bytes)
+    observations_path = Path(args.observations)
+    observations_bytes = observations_path.read_bytes()
+    observations = json.loads(observations_bytes)
     if "raw_rgb" in board_data:
         # Validate screenshot schema and RGB/label consistency before tracing.
         from screenshot_observation_loader import _require_grid
         _require_grid(board_data)
 
-    calibration = json.loads(Path(args.calibration).read_text())
-    observations = json.loads(Path(args.observations).read_text())
-
     report = audit(board_data, calibration, observations)
+    report["board_source_kind"] = (
+        "screenshot_observation"
+        if "raw_rgb" in board_data else "baseline_board"
+    )
+    report["source_file_sha256"] = {
+        "board_json": hashlib.sha256(board_bytes).hexdigest(),
+        "conveyor_calibration_json": hashlib.sha256(calibration_bytes).hexdigest(),
+        "conveyor_observations_json": hashlib.sha256(observations_bytes).hexdigest(),
+    }
     report["board_source"] = str(board_path)
     report["board_snapshot_id"] = board_data.get("snapshot_id")
     report["capture_session_id"] = board_data.get("capture_session_id")

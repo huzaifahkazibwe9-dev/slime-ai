@@ -11,6 +11,7 @@ from PIL import Image
 
 from shooter_detector import (
     read_ammunition,
+    read_ammunition_with_status,
     REF_W,
     REF_H,
     identify_color,
@@ -25,6 +26,7 @@ from shooter_detector import (
 
     load_user_confirmed_bonded_groups,
     assess_color_sample,
+    load_user_confirmed_bonded_groups_with_provenance,
 )
 
 
@@ -47,7 +49,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             image.save(panel_path)
             with patch("shooter_detector.IMAGE", panel_path), \
                  patch("shooter_detector.OUTPUT", output_path), \
-                 patch("shooter_detector.read_ammunition", return_value=None) as ocr, \
+                 patch("shooter_detector.read_ammunition_with_status", return_value={"value": None, "status": "TESSERACT_UNAVAILABLE"}) as ocr, \
                  patch.object(sys, "argv", ["shooter_detector.py"]):
                 main()
                 self.assertEqual(ocr.call_count, 4)
@@ -61,6 +63,15 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(payload["performance"]["ammunition_ocr_calls"], 4)
             self.assertEqual(payload["performance"]["panel_slots_observed"], 12)
             self.assertGreaterEqual(payload["performance"]["shooter_detection_seconds"], 0)
+            self.assertIs(
+                payload["observation_quality"]["ammunition_independently_verified"],
+                False,
+            )
+            self.assertIs(
+                payload["observation_quality"]["colour_independently_verified"],
+                False,
+            )
+            self.assertIsNone(payload["bonding_config_sha256"])
 
     def test_sample_quality_detects_distinct_colour_patch(self):
         image = Image.new("RGB", (40, 40), (35, 35, 35))
@@ -344,6 +355,136 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                 result = read_ammunition(image, (0, 0, 100, 70), Path(directory) / "ocr.png")
         self.assertIsNone(result)
 
+    def test_ammunition_ocr_status_reports_exact_digit_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40", returncode=0)
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result, {"value": 40, "status": "PARSED_EXACT_DIGITS"})
+
+    def test_ammunition_ocr_status_distinguishes_ambiguous_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40 20", returncode=0)
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result["value"])
+        self.assertEqual(result["status"], "AMBIGUOUS_OR_NON_INTEGER_OUTPUT")
+
+    def test_ammunition_ocr_status_rejects_multiline_output_without_raising(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40\n20\n", returncode=0)
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertIsNone(result["value"])
+        self.assertEqual(result["status"], "AMBIGUOUS_OR_NON_INTEGER_OUTPUT")
+
+    def test_ammunition_ocr_status_distinguishes_missing_tesseract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run", side_effect=FileNotFoundError("tesseract")):
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result["status"], "TESSERACT_UNAVAILABLE")
+
+    def test_ammunition_ocr_status_distinguishes_timeout(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run", side_effect=subprocess.TimeoutExpired("tesseract", 15)):
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result["status"], "TESSERACT_TIMEOUT")
+
+    def test_ammunition_ocr_status_distinguishes_nonzero_exit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch("shooter_detector.subprocess.run") as run:
+                run.return_value = SimpleNamespace(stdout="40", returncode=2)
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result["status"], "TESSERACT_NONZERO_EXIT")
+        self.assertEqual(result["return_code"], 2)
+
+    def test_ammunition_ocr_status_handles_missing_process_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            for malformed in (None, object(), SimpleNamespace(stdout="40")):
+                with self.subTest(malformed=type(malformed).__name__), \
+                     patch("shooter_detector.subprocess.run", return_value=malformed):
+                    result = read_ammunition_with_status(
+                        image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                    )
+                    self.assertEqual(result, {
+                        "value": None, "status": "INVALID_PROCESS_RESULT"
+                    })
+
+    def test_ammunition_ocr_status_rejects_non_string_stdout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image = Image.new("RGB", (120, 80), (255, 255, 255))
+            with patch(
+                "shooter_detector.subprocess.run",
+                return_value=SimpleNamespace(stdout=40, returncode=0),
+            ):
+                result = read_ammunition_with_status(
+                    image, (0, 0, 100, 70), Path(directory) / "ocr.png"
+                )
+        self.assertEqual(result, {
+            "value": None, "status": "INVALID_TESSERACT_OUTPUT"
+        })
+
+    def test_detector_records_ocr_status_for_every_panel_slot(self):
+        from shooter_detector import SHOOTERS, main
+        image = Image.new("RGB", (REF_W, REF_H), (120, 120, 120))
+        for shooter in SHOOTERS:
+            x, y = shooter["sample"]
+            image.paste(Image.new("RGB", (9, 9), (220, 40, 40)), (x - 4, y - 4))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            panel_path = root / "panel.jpg"
+            output_path = root / "detection.json"
+            image.save(panel_path)
+
+            def sample_ocr(*args):
+                return {"value": 25, "status": "PARSED_EXACT_DIGITS"}
+
+            with patch("shooter_detector.IMAGE", panel_path), \
+                 patch("shooter_detector.OUTPUT", output_path), \
+                 patch("shooter_detector.read_ammunition_with_status", side_effect=sample_ocr), \
+                 patch.object(sys, "argv", ["shooter_detector.py"]):
+                main()
+
+            payload = json.loads(output_path.read_text())
+        observations = payload["panel_slot_observations"]
+        self.assertEqual(
+            [item["ammunition_observation_status"] for item in observations[:4]],
+            ["PARSED_EXACT_DIGITS"] * 4,
+        )
+        self.assertEqual(
+            [item["ammunition_observation_status"] for item in observations[4:]],
+            ["NOT_ATTEMPTED_UNVERIFIED_SLOT"] * 8,
+        )
+        self.assertEqual(
+            payload["performance"]["ammunition_ocr_status_counts"],
+            {"NOT_ATTEMPTED_UNVERIFIED_SLOT": 8, "PARSED_EXACT_DIGITS": 4},
+        )
+        self.assertTrue(all(item["ammo"] == 25 for item in payload["visible_shooters"]))
+        self.assertTrue(all(
+            item["ammo_observation_status"] == "PARSED_EXACT_DIGITS"
+            for item in payload["visible_shooters"]
+        ))
+
     def test_brown_shooter_colour_is_distinguished_from_orange(self):
         self.assertEqual(identify_color((193, 126, 63))["name"], "brown")
         self.assertEqual(identify_color((230, 140, 50))["name"], "orange")
@@ -391,6 +532,27 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "multiple bonded groups"):
                 load_user_confirmed_bonded_groups(path, ["A", "B", "C"])
 
+    def test_bonded_group_provenance_hashes_exact_config_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            raw = b'{"verified_by_user": true, "bonded_groups": [["top_1", "top_2"]]}'
+            path.write_bytes(raw)
+            groups, source, digest = load_user_confirmed_bonded_groups_with_provenance(
+                path, ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [["top_1", "top_2"]])
+        self.assertEqual(source, "user_confirmed")
+        self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
+    def test_missing_bonded_group_config_has_no_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            groups, source, digest = load_user_confirmed_bonded_groups_with_provenance(
+                Path(directory) / "missing.json", ["top_1", "top_2"]
+            )
+        self.assertEqual(groups, [])
+        self.assertEqual(source, "not_configured")
+        self.assertIsNone(digest)
+
 
 
     def test_byte_snapshot_extraction_and_verification_use_same_source(self):
@@ -436,7 +598,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
 
             with patch("shooter_detector.IMAGE", panel_path), \
                  patch("shooter_detector.OUTPUT", output_path), \
-                 patch("shooter_detector.read_ammunition", return_value=None), \
+                 patch("shooter_detector.read_ammunition_with_status", return_value={"value": None, "status": "TESSERACT_UNAVAILABLE"}), \
                  patch.object(Path, "read_bytes", read_then_replace), \
                  patch.object(sys, "argv", [
                      "shooter_detector.py", "--source-screenshot",
@@ -444,6 +606,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                      "20", "30", "327", "230", "--extract-panel",
                      "--capture-session-id", "snapshot-test",
                      "--captured-at", "2026-11-24T12:00:00+01:00",
+                     "--capture-config-sha256", "c" * 64,
                  ]):
                 main()
 
@@ -452,6 +615,14 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(
                 payload["capture_provenance"]["source_sha256"],
                 hashlib.sha256(original_bytes).hexdigest(),
+            )
+            self.assertEqual(
+                payload["capture_provenance"]["capture_config_sha256"],
+                "c" * 64,
+            )
+            self.assertEqual(
+                payload["capture_provenance"]["panel_bounds"],
+                [20, 30, 327, 230],
             )
             self.assertNotEqual(
                 payload["capture_provenance"]["source_sha256"],

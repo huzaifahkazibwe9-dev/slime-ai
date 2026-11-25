@@ -6,14 +6,132 @@ from unittest.mock import patch
 from game_state import GameState
 from orchestration import (
     evidence_status,
+    _canonical_json_sha256,
     resolve_candidate_report_path,
     run_multi_batch_diagnostic,
     run_orchestration,
+    _read_planning_evidence_bundle,
 )
 import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
+    def test_planning_bundle_returns_pinned_conveyor_calibration(self):
+        import hashlib
+        import json
+
+        names = (
+            "vision_level39.json",
+            "edge_confidence_latest.json",
+            "reachability_audit.json",
+            "reachability_confidence_latest.json",
+            "conveyor_calibration.json",
+            "planning_gate_latest.json",
+            "identity_audit_report.json",
+            "shooter_identity_observations.json",
+            "snapshot_sync_report.json",
+            "conveyor_identity_candidates.json",
+            "conveyor_visual_observations.json",
+            "shooter_detection.json",
+            "shooter_capture_config.json",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            calibration = {"shooters": [{"id": "slot-1"}], "revision": 7}
+            expected_raw = None
+            for name in names:
+                value = calibration if name == "conveyor_calibration.json" else {}
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                (root / name).write_bytes(raw)
+                if name == "conveyor_calibration.json":
+                    expected_raw = raw
+            bundle = _read_planning_evidence_bundle(root)
+            self.assertEqual(bundle["conveyor_calibration"], calibration)
+            self.assertEqual(
+                bundle["file_sha256"]["conveyor_calibration_json"],
+                hashlib.sha256(expected_raw).hexdigest(),
+            )
+
+    def test_planning_bundle_reuses_pinned_shooter_snapshot(self):
+        import hashlib
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in (
+                "vision_level39.json", "edge_confidence_latest.json",
+                "reachability_audit.json", "reachability_confidence_latest.json",
+                "conveyor_calibration.json", "planning_gate_latest.json",
+                "identity_audit_report.json", "shooter_identity_observations.json",
+                "snapshot_sync_report.json", "conveyor_identity_candidates.json",
+                "conveyor_visual_observations.json", "shooter_detection.json",
+                "shooter_capture_config.json", "bonded_groups_confirmed.json",
+            ):
+                (root / name).write_text("{}")
+            pinned = {"capture_provenance": {"capture_config_sha256": "a" * 64}}
+            pinned_raw_digest = hashlib.sha256(b"pinned shooter bytes").hexdigest()
+            bundle = _read_planning_evidence_bundle(
+                root,
+                pinned_shooter_data=pinned,
+                pinned_shooter_sha256=pinned_raw_digest,
+            )
+            self.assertIs(bundle["shooter_detection"], pinned)
+            self.assertEqual(
+                bundle["file_sha256"]["shooter_detection_json"],
+                pinned_raw_digest,
+            )
+
+    def test_shooter_capture_config_must_match_detector_provenance(self):
+        import hashlib
+        import json
+
+        config = {
+            "panel_bounds": [10, 20, 300, 400],
+            "capture_session_id": "session-abc",
+            "captured_at": "2026-11-25T12:00:00+00:00",
+        }
+        raw = json.dumps(config, separators=(",", ":")).encode("utf-8")
+        digest = hashlib.sha256(raw).hexdigest()
+        detection = {
+            "capture_provenance": {
+                "capture_config_sha256": digest,
+                "panel_bounds": [10, 20, 300, 400],
+                "capture_session_id": "session-abc",
+                "captured_at": "2026-11-25T12:00:00+00:00",
+            }
+        }
+        expected = {"shooter_capture_config_json": digest}
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=detection,
+            shooter_capture_config=config,
+        )["checks"]
+        self.assertTrue(checks["shooter_capture_config_matches_detection"])
+
+        changed_config = dict(config, panel_bounds=[11, 20, 300, 400])
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=detection,
+            shooter_capture_config=changed_config,
+        )["checks"]
+        self.assertFalse(checks["shooter_capture_config_matches_detection"])
+
+        changed_detection = {
+            "capture_provenance": dict(
+                detection["capture_provenance"],
+                capture_config_sha256="0" * 64,
+            )
+        }
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256=expected,
+            shooter_detection=changed_detection,
+            shooter_capture_config=config,
+        )["checks"]
+        self.assertFalse(checks["shooter_capture_config_matches_detection"])
+
     def test_run_orchestration_requires_explicit_capture_paths(self):
         with self.assertRaisesRegex(ValueError, "Explicit board observation"):
             run_orchestration()
@@ -57,6 +175,129 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(selected, legacy)
             self.assertEqual(source, "legacy_fallback")
 
+    def test_candidate_source_hashes_must_match_current_inputs(self):
+        candidate = {"source_file_sha256": {
+            "conveyor_calibration_json": "a" * 64,
+            "conveyor_visual_observations_json": "b" * 64,
+            "shooter_detection_json": "c" * 64,
+            "identity_audit_json": "d" * 64,
+            "board_observation_json": "e" * 64,
+            "shooter_identity_observations_json": "f" * 64,
+            "bonded_groups_config_json": "7" * 64,
+        }}
+        expected = {
+            "conveyor_calibration_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+            "shooter_detection_json": "c" * 64,
+            "identity_json": "d" * 64,
+            "board_observation_json": "e" * 64,
+            "identity_observations_json": "f" * 64,
+            "bonded_groups_config_json": "7" * 64,
+        }
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["candidate_source_hashes_match"])
+        expected["bonded_groups_config_json"] = "e" * 64
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["candidate_source_hashes_match"])
+        expected["bonded_groups_config_json"] = "g" * 64
+        expected["shooter_detection_json"] = "d" * 64
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["candidate_source_hashes_match"])
+        self.assertFalse(evidence_status(
+            {}, None, None, {"source_file_sha256": {}},
+            planning_input_file_sha256=expected,
+        )["checks"]["candidate_source_hashes_match"])
+
+    def test_reachability_upstream_hashes_match_screenshot_mode_sources(self):
+        planning = {
+            "upstream_source_kind": "screenshot_observation",
+            "upstream_source_file_sha256": {
+                "board_json": "d" * 64,
+                "conveyor_calibration_json": "e" * 64,
+                "conveyor_observations_json": "f" * 64,
+            },
+            "confidence_source_file_sha256": {
+                "reachability_audit_json": "a" * 64,
+                "board_observation_json": "d" * 64,
+            },
+        }
+        expected = {
+            "reachability_audit_json": "a" * 64,
+            "vision_calibration_json": "b" * 64,
+            "edge_confidence_json": "c" * 64,
+            "board_json": "b" * 64,
+            "board_observation_json": "d" * 64,
+            "conveyor_calibration_json": "e" * 64,
+            "conveyor_observations_json": "f" * 64,
+        }
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["reachability_upstream_hashes_match"])
+        self.assertTrue(checks["confidence_source_hashes_match"])
+
+        expected["board_observation_json"] = "0" * 64
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["reachability_upstream_hashes_match"])
+        self.assertFalse(checks["confidence_source_hashes_match"])
+
+        self.assertFalse(evidence_status(
+            {
+                "upstream_source_kind": "screenshot_observation",
+                "upstream_source_file_sha256": {},
+                "confidence_source_file_sha256": {},
+            }, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["reachability_upstream_hashes_match"])
+
+    def test_reachability_upstream_hashes_match_legacy_mode_sources(self):
+        planning = {
+            "upstream_source_kind": "baseline_board",
+            "upstream_source_file_sha256": {
+                "board_json": "b" * 64,
+                "conveyor_calibration_json": "e" * 64,
+                "conveyor_observations_json": "f" * 64,
+            },
+            "confidence_source_file_sha256": {
+                "reachability_audit_json": "a" * 64,
+                "vision_level39_json": "b" * 64,
+                "edge_confidence_json": "c" * 64,
+            },
+        }
+        expected = {
+            "reachability_audit_json": "a" * 64,
+            "vision_calibration_json": "b" * 64,
+            "edge_confidence_json": "c" * 64,
+            "board_observation_json": "d" * 64,
+            "conveyor_calibration_json": "e" * 64,
+            "conveyor_observations_json": "f" * 64,
+        }
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["reachability_upstream_hashes_match"])
+        self.assertTrue(checks["confidence_source_hashes_match"])
+        expected["edge_confidence_json"] = "0" * 64
+        checks = evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["confidence_source_hashes_match"])
+
     def test_missing_candidate_artifact_fails_closed_to_canonical_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -67,6 +308,144 @@ class OrchestrationTests(unittest.TestCase):
                 selected, root / "conveyor_identity_candidates.json"
             )
             self.assertEqual(source, "missing")
+
+    def test_identity_audit_source_hashes_must_match_current_inputs(self):
+        identity = {
+            "source_file_sha256": {
+                "board_observation_json": "a" * 64,
+                "conveyor_visual_observations_json": "b" * 64,
+                "shooter_identity_observations_json": "c" * 64,
+                "conveyor_calibration_json": "d" * 64,
+                "shooter_detection_json": "e" * 64,
+            }
+        }
+        expected = {
+            "board_observation_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+            "identity_observations_json": "c" * 64,
+            "conveyor_calibration_json": "d" * 64,
+            "shooter_detection_json": "e" * 64,
+        }
+        checks = evidence_status(
+            {}, identity, None, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["identity_source_hashes_match"])
+
+        expected["identity_observations_json"] = "f" * 64
+        checks = evidence_status(
+            {}, identity, None, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["identity_source_hashes_match"])
+
+    def test_snapshot_sync_source_hashes_must_match_current_inputs(self):
+        baseline_snapshot = {
+            "board_source_kind": "baseline_board",
+            "source_file_sha256": {
+                "vision_level39_json": "a" * 64,
+                "conveyor_observations_json": "b" * 64,
+            },
+        }
+        baseline_expected = {
+            "vision_calibration_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+        }
+        checks = evidence_status(
+            {}, None, baseline_snapshot, {},
+            planning_input_file_sha256=baseline_expected,
+        )["checks"]
+        self.assertTrue(checks["snapshot_source_hashes_match"])
+        baseline_expected["vision_calibration_json"] = "not-a-sha256"
+        self.assertFalse(evidence_status(
+            {}, None, baseline_snapshot, {},
+            planning_input_file_sha256=baseline_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+
+        screenshot_snapshot = {
+            "board_source_kind": "screenshot_observation",
+            "source_file_sha256": {
+                "board_observation_json": "c" * 64,
+                "conveyor_observations_json": "b" * 64,
+            },
+        }
+        screenshot_expected = {
+            "vision_calibration_json": "a" * 64,
+            "board_observation_json": "c" * 64,
+            "conveyor_observations_json": "b" * 64,
+        }
+        self.assertTrue(evidence_status(
+            {}, None, screenshot_snapshot, {},
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+        screenshot_expected["board_observation_json"] = "d" * 64
+        self.assertFalse(evidence_status(
+            {}, None, screenshot_snapshot, {},
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+        self.assertFalse(evidence_status(
+            {}, None, {"source_file_sha256": {}}, {},
+            planning_input_file_sha256=screenshot_expected,
+        )["checks"]["snapshot_source_hashes_match"])
+
+    def test_planning_report_input_hashes_must_match_pinned_files(self):
+        planning = {"input_file_sha256": {
+            "reachability_confidence_json": "a" * 64,
+            "candidate_json": "b" * 64,
+            "conveyor_calibration_json": "c" * 64,
+        }}
+        expected = {
+            "reachability_confidence_json": "a" * 64,
+            "candidate_json": "b" * 64,
+            "conveyor_calibration_json": "c" * 64,
+        }
+        self.assertTrue(evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+        expected["reachability_confidence_json"] = "d" * 64
+        self.assertFalse(evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+        self.assertFalse(evidence_status(
+            {"input_file_sha256": {}}, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+
+    def test_calibration_fingerprint_requires_object_payload(self):
+        self.assertIsNone(_canonical_json_sha256([]))
+        self.assertIsNone(_canonical_json_sha256(None))
+
+    def test_board_calibration_must_match_current_pinned_config(self):
+        calibration = {"grid_size": [35, 35], "bounds": [201, 431, 881, 1113]}
+        matching_digest = _canonical_json_sha256(calibration)
+        self.assertEqual(len(matching_digest), 64)
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=matching_digest,
+            current_calibration_sha256=_canonical_json_sha256(calibration),
+        )["checks"]
+        self.assertTrue(checks["board_calibration_matches_current_config"])
+
+        changed_calibration = dict(calibration, bounds=[200, 431, 881, 1113])
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=matching_digest,
+            current_calibration_sha256=_canonical_json_sha256(changed_calibration),
+        )["checks"]
+        self.assertFalse(checks["board_calibration_matches_current_config"])
+
+    def test_missing_board_calibration_fingerprint_blocks_production_gate(self):
+        checks = evidence_status(
+            {}, None, None, {},
+            planning_input_file_sha256={"vision_calibration_json": "a" * 64},
+            board_calibration_sha256=None,
+            current_calibration_sha256="a" * 64,
+        )["checks"]
+        self.assertFalse(checks["board_calibration_matches_current_config"])
 
     def test_missing_evidence_blocks(self):
         result = evidence_status(None, None, None, None)

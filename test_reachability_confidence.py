@@ -1,3 +1,4 @@
+import hashlib
 import json
 import runpy
 import sys
@@ -8,7 +9,10 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from reachability_confidence import annotate_report, observation_confidence
+from reachability_confidence import (
+    annotate_report, observation_confidence, validate_edge_confidence_source,
+    validate_board_observation_source,
+)
 
 
 def sample_report():
@@ -142,7 +146,13 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             }
             reachability = {
                 "board_dimensions": [35, 35],
+                "board_source_kind": "screenshot_observation",
                 "board_snapshot_id": "sha256:" + "9" * 64,
+                "source_file_sha256": {
+                    "board_json": "a" * 64,
+                    "conveyor_calibration_json": "b" * 64,
+                    "conveyor_observations_json": "c" * 64,
+                },
                 "game_taps_enabled": False,
                 "results": [{
                     "position_id": "top_1",
@@ -160,6 +170,9 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             input_path = root / "reachability.json"
             output_path = root / "confidence.json"
             board_path.write_text(json.dumps(board_data))
+            reachability["source_file_sha256"]["board_json"] = hashlib.sha256(
+                board_path.read_bytes()
+            ).hexdigest()
             input_path.write_text(json.dumps(reachability))
             argv = [
                 "reachability_confidence.py",
@@ -179,6 +192,25 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             self.assertEqual(
                 result["confidence_audit"]["source_snapshot_id"],
                 result["board_snapshot_id"],
+            )
+            self.assertEqual(
+                result["upstream_source_file_sha256"],
+                reachability["source_file_sha256"],
+            )
+            self.assertEqual(
+                result["upstream_source_kind"],
+                "screenshot_observation",
+            )
+            self.assertEqual(
+                result["source_file_sha256"],
+                {
+                    "reachability_audit_json": hashlib.sha256(
+                        input_path.read_bytes()
+                    ).hexdigest(),
+                    "board_observation_json": hashlib.sha256(
+                        board_path.read_bytes()
+                    ).hexdigest(),
+                },
             )
 
     def test_confidence_cli_rejects_different_board_snapshot(self):
@@ -232,6 +264,44 @@ class ReachabilityConfidenceTests(unittest.TestCase):
         )
         self.assertFalse(report["confidence_audit"]["gameplay_verified"])
         self.assertFalse(report["confidence_audit"]["game_taps_enabled"])
+
+    def test_reachability_board_source_requires_exact_bytes(self):
+        digest = "a" * 64
+        self.assertTrue(validate_board_observation_source(
+            {"source_file_sha256": {"board_json": digest}},
+            digest,
+        ))
+
+    def test_reachability_board_source_rejects_missing_or_stale_digest(self):
+        digest = "a" * 64
+        for report in (
+            {},
+            {"source_file_sha256": {}},
+            {"source_file_sha256": {"board_json": "b" * 64}},
+        ):
+            with self.subTest(report=report), self.assertRaisesRegex(
+                ValueError, "do not match"
+            ):
+                validate_board_observation_source(report, digest)
+
+    def test_edge_confidence_requires_matching_board_digest(self):
+        digest = "a" * 64
+        self.assertTrue(validate_edge_confidence_source(
+            {"source_file_sha256": {"vision_level39_json": digest}},
+            digest,
+        ))
+
+    def test_edge_confidence_rejects_missing_or_stale_board_digest(self):
+        digest = "a" * 64
+        for report in (
+            {},
+            {"source_file_sha256": {}},
+            {"source_file_sha256": {"vision_level39_json": "b" * 64}},
+        ):
+            with self.subTest(report=report), self.assertRaisesRegex(
+                ValueError, "does not match"
+            ):
+                validate_edge_confidence_source(report, digest)
 
 
 if __name__ == "__main__":

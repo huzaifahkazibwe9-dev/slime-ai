@@ -37,9 +37,20 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "source_sha256": source_hash,
                 "capture_session_id": session,
                 "captured_at": captured_at,
-            }
+                "capture_config_sha256": "c" * 64,
+                "panel_bounds": [10, 20, 900, 600],
+            },
+            "bonding_source": "not_configured",
+            "bonding_config_sha256": None,
         }))
         return board_path, shooter_path
+
+    def test_rejects_unreadable_utf8_capture_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
+                load_capture_config(path)
 
     def test_accepts_explicit_same_capture_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -48,10 +59,12 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
+            expected_config_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
             result = load_capture_config(path)
         self.assertEqual(result["panel_bounds"], [10, 20, 900, 600])
         self.assertEqual(result["capture_session_id"], "session-abc")
         self.assertEqual(result["captured_at"], "2026-11-23T12:30:00+03:00")
+        self.assertEqual(result["config_sha256"], expected_config_sha256)
 
     def test_rejects_missing_session_id(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -82,6 +95,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
+            expected_config_sha256 = hashlib.sha256(config.read_bytes()).hexdigest()
             with patch("capture_pipeline.subprocess.run") as run, patch(
                 "capture_pipeline.validate_capture_outputs"
             ) as validate, patch("capture_pipeline.audit_capture_pixels") as audit:
@@ -94,6 +108,11 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertIn(flag, ingestor_args)
             self.assertIn(flag, detector_args)
         self.assertIn("--extract-panel", detector_args)
+        self.assertIn(
+            expected_config_sha256,
+            detector_args,
+        )
+        self.assertIn("--capture-config-sha256", detector_args)
         self.assertEqual(
             detector_args[detector_args.index("--panel-bounds") + 1:
                           detector_args.index("--panel-bounds") + 5],
@@ -150,6 +169,54 @@ class CapturePipelineConfigTests(unittest.TestCase):
                     "2026-11-23T12:30:00+03:00",
                 )
 
+    def test_rejects_user_confirmed_bond_source_without_config_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            data["bonding_source"] = "user_confirmed"
+            data["bonding_config_sha256"] = None
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "exact SHA-256"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_malformed_bond_config_digest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            data["bonding_source"] = "not_user_confirmed"
+            data["bonding_config_sha256"] = "not-a-digest"
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "exact SHA-256"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_capture_config_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            with self.assertRaisesRegex(ValueError, "config hash"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                    expected_config_sha256="d" * 64,
+                    expected_panel_bounds=[10, 20, 900, 600],
+                )
+
+    def test_rejects_panel_bounds_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            with self.assertRaisesRegex(ValueError, "panel bounds"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                    expected_config_sha256="c" * 64,
+                    expected_panel_bounds=[11, 20, 900, 600],
+                )
+
     def test_rejects_non_integer_crop_bounds(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, {
@@ -185,6 +252,16 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertEqual(result["captured_at"], "2026-11-25T12:00:00+00:00")
             self.assertEqual(result["snapshot_id"], "sha256:" + "a" * 64)
             self.assertEqual(json.loads(output_path.read_text()), result)
+
+    def test_audit_capture_pixels_rejects_unreadable_utf8_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            board_path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(
+                ValueError, "missing or invalid for pixel audit"
+            ):
+                audit_capture_pixels(board_path, b"source screenshot bytes")
 
     def test_audit_capture_pixels_rejects_sample_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:

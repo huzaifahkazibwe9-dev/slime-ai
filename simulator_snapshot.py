@@ -68,6 +68,7 @@ def snapshot_simulator(sim):
                 "completed_laps": s.completed_laps,
                 "selected": s.selected,
                 "returned": s.returned,
+                "observation_quality": copy.deepcopy(s.observation_quality),
             }
             for s in sim.shooters
         ],

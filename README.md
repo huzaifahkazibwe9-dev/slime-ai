@@ -109,6 +109,25 @@ compatible. This is a conservative input filter, not proof of shooter
 identity, accessibility, or correct colour mapping; gameplay and tap gates
 remain disabled.
 
+## Human-reviewed shooter observation evaluation
+
+The repository now includes a blank-label template builder, an offline
+evaluator for shooter-panel visibility assumptions, calibrated slot positions,
+colour classification and ammunition OCR, structured OCR failure statuses
+with a fail-closed runtime loader, plus a multi-capture aggregator. Each labelled capture is bound to its exact
+detector JSON and original screenshot, and human labels remain separate from
+detector outputs. See
+[docs/SHOOTER_OBSERVATION_EVALUATION.md](docs/SHOOTER_OBSERVATION_EVALUATION.md)
+for the review protocol, OCR status meanings, batch manifest and metric
+limitations. Synthetic unit tests cover the workflow; no real-game accuracy
+result is claimed until genuine captures are manually reviewed.
+
+## Multi-capture combined visual review
+The batch report preserves source-artifact SHA-256 hashes for the board, shooter, pixel audit and screenshot alongside completed review-file hashes.
+
+
+The combined review pipeline can now re-verify and aggregate multiple completed board-and-shooter review bundles. It rejects duplicate screenshot hashes, duplicate capture sessions, duplicate bundle IDs, and paths that escape the batch-manifest directory. Board-colour and shooter metrics remain separate, with pooled sample support shown for each task. See [docs/COMBINED_VISUAL_REVIEW_BATCH.md](docs/COMBINED_VISUAL_REVIEW_BATCH.md). This workflow is for offline evaluation only; it does not enable live taps or purchases.
+
 ## Bonded-shooter confirmation
 
 The detector does not infer bonded relationships from fixed screen positions.
@@ -134,57 +153,90 @@ actions.
 
 ## Manual workflow
 
-For a same-capture board/shooter run, create the local, ignored file
-`data/shooter_capture_config.json` with the actual shooter-panel bounds in
-full-screenshot coordinates, a session label, and the screenshot capture time:
+The one-command build pipeline runs these stages automatically and preserves
+the same screenshot/shooter capture bundle throughout. When diagnosing a
+single stage manually, use this order:
 
-```json
-{
-  "panel_bounds": [100, 100, 990, 680],
-  "capture_session_id": "level39-session-01",
-  "captured_at": "2026-11-23T12:30:00+03:00"
-}
-```
-
-The numeric bounds above are illustrative only; replace them with the actual crop coordinates. The timestamp
-must be the real capture time and include its UTC offset. The session label
-must identify that capture; do not reuse it for a different screenshot.
-When this file exists, the build pipeline ingests the board and generates the
-shooter panel from the same source screenshot. Without it, legacy detection is
-kept diagnostic-only and the evidence gate blocks planning.
-
-1. Ingest a complete game screenshot:
+1. Ingest the current game screenshot:
    `python screenshot_ingestor.py screenshots/level39.jpg`
-2. If the panel crop is available, refresh shooter detection:
-   `python shooter_detector.py`
-   This legacy invocation deliberately leaves shooter capture provenance
-   unverified. To bind the panel crop to the same full screenshot used in
-   step 1, supply the full screenshot, the exact crop bounds in that image,
-   and the same explicit session ID and offset-aware capture timestamp to
-   both ingestion and shooter detection. Example:
-   `python screenshot_ingestor.py screenshots/level39.jpg --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
-   `python shooter_detector.py --source-screenshot screenshots/level39.jpg --panel-bounds LEFT TOP RIGHT BOTTOM --extract-panel --capture-session-id session-A --captured-at 2026-11-23T12:30:00+03:00`
-   Replace the four bounds with the actual full-screenshot crop coordinates.
-   `--extract-panel` creates the calibrated panel image from that screenshot,
-   then verifies its source region. The loader and readiness coordinator block
-   planning if the provenance does not match.
-3. Integrate the observation with shooter data:
-   `python level_loader.py --observation data/board_observation_latest.json`
-4. Build provisional colour regions:
-   `python observation_region_audit.py`
-5. If local conveyor calibration and visual-observation files exist, trace lanes:
+2. Capture the shooter panel from that same screenshot using the calibrated
+   full-image crop and the same capture session/timestamp. Legacy detector
+   invocation without source-screenshot provenance remains diagnostic-only.
+3. Integrate the explicit observation and matching shooter data:
+   `python level_loader.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+4. Build provisional board colour regions:
+   `python observation_region_audit.py --input data/board_observation_latest.json`
+5. Synchronise conveyor observations to the current board capture:
+   `python snapshot_sync.py --board data/board_observation_latest.json`
+6. Prepare the unverified identity template, then build the human-confirmed
+   identity audit and candidate report:
+   `python prepare_identity_observations.py --board data/board_observation_latest.json`
+   Complete `data/shooter_identity_observations.json` with independently
+   user-confirmed records, then run:
+   `python identity_auditor.py --board data/board_observation_latest.json`
+   `python conveyor_identity_matcher.py`
+   The template generator never overwrites an existing observation file and
+   never sets confirmation flags. Without valid user-confirmed records,
+   identity and candidate reports remain blocked; the program does not infer
+   or fabricate labels.
+7. Trace reachability against the latest screenshot:
    `python reachability_auditor.py --board data/board_observation_latest.json`
-6. Apply confidence labels and the planning gate:
+8. Apply screenshot-derived confidence and planning gates:
    `python reachability_confidence.py --board data/board_observation_latest.json`
    `python planning_gate.py`
-7. Map lanes to regions:
+9. Map calibrated lanes to provisional colour regions:
    `python region_lane_mapper.py --board data/board_observation_latest.json`
-8. Run evidence-gated dry-run orchestration:
-   `python orchestration.py --observation data/board_observation_latest.json`
-9. Run central diagnostics:
-   `python main.py --observation data/board_observation_latest.json`
-10. Run all unit tests:
+10. Run evidence-gated dry-run orchestration:
+    `python orchestration.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+11. Run central diagnostics:
+    `python main.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+12. Assess readiness from the same evidence bundle:
+    `python readiness_coordinator.py --observation data/board_observation_latest.json --shooters data/shooter_detection.json`
+13. Run the complete unit-test suite:
     `python -m unittest discover -v`
+
+No stage taps the game or changes gold, inventory, or power-up state. A
+candidate recommendation remains a simulation-only result.
+
+## User-confirmed bonded shooter groups
+
+The build pipeline also prepares `data/bonded_groups_confirmed.json` before
+shooter detection, but only when the file is absent. The initial file has
+`verified_by_user: false` and an empty group list. It does not infer or add
+pairs. To enable bonded-group candidates, manually confirm the exact currently
+detected shooter IDs and edit the file according to
+[`docs/USER_CONFIRMED_BONDS.md`](docs/USER_CONFIRMED_BONDS.md).
+The detector, matcher, planner and `STATUS` compare the config's exact SHA-256;
+changing the file invalidates prior candidate reports and saved plans.
+
+## Human-confirmed shooter identity
+
+The build pipeline now validates physical shooter-to-conveyor-position identity
+from an explicit, local user-confirmed observation file. It does not infer
+physical identity from fixed panel positions or colour similarity.
+
+Create `data/shooter_identity_observations.json` only after checking the
+current capture. The required JSON schema, field meanings, current-frame
+coverage rules, source matching and limitations are documented in
+[`docs/USER_CONFIRMED_IDENTITY.md`](docs/USER_CONFIRMED_IDENTITY.md).
+The file lives under the ignored `data/` directory and is not committed.
+
+During the normal build pipeline, `identity_auditor.py` writes
+`data/identity_audit_report.json`, then
+`conveyor_identity_matcher.py` writes
+`data/conveyor_identity_candidates.json`. Both bind their reports to the
+exact board, calibration, visual observation, identity observation and shooter
+detection inputs. Missing, stale or unconfirmed records keep candidate
+matching blocked.
+
+A passing identity audit confirms only the user-checked physical
+shooter-to-position mapping for one capture. It does not verify panel colour
+classification, ammunition OCR, firing behaviour, colour equivalence with
+board tiles, or gameplay. Live game taps and purchases remain disabled.
+
+## Supported Python versions
+
+The automated test matrix covers Python 3.10, 3.11, 3.12 and 3.14. Each CI job checks shell-script syntax, compiles the Python modules, and runs the full unit suite. This is host-CI coverage; actual Termux installation and Android-device behaviour still require separate validation.
 
 ## Validation scope
 
@@ -239,3 +291,8 @@ state is changed. The planner produces separate use-readiness and purchase-eligi
 ### Reusing evolving-board search
 
 The orchestration pipeline shares one evolving-board search result with the capacity-aware scheduler instead of repeating the same bounded search. The scheduler validates that a supplied result preserves its source state, matches the current remaining-pixel count, and contains a structurally valid group sequence before reuse. This removes redundant search work while retaining separate scheduling and simulation diagnostics. It does not improve the search heuristic itself or establish real-device gameplay speed; live gameplay remains unverified and taps remain disabled.
+
+
+## Human visual review workflow
+
+Prepare board-colour and shooter-observation templates from one screenshot with `python prepare_visual_review.py path/to/original-screenshot.png --config data/shooter_capture_config.json`. After manually completing both templates, evaluate them together with `evaluate_visual_review_bundle.py`. The two stages and their provenance checks are documented in [docs/COMBINED_VISUAL_REVIEW.md](docs/COMBINED_VISUAL_REVIEW.md). The metrics remain separate and user-labelled; this workflow does not claim gameplay verification.

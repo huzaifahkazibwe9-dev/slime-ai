@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from game_state import GameState
 
 SNAPSHOT_CHECKS = (
@@ -41,6 +43,236 @@ def available_groups(state):
         yield tuple(group)
 
 
+def _valid_sha256(value):
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _aware_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed
+
+
+def _timestamps_aligned(left, right, maximum_skew_seconds=120):
+    first = _aware_timestamp(left)
+    second = _aware_timestamp(right)
+    return (
+        first is not None
+        and second is not None
+        and abs((first - second).total_seconds()) <= maximum_skew_seconds
+    )
+
+
+def _source_provenance_matches(
+    state, identity, planning, candidates, snapshot,
+    current_source_file_sha256, current_calibration_sha256,
+    current_identity_audit, current_board_observation,
+):
+    """Bind every planning report to the exact inputs pinned for this pass."""
+    if not isinstance(current_source_file_sha256, dict):
+        return False
+    if (
+        not isinstance(identity, dict)
+        or not isinstance(current_identity_audit, dict)
+        or identity != current_identity_audit
+        or not isinstance(current_board_observation, dict)
+    ):
+        return False
+    current_board_snapshot_id = current_board_observation.get("snapshot_id")
+    current_board_source_sha256 = current_board_observation.get("source_sha256")
+    if (
+        not isinstance(current_board_source_sha256, str)
+        or not _valid_sha256(current_board_source_sha256)
+        or current_board_snapshot_id != "sha256:" + current_board_source_sha256
+        or getattr(state, "snapshot_id", None) != current_board_snapshot_id
+        or getattr(state, "capture_session_id", None)
+        != current_board_observation.get("capture_session_id")
+        or current_board_observation.get("calibration_sha256")
+        != getattr(state, "calibration_sha256", None)
+    ):
+        return False
+    required_inputs = (
+        "vision_calibration_json",
+        "edge_confidence_json",
+        "reachability_audit_json",
+        "reachability_confidence_json",
+        "conveyor_calibration_json",
+        "planning_json",
+        "identity_json",
+        "identity_observations_json",
+        "snapshot_json",
+        "candidate_json",
+        "conveyor_observations_json",
+        "shooter_detection_json",
+        "bonded_groups_config_json",
+        "board_observation_json",
+    )
+    if any(
+        not _valid_sha256(current_source_file_sha256.get(name))
+        for name in required_inputs
+    ):
+        return False
+
+    if not isinstance(snapshot, dict):
+        return False
+
+    expected_identity_sources = {
+        "board_observation_json": current_source_file_sha256[
+            "board_observation_json"
+        ],
+        "conveyor_visual_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+        "shooter_identity_observations_json": current_source_file_sha256[
+            "identity_observations_json"
+        ],
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+        "shooter_detection_json": current_source_file_sha256[
+            "shooter_detection_json"
+        ],
+    }
+    if (
+        not isinstance(identity.get("source_file_sha256"), dict)
+        or identity.get("source_file_sha256") != expected_identity_sources
+    ):
+        return False
+
+    if snapshot.get("board_source_kind") == "screenshot_observation":
+        expected_snapshot = {
+            "board_observation_json": current_source_file_sha256[
+                "board_observation_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    elif snapshot.get("board_source_kind") == "baseline_board":
+        expected_snapshot = {
+            "vision_level39_json": current_source_file_sha256[
+                "vision_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    else:
+        return False
+    if snapshot.get("source_file_sha256") != expected_snapshot:
+        return False
+
+    expected_planning = {
+        "reachability_confidence_json": current_source_file_sha256[
+            "reachability_confidence_json"
+        ],
+        "candidate_json": current_source_file_sha256["candidate_json"],
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+    }
+    if (
+        not isinstance(planning, dict)
+        or planning.get("input_file_sha256") != expected_planning
+    ):
+        return False
+
+    expected_candidates = {
+        "conveyor_calibration_json": current_source_file_sha256[
+            "conveyor_calibration_json"
+        ],
+        "conveyor_visual_observations_json": current_source_file_sha256[
+            "conveyor_observations_json"
+        ],
+        "shooter_detection_json": current_source_file_sha256[
+            "shooter_detection_json"
+        ],
+        "bonded_groups_config_json": current_source_file_sha256[
+            "bonded_groups_config_json"
+        ],
+        "identity_audit_json": current_source_file_sha256["identity_json"],
+        "board_observation_json": current_source_file_sha256[
+            "board_observation_json"
+        ],
+        "shooter_identity_observations_json": current_source_file_sha256[
+            "identity_observations_json"
+        ],
+    }
+    if (
+        not isinstance(candidates, dict)
+        or candidates.get("source_file_sha256") != expected_candidates
+    ):
+        return False
+
+    source_kind = planning.get("upstream_source_kind")
+    if source_kind == "screenshot_observation":
+        expected_confidence = {
+            "reachability_audit_json": current_source_file_sha256[
+                "reachability_audit_json"
+            ],
+            "board_observation_json": current_source_file_sha256[
+                "board_observation_json"
+            ],
+        }
+        expected_upstream = {
+            "board_json": current_source_file_sha256["board_observation_json"],
+            "conveyor_calibration_json": current_source_file_sha256[
+                "conveyor_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    elif source_kind == "baseline_board":
+        expected_confidence = {
+            "reachability_audit_json": current_source_file_sha256[
+                "reachability_audit_json"
+            ],
+            "vision_level39_json": current_source_file_sha256[
+                "vision_calibration_json"
+            ],
+            "edge_confidence_json": current_source_file_sha256[
+                "edge_confidence_json"
+            ],
+        }
+        expected_upstream = {
+            "board_json": current_source_file_sha256["vision_calibration_json"],
+            "conveyor_calibration_json": current_source_file_sha256[
+                "conveyor_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    else:
+        return False
+
+    if (
+        not isinstance(planning.get("confidence_source_file_sha256"), dict)
+        or planning.get("confidence_source_file_sha256") != expected_confidence
+        or not isinstance(planning.get("upstream_source_file_sha256"), dict)
+        or planning.get("upstream_source_file_sha256") != expected_upstream
+    ):
+        return False
+
+    board_calibration_sha256 = getattr(state, "calibration_sha256", None)
+    return (
+        _valid_sha256(board_calibration_sha256)
+        and _valid_sha256(current_calibration_sha256)
+        and board_calibration_sha256 == current_calibration_sha256
+    )
+
+
 def _verified_identity_mapping(state, identity, candidates, snapshot):
     """Derive current shooter positions from independently verified reports."""
     if not all(isinstance(x, dict) for x in (identity, candidates, snapshot)):
@@ -48,6 +280,7 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
 
     if (
         identity.get("identity_verified") is not True
+        or identity.get("verified_by_user") is not True
         or identity.get("timestamps_known") is not True
         or identity.get("errors") != []
         or identity.get("blockers") != []
@@ -91,12 +324,40 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
         or state_snapshot_id != snapshot_id
         or snapshot.get("board_snapshot_id") != snapshot_id
         or snapshot.get("observation_board_snapshot_id") != snapshot_id
+        or identity.get("board_snapshot_id") != snapshot_id
+        or candidates.get("board_snapshot_id") != snapshot_id
+        or not isinstance(identity.get("capture_session_id"), str)
+        or not identity.get("capture_session_id")
+        or candidates.get("capture_session_id") != identity.get("capture_session_id")
+        or candidates.get("timestamp_identified") is not True
+        or not _timestamps_aligned(
+            candidates.get("captured_at"), identity.get("captured_at")
+        )
     ):
         return None
 
     tracks = candidates.get("tracks")
     known = identity.get("known_shooters")
-    if not isinstance(tracks, dict) or not tracks or not isinstance(known, list):
+    confirmed_positions = identity.get("current_position_by_shooter")
+    if (
+        not isinstance(tracks, dict)
+        or not tracks
+        or not isinstance(known, list)
+        or not known
+        or any(not isinstance(shooter_id, str) or not shooter_id for shooter_id in known)
+        or len(set(known)) != len(known)
+        or not isinstance(confirmed_positions, dict)
+        or not confirmed_positions
+        or any(
+            not isinstance(shooter_id, str)
+            or shooter_id not in known
+            or not isinstance(position_id, str)
+            or not position_id
+            for shooter_id, position_id in confirmed_positions.items()
+        )
+        or len(set(confirmed_positions.values())) != len(confirmed_positions)
+        or len(confirmed_positions) != identity.get("positions_checked")
+    ):
         return None
 
     mapping = {}
@@ -114,6 +375,22 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
             or shooter_id not in known
             or not isinstance(position_id, str)
             or not isinstance(observations, list)
+            or track.get("board_snapshot_id") != snapshot_id
+            or track.get("capture_session_id") != identity.get("capture_session_id")
+            or track.get("timestamp_identified") is not True
+            or not _timestamps_aligned(
+                track.get("captured_at"), candidates.get("captured_at")
+            )
+            or not all(
+                isinstance(record, dict)
+                and record.get("board_snapshot_id") == snapshot_id
+                and record.get("capture_session_id") == identity.get("capture_session_id")
+                and record.get("timestamp_identified") is True
+                and _timestamps_aligned(
+                    record.get("captured_at"), candidates.get("captured_at")
+                )
+                for record in observations
+            )
             or any(
                 track.get(k) is not True
                 for k in (
@@ -142,6 +419,11 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
             or type(obs.get("ammo")) is not int
             or obs["ammo"] <= 0
         ):
+            return None
+
+        # Reconfirm the candidate position against the human-confirmed
+        # current-frame mapping; candidate JSON alone cannot override it.
+        if confirmed_positions.get(shooter_id) != position_id:
             return None
 
         if position_id in mapping:
@@ -215,11 +497,27 @@ def plan_next_move(
     identity_audit=None,
     candidate_report=None,
     snapshot_report=None,
+    current_source_file_sha256=None,
+    current_calibration_sha256=None,
+    current_identity_audit=None,
+    current_board_observation=None,
 ):
-    """Return a group only when independent, synchronized evidence agrees."""
+    """Return a group only when current source provenance also matches."""
     if state.validate():
         return None
     if getattr(state, "shooter_capture_provenance_verified", False) is not True:
+        return None
+    if not _source_provenance_matches(
+        state,
+        identity_audit,
+        planning_report,
+        candidate_report,
+        snapshot_report,
+        current_source_file_sha256,
+        current_calibration_sha256,
+        current_identity_audit,
+        current_board_observation,
+    ):
         return None
 
     mapping = _verified_identity_mapping(
@@ -249,29 +547,37 @@ def plan_next_move(
 
 
 if __name__ == "__main__":
-    import json
-    from pathlib import Path
-    from level_loader import load_level
+    import argparse
+    from orchestration import run_orchestration
 
-    state, _ = load_level()
+    parser = argparse.ArgumentParser(
+        description="Run the screenshot-bound, simulation-only Slime AI planner"
+    )
+    parser.add_argument(
+        "--observation",
+        required=True,
+        help="Explicit board observation JSON from the current screenshot capture",
+    )
+    parser.add_argument(
+        "--shooters",
+        required=True,
+        help="Matching shooter detector JSON from the same capture",
+    )
+    parser.add_argument("--data-dir", default="data")
+    parser.add_argument("--candidate-report")
+    args = parser.parse_args()
 
-    def read_report(filename):
-        path = Path("data") / filename
-        return json.loads(path.read_text()) if path.exists() else None
-
-    planning = read_report("planning_gate_latest.json")
-    identity = read_report("identity_audit_report.json")
-    candidates = read_report("conveyor_identity_candidates.json")
-    snapshot = read_report("snapshot_sync_report.json")
-
-    result = plan_next_move(state, planning, identity, candidates, snapshot)
-
-    print("SLIME AI — BUILD 11J EVIDENCE-BOUND PLANNER")
-    print("=" * 52)
-    print("Level:", state.level)
-    print("Accessible shooters:", len(state.accessible_shooters()))
-    print("Identity audit verified:", bool(identity and identity.get("identity_verified") is True))
-    print("Snapshot synchronised:", bool(snapshot and snapshot.get("synchronised") is True))
-    print("Planning gameplay verified:", bool(planning and planning.get("gameplay_verified") is True))
-    print("Recommended group:", result)
+    report = run_orchestration(
+        data_dir=args.data_dir,
+        candidate_report_path=args.candidate_report,
+        observation_path=args.observation,
+        shooter_path=args.shooters,
+    )
+    print("SLIME AI — EVIDENCE-BOUND PLANNER")
+    print("=" * 48)
+    print("Evidence gate:", report["evidence"]["evidence_gate_passed"])
+    print("Recommended group:", report["planner"]["recommended_group"])
+    print("Status:", report["planner"]["recommendation_status"])
     print("Game taps enabled: False")
+    print("Live execution allowed: False")
+    print("Actions performed: False")

@@ -1,6 +1,10 @@
+import hashlib
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from planning_gate import evaluate_planning
+from planning_gate import _read_json_snapshot, evaluate_planning
 
 
 def make_report():
@@ -80,6 +84,29 @@ def make_candidate_report(report=None):
 
 
 class PlanningGateTests(unittest.TestCase):
+    def test_json_snapshot_digest_matches_exact_parsed_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.json"
+            raw = b'{ "value": 7 }'
+            path.write_bytes(raw)
+            value, digest = _read_json_snapshot(path)
+            self.assertEqual(value, {"value": 7})
+            self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
+    def test_json_snapshot_rejects_unreadable_utf8_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
+                _read_json_snapshot(path)
+
+    def test_json_snapshot_rejects_non_object_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.json"
+            path.write_text("[]")
+            with self.assertRaisesRegex(ValueError, "JSON object"):
+                _read_json_snapshot(path)
+
     def test_truthy_non_boolean_evidence_flags_are_rejected(self):
         report = make_report()
         report["same_board_state_confirmed"] = "true"

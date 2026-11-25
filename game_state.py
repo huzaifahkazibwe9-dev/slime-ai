@@ -33,6 +33,7 @@ class Shooter:
     screen_center_verified: bool = False
     panel_center: Optional[tuple] = None
     panel_box: Optional[tuple] = None
+    observation_quality: dict = field(default_factory=dict)
 
     def valid(self):
         # bool is a subclass of int in Python; reject it as malformed ammo.
@@ -66,6 +67,25 @@ class Shooter:
         if self.id in self.bonded_ids:
             return False
         if len(self.bonded_ids) != len(set(self.bonded_ids)):
+            return False
+
+        if not isinstance(self.observation_quality, dict):
+            return False
+        for field_name in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            if field_name in self.observation_quality and (
+                type(self.observation_quality[field_name]) is not bool
+                or self.observation_quality[field_name] is not False
+            ):
+                return False
+        if (
+            self.observation_quality.get("evidence_source") == "detector_declared"
+            and self.observation_quality.get("ammunition_ocr_status")
+            != "PARSED_EXACT_DIGITS"
+        ):
             return False
 
         return True

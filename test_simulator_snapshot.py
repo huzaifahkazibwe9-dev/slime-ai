@@ -30,6 +30,85 @@ class SimulatorSnapshotTests(unittest.TestCase):
               s.selected, s.returned) for s in sim.shooters],
         )
 
+    def test_round_trip_preserves_unverified_observation_quality(self):
+        quality = {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+            "evidence_source": "detector_declared",
+            "ammunition_ocr_status": "PARSED_EXACT_DIGITS",
+        }
+        sim = create_simulator([{
+            "id": "a", "ammo": 3, "observation_quality": quality,
+        }])
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].observation_quality, quality)
+        self.assertEqual(
+            snapshot_simulator(restored)["shooters"][0]["observation_quality"],
+            quality,
+        )
+
+    def test_simulator_report_exposes_visual_evidence_as_unverified(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        report = sim.report()
+        expected = {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+            "ammunition_ocr_status": "NOT_REPORTED",
+        }
+        self.assertEqual(report["shooter_observation_quality"], [
+            {"id": "a", **expected}
+        ])
+        sim.select_group("a")
+        self.assertEqual(
+            sim.report()["active_shooters"][0]["observation_quality"],
+            expected,
+        )
+
+    def test_simulator_rejects_unsubstantiated_visual_verification(self):
+        for flag in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            with self.subTest(flag=flag):
+                with self.assertRaisesRegex(ValueError, "independent evidence"):
+                    create_simulator([{
+                        "id": "a", "ammo": 3,
+                        "observation_quality": {flag: True},
+                    }])
+
+    def test_restore_rejects_tampered_detector_declared_ocr_status(self):
+        sim = create_simulator([{
+            "id": "a",
+            "ammo": 3,
+            "observation_quality": {
+                "evidence_source": "detector_declared",
+                "ammunition_ocr_status": "PARSED_EXACT_DIGITS",
+            },
+        }])
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["observation_quality"][
+            "ammunition_ocr_status"
+        ] = "TESSERACT_TIMEOUT"
+        with self.assertRaisesRegex(ValueError, "successful ammunition OCR"):
+            restore_simulator(snapshot)
+
+    def test_legacy_snapshot_defaults_observation_quality_to_unverified(self):
+        snapshot = snapshot_simulator(
+            create_simulator([{"id": "a", "ammo": 3}])
+        )
+        snapshot["shooters"][0].pop("observation_quality")
+        restored = restore_simulator(snapshot)
+        self.assertEqual(restored.shooters[0].observation_quality, {})
+        self.assertIs(
+            restored.shooters[0].observation_quality.get(
+                "colour_independently_verified", False
+            ),
+            False,
+        )
+
     def test_round_trip_preserves_failed_partial_tick_history(self):
         sim = create_simulator(
             [{"id": "first", "ammo": 0}, {"id": "second", "ammo": 0}],

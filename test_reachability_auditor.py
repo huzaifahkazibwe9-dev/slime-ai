@@ -1,3 +1,4 @@
+import hashlib
 import json
 import runpy
 import sys
@@ -258,6 +259,16 @@ class ReachabilityAuditorTests(unittest.TestCase):
 
             report = json.loads(output_path.read_text())
             self.assertEqual(report["board_snapshot_id"], board_data["snapshot_id"])
+            self.assertEqual(report["board_source_kind"], "screenshot_observation")
+            self.assertEqual(report["source_file_sha256"], {
+                "board_json": hashlib.sha256(board_path.read_bytes()).hexdigest(),
+                "conveyor_calibration_json": hashlib.sha256(
+                    calibration_path.read_bytes()
+                ).hexdigest(),
+                "conveyor_observations_json": hashlib.sha256(
+                    observations_path.read_bytes()
+                ).hexdigest(),
+            })
             self.assertEqual(report["planning_ready_positions"], 0)
             self.assertFalse(report["gameplay_verified"])
             self.assertFalse(report["game_taps_enabled"])

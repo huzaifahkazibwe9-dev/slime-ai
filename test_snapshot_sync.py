@@ -1,9 +1,107 @@
+import hashlib
+import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
-from snapshot_sync import synchronise_audit, synchronise_bundle
+from pathlib import Path
+from snapshot_sync import (
+    main as run_snapshot_sync,
+    read_input_snapshots, synchronise_audit, synchronise_bundle,
+)
 
 
 class SnapshotSyncTests(unittest.TestCase):
+    def test_input_snapshot_hashes_exact_parsed_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "vision_level39.json"
+            observations_path = Path(directory) / "conveyor_visual_observations.json"
+            board_bytes = b'{ "grid_size": [35, 35], "bounds": [1, 2, 3, 4] }'
+            observation_bytes = b'{ "observations": [], "captured_at": "2026-11-23T10:00:00+00:00" }'
+            board_path.write_bytes(board_bytes)
+            observations_path.write_bytes(observation_bytes)
+
+            board, observations, hashes = read_input_snapshots(
+                board_path, observations_path
+            )
+
+            self.assertEqual(board["grid_size"], [35, 35])
+            self.assertEqual(observations["observations"], [])
+            self.assertEqual(hashes, {
+                "vision_level39_json": hashlib.sha256(board_bytes).hexdigest(),
+                "conveyor_observations_json": hashlib.sha256(
+                    observation_bytes
+                ).hexdigest(),
+            })
+
+    def test_input_snapshot_hashes_screenshot_observation_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board_observation_latest.json"
+            observations_path = Path(directory) / "conveyor_visual_observations.json"
+            board_bytes = b'{"raw_rgb": [[[1, 2, 3]]], "snapshot_id": "sha256:' + b"1" * 64 + b'"}'
+            observation_bytes = b'{"observations": []}'
+            board_path.write_bytes(board_bytes)
+            observations_path.write_bytes(observation_bytes)
+
+            board, observations, hashes = read_input_snapshots(
+                board_path, observations_path
+            )
+
+            self.assertIn("raw_rgb", board)
+            self.assertEqual(observations["observations"], [])
+            self.assertEqual(hashes, {
+                "board_observation_json": hashlib.sha256(board_bytes).hexdigest(),
+                "conveyor_observations_json": hashlib.sha256(
+                    observation_bytes
+                ).hexdigest(),
+            })
+
+    def test_main_writes_blocked_report_for_unreadable_utf8_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            observations_path = root / "observations.json"
+            output_path = root / "snapshot_sync_report.json"
+            board_path.write_bytes(bytes((255, 254)))
+            observations_path.write_text(json.dumps({"observations": []}))
+
+            report = run_snapshot_sync(
+                board_path, observations_path, output_path
+            )
+
+            self.assertFalse(report["synchronised"])
+            self.assertFalse(report["planning_allowed_by_sync"])
+            self.assertIn("input_error", report)
+            self.assertFalse(report["game_taps_enabled"])
+            self.assertTrue(output_path.is_file())
+            self.assertEqual(json.loads(output_path.read_text()), report)
+
+    def test_main_writes_blocked_report_for_non_object_json_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            board_path = root / "board.json"
+            observations_path = root / "observations.json"
+            output_path = root / "snapshot_sync_report.json"
+            board_path.write_text("[]")
+            observations_path.write_text("{}")
+
+            report = run_snapshot_sync(
+                board_path, observations_path, output_path
+            )
+
+            self.assertFalse(report["synchronised"])
+            self.assertFalse(report["planning_allowed_by_sync"])
+            self.assertIn("JSON object", report["input_error"])
+            self.assertFalse(report["game_taps_enabled"])
+
+    def test_input_snapshot_reader_rejects_non_object_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            observations_path = Path(directory) / "observations.json"
+            board_path.write_text("[]")
+            observations_path.write_text("{}")
+            with self.assertRaisesRegex(ValueError, "JSON object"):
+                read_input_snapshots(board_path, observations_path)
+
     def valid_data(self):
         now = datetime.now(timezone.utc)
         board = {
