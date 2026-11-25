@@ -105,8 +105,12 @@ def assess(state, audit, calibration, identity, firing):
             and identity.get("errors") == []
             and identity.get("blockers") == []
         ),
-        "actual_firing_verified": bool(
-            firing and firing.get("actual_firing_verified") is True
+        # No independent firing-verification pipeline exists yet. A JSON
+        # boolean is only a claim and must never promote this readiness check.
+        "actual_firing_verified": False,
+        "actual_firing_verification_available": False,
+        "actual_firing_claim_ignored": (
+            firing.get("actual_firing_verified") is True
         ),
         # These are implementation/authorization prerequisites, not evidence
         # flags that a JSON report may assert on behalf of the user.
