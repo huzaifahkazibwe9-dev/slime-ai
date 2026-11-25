@@ -100,6 +100,19 @@ class PrepareShooterReviewPairTests(unittest.TestCase):
                     "../outside", "reviewer-b",
                 )
 
+    def test_rejects_reviewer_id_reserved_for_manifest_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            detection, screenshot, _, _ = self._sources(root)
+            with self.assertRaisesRegex(ValueError, "reserved review_manifest"):
+                prepare_review_pair(
+                    detection,
+                    screenshot,
+                    root / "pair",
+                    "review_manifest",
+                    "reviewer-b",
+                )
+
     def test_refuses_output_paths_that_collide_with_source_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
