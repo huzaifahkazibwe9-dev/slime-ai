@@ -1,0 +1,196 @@
+import hashlib
+import io
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from PIL import Image
+
+from prepare_shooter_labels import build_template
+from shooter_batch_evaluation import evaluate_manifest
+from test_prepare_shooter_labels import fixture_artifacts
+
+
+def write_capture(root, index, screenshot_colour, session_id=None, screenshot_bytes_override=None):
+    detection, _, _ = fixture_artifacts()
+    if screenshot_bytes_override is None:
+        buffer = io.BytesIO()
+        Image.new("RGB", (1080, 2220), screenshot_colour).save(buffer, format="PNG")
+        screenshot_bytes = buffer.getvalue()
+    else:
+        screenshot_bytes = screenshot_bytes_override
+    detection["capture_provenance"]["source_sha256"] = hashlib.sha256(
+        screenshot_bytes
+    ).hexdigest()
+    detection["capture_provenance"]["capture_session_id"] = (
+        session_id or f"batch-session-{index}"
+    )
+    detection["capture_provenance"]["captured_at"] = (
+        f"2026-11-25T12:{index:02d}:00+00:00"
+    )
+    detection_bytes = json.dumps(
+        detection, separators=(",", ":")
+    ).encode("utf-8")
+    dataset = build_template(detection, detection_bytes, screenshot_bytes)
+    dataset["labelled_by_user"] = True
+
+    for sample in dataset["samples"]:
+        detector = sample["detector"]
+        row, column = detector["row"], detector["column"]
+        sample["review_status"] = "confirmed"
+        if row == 1:
+            sample["human"] = {
+                "visibility": "visible",
+                "row": row,
+                "column": column,
+                "colour": "red",
+                "ammunition_readable": True,
+                "ammunition": detector["ammunition"],
+            }
+        elif row == 2:
+            sample["human"] = {
+                "visibility": "unrevealed",
+                "row": row,
+                "column": column,
+                "colour": "",
+                "ammunition_readable": False,
+                "ammunition": None,
+            }
+        else:
+            sample["human"] = {
+                "visibility": "partially_occluded",
+                "row": row,
+                "column": column,
+                "colour": "",
+                "ammunition_readable": False,
+                "ammunition": None,
+            }
+
+    dataset_path = root / f"labels-{index}.json"
+    detection_path = root / f"detection-{index}.json"
+    screenshot_path = root / f"screenshot-{index}.png"
+    dataset_path.write_text(json.dumps(dataset), encoding="utf-8")
+    detection_path.write_bytes(detection_bytes)
+    screenshot_path.write_bytes(screenshot_bytes)
+    return {
+        "dataset": dataset_path.name,
+        "detection": detection_path.name,
+        "screenshot": screenshot_path.name,
+        "dataset_object": dataset,
+        "detection_bytes": detection_bytes,
+        "screenshot_bytes": screenshot_bytes,
+    }
+
+
+class ShooterBatchEvaluationTests(unittest.TestCase):
+    def test_aggregates_metrics_across_distinct_capture_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = write_capture(root, 1, (10, 20, 30))
+            second = write_capture(root, 2, (30, 40, 50))
+            second["dataset_object"]["samples"][0]["human"]["colour"] = "cyan"
+            second["dataset_object"]["samples"][0]["human"]["ammunition"] += 1
+            (root / second["dataset"]).write_text(
+                json.dumps(second["dataset_object"]), encoding="utf-8"
+            )
+            manifest = {
+                "schema_version": 1,
+                "captures": [
+                    {key: first[key] for key in ("dataset", "detection", "screenshot")},
+                    {key: second[key] for key in ("dataset", "detection", "screenshot")},
+                ],
+            }
+
+            report = evaluate_manifest(manifest, base_dir=root)
+
+        self.assertEqual(report["capture_count"], 2)
+        self.assertEqual(report["sample_count"], 24)
+        self.assertEqual(report["confirmed_sample_count"], 24)
+        self.assertEqual(report["metrics"]["visibility"]["support"], 24)
+        self.assertEqual(report["metrics"]["visibility"]["accuracy"], 1.0)
+        self.assertEqual(report["metrics"]["slot_position_alignment"]["support"], 24)
+        self.assertEqual(report["metrics"]["colour"]["support"], 8)
+        self.assertEqual(report["metrics"]["colour"]["accuracy"], 0.875)
+        self.assertEqual(report["metrics"]["ammunition"]["support"], 8)
+        self.assertEqual(report["metrics"]["ammunition"]["exact_match_count"], 7)
+        self.assertEqual(report["metrics"]["ammunition"]["exact_match_accuracy"], 0.875)
+        self.assertTrue(report["source_provenance"]["all_source_artifacts_verified"])
+        self.assertFalse(report["coverage_adequacy_assessed"])
+        self.assertFalse(report["label_truth_independently_verified"])
+        self.assertFalse(report["gameplay_verified"])
+        self.assertFalse(report["game_taps_enabled"])
+
+    def test_rejects_duplicate_screenshot_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = write_capture(root, 1, (10, 20, 30))
+            second = write_capture(
+                root, 2, (40, 50, 60),
+                screenshot_bytes_override=first["screenshot_bytes"],
+            )
+            manifest = {
+                "schema_version": 1,
+                "captures": [
+                    {key: first[key] for key in ("dataset", "detection", "screenshot")},
+                    {key: second[key] for key in ("dataset", "detection", "screenshot")},
+                ],
+            }
+            with self.assertRaisesRegex(ValueError, "repeats an identical source screenshot"):
+                evaluate_manifest(manifest, base_dir=root)
+
+    def test_rejects_duplicate_capture_session_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = write_capture(root, 1, (10, 20, 30), session_id="same-session")
+            second = write_capture(root, 2, (40, 50, 60), session_id="same-session")
+            manifest = {
+                "schema_version": 1,
+                "captures": [
+                    {key: first[key] for key in ("dataset", "detection", "screenshot")},
+                    {key: second[key] for key in ("dataset", "detection", "screenshot")},
+                ],
+            }
+            with self.assertRaisesRegex(ValueError, "Duplicate capture session_id"):
+                evaluate_manifest(manifest, base_dir=root)
+
+    def test_rejects_duplicate_detector_json_even_when_listed_twice(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = write_capture(root, 1, (10, 20, 30))
+            entry = {key: first[key] for key in ("dataset", "detection", "screenshot")}
+            manifest = {"schema_version": 1, "captures": [entry, entry]}
+            with self.assertRaisesRegex(ValueError, "Duplicate capture session_id"):
+                evaluate_manifest(manifest, base_dir=root)
+
+    def test_rejects_missing_manifest_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = {
+                "schema_version": 1,
+                "captures": [{
+                    "dataset": "missing-labels.json",
+                    "detection": "missing-detection.json",
+                    "screenshot": "missing-screenshot.png",
+                }],
+            }
+            with self.assertRaisesRegex(ValueError, "unreadable source artifact"):
+                evaluate_manifest(manifest, base_dir=directory)
+
+    def test_rejects_empty_or_invalid_manifest(self):
+        for manifest in (
+            None,
+            [],
+            {"schema_version": 2, "captures": []},
+            {"schema_version": 1, "captures": []},
+        ):
+            with self.subTest(manifest=manifest):
+                with self.assertRaises(ValueError):
+                    evaluate_manifest(manifest)
+
+    def test_rejects_non_object_capture_entry(self):
+        with self.assertRaisesRegex(ValueError, "capture 0 must be an object"):
+            evaluate_manifest({"schema_version": 1, "captures": [None]})
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
