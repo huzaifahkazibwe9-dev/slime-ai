@@ -139,6 +139,12 @@ class ControllerTests(unittest.TestCase):
             "game_taps_enabled": False,
             "live_execution_allowed": False,
             "actions_performed": False,
+            "shooter_observation_quality": {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+                "interpretation": "Simulation only; detector values are unverified.",
+            },
         }
         with tempfile.TemporaryDirectory() as directory:
             write_capture_pair(directory)
@@ -155,6 +161,12 @@ class ControllerTests(unittest.TestCase):
         self.assertIs(result["plan_is_gameplay_verified"], False)
         self.assertEqual(
             result["plan_verification_status"], "NOT_GAMEPLAY_VERIFIED"
+        )
+        self.assertIs(
+            result["shooter_observation_quality"][
+                "ammunition_independently_verified"
+            ],
+            False,
         )
         self.assertIsNone(result["recommended_group"])
         self.assertFalse(result["evidence_gate_passed"])
