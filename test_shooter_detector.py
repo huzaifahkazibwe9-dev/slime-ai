@@ -62,6 +62,15 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(payload["performance"]["ammunition_ocr_calls"], 4)
             self.assertEqual(payload["performance"]["panel_slots_observed"], 12)
             self.assertGreaterEqual(payload["performance"]["shooter_detection_seconds"], 0)
+            self.assertIs(
+                payload["observation_quality"]["ammunition_independently_verified"],
+                False,
+            )
+            self.assertIs(
+                payload["observation_quality"]["colour_independently_verified"],
+                False,
+            )
+            self.assertIsNone(payload["bonding_config_sha256"])
 
     def test_sample_quality_detects_distinct_colour_patch(self):
         image = Image.new("RGB", (40, 40), (35, 35, 35))
@@ -466,6 +475,7 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                      "20", "30", "327", "230", "--extract-panel",
                      "--capture-session-id", "snapshot-test",
                      "--captured-at", "2026-11-24T12:00:00+01:00",
+                     "--capture-config-sha256", "c" * 64,
                  ]):
                 main()
 
@@ -474,6 +484,14 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
             self.assertEqual(
                 payload["capture_provenance"]["source_sha256"],
                 hashlib.sha256(original_bytes).hexdigest(),
+            )
+            self.assertEqual(
+                payload["capture_provenance"]["capture_config_sha256"],
+                "c" * 64,
+            )
+            self.assertEqual(
+                payload["capture_provenance"]["panel_bounds"],
+                [20, 30, 327, 230],
             )
             self.assertNotEqual(
                 payload["capture_provenance"]["source_sha256"],
