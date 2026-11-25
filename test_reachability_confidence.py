@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from reachability_confidence import (
-    annotate_report, observation_confidence, validate_edge_confidence_source,
+    annotate_report, observation_confidence, validate_edge_confidence_source,\n    validate_board_observation_source,
 )
 
 
@@ -168,6 +168,9 @@ class ReachabilityConfidenceTests(unittest.TestCase):
             input_path = root / "reachability.json"
             output_path = root / "confidence.json"
             board_path.write_text(json.dumps(board_data))
+            reachability["source_file_sha256"]["board_json"] = hashlib.sha256(
+                board_path.read_bytes()
+            ).hexdigest()
             input_path.write_text(json.dumps(reachability))
             argv = [
                 "reachability_confidence.py",
@@ -255,6 +258,25 @@ class ReachabilityConfidenceTests(unittest.TestCase):
         )
         self.assertFalse(report["confidence_audit"]["gameplay_verified"])
         self.assertFalse(report["confidence_audit"]["game_taps_enabled"])
+
+    def test_reachability_board_source_requires_exact_bytes(self):
+        digest = "a" * 64
+        self.assertTrue(validate_board_observation_source(
+            {"source_file_sha256": {"board_json": digest}},
+            digest,
+        ))
+
+    def test_reachability_board_source_rejects_missing_or_stale_digest(self):
+        digest = "a" * 64
+        for report in (
+            {},
+            {"source_file_sha256": {}},
+            {"source_file_sha256": {"board_json": "b" * 64}},
+        ):
+            with self.subTest(report=report), self.assertRaisesRegex(
+                ValueError, "do not match"
+            ):
+                validate_board_observation_source(report, digest)
 
     def test_edge_confidence_requires_matching_board_digest(self):
         digest = "a" * 64
