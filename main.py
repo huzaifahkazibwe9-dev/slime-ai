@@ -179,14 +179,17 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     current_calibration_sha256 = _canonical_json_sha256(
         evidence_bundle["vision_calibration"]
     )
+    capture_preflight_verified = pinned_capture is not None
+    shooter_capture_verified = (
+        capture_preflight_verified
+        and vision_verified.get("shooter_capture_provenance_verified") is True
+    )
     planner_gate = evidence_status(
         planning_report,
         identity_report,
         synchronized_snapshot,
         candidate_report,
-        shooter_capture_verified=(
-            vision_verified.get("shooter_capture_provenance_verified") is True
-        ),
+        shooter_capture_verified=shooter_capture_verified,
         planning_input_file_sha256=current_source_file_sha256,
         board_calibration_sha256=(
             board_observation.get("calibration_sha256")
@@ -244,6 +247,8 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
         "Board dimensions correct": state.width == 35 and state.height == 35,
         "Observed cell count correct": state.remaining_pixels == 1225,
         "Game state valid": not errors,
+        "Source-pixel capture preflight passed": capture_preflight_verified,
+        "Shooter capture provenance verified": shooter_capture_verified,
         "Vision occupancy verified": vision_verified.get(
             "vision_occupancy_verified", False
         ),
