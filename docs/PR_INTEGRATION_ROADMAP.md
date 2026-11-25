@@ -72,6 +72,10 @@ These checks establish internal consistency of stored samples against source byt
 - #52, #53 and #54 are sibling PRs. All three carry the same source-image verification implementation and shared test additions; #53 adds the test-matrix document, while #54 adds two compatibility tests. Consolidate the implementation once, then retain the unique documentation and compatibility tests in a single follow-up branch.
 - #1–#8 and #10 may contain changes already incorporated into later integrated PRs. Audit commit ancestry and file-level diffs before closing or merging; PR titles alone are not sufficient evidence of duplication.
 
+## Shooter detector hardening carried into the simulator branch
+
+The cumulative simulator branch (#31) initially lacked input validation already present in the vision-quality branch (#20): finite/range checks for panel aspect-ratio tolerance and colour-sample quality thresholds. Those guards have now been carried into #31's `shooter_detector.py`, with regression tests for NaN, infinity, out-of-range values, booleans, and non-numeric values. This is a targeted conflict-resolution step, not a full integration of #20; the remaining overlapping shooter-loader/detector changes still require review and combined tests.
+
 ## Release-candidate exit criteria
 
 A release candidate is not ready until all of the following are true:
