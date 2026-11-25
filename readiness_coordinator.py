@@ -126,20 +126,47 @@ def main(observation_path=None, shooter_path=None):
     print("SLIME AI — READINESS COORDINATOR")
     print("=" * 55)
 
-    state, audit = load_level(
-        level=39,
-        observation_path=observation_path,
-        shooter_path=shooter_path,
+    from orchestration import (
+        _canonical_json_sha256,
+        _read_capture_bundle,
+        _read_planning_evidence_bundle,
     )
+    pinned_capture = None
+    if observation_path is not None:
+        board_path = Path(observation_path)
+        shooter_file = Path(shooter_path or "data/shooter_detection.json")
+        pinned_capture = _read_capture_bundle(board_path, shooter_file)
+        from capture_preflight import validate_capture_pair
+        capture = validate_capture_pair(
+            board_path,
+            shooter_file,
+            board_data=pinned_capture["board_data"],
+            shooter_data=pinned_capture["shooter_data"],
+            pixel_audit_data=pinned_capture["pixel_audit_data"],
+        )
+        if capture.get("valid") is not True:
+            raise ValueError(capture.get("reason", "Capture preflight failed."))
+        state, audit = load_level(
+            level=39,
+            observation_path=board_path,
+            shooter_path=shooter_file,
+            observation_data=capture["board_data"],
+            shooter_data=capture["shooter_data"],
+        )
+        board_observation = capture["board_data"]
+    else:
+        state, audit = load_level(level=39)
+        board_observation = read_json("board_observation_latest.json", {})
+
+    evidence_bundle = _read_planning_evidence_bundle(DATA)
     calibration = read_json("conveyor_calibration.json", {})
-    identity = read_json("identity_audit_report.json", {})
+    identity = evidence_bundle["identity"] or {}
     firing = read_json("firing_observations.json", {})
-    planning = read_json("planning_gate_latest.json")
-    identity_audit = read_json("identity_audit_report.json")
-    candidate_report = read_json("conveyor_identity_candidates.json")
-    snapshot_report = read_json("snapshot_sync_report.json")
-    board_observation = read_json("board_observation_latest.json")
-    conveyor_observation = read_json("conveyor_visual_observations.json")
+    planning = evidence_bundle["planning"]
+    identity_audit = evidence_bundle["identity"]
+    candidate_report = evidence_bundle["candidates"]
+    snapshot_report = evidence_bundle["snapshot"]
+    conveyor_observation = evidence_bundle["conveyor_observation"]
     learning = learning_summary()
 
     result = assess(
@@ -170,11 +197,20 @@ def main(observation_path=None, shooter_path=None):
         and bundle_sync["planning_allowed_by_sync"]
     )
     synchronized_snapshot["bundle_synchronisation"] = bundle_sync
+    current_calibration_sha256 = _canonical_json_sha256(
+        evidence_bundle["vision_calibration"]
+    )
     gate = evidence_status(
         planning, identity_audit, synchronized_snapshot, candidate_report,
         shooter_capture_verified=(
             audit.get("shooter_capture_provenance_verified") is True
         ),
+        planning_input_file_sha256=evidence_bundle["file_sha256"],
+        board_calibration_sha256=(
+            board_observation.get("calibration_sha256")
+            if isinstance(board_observation, dict) else None
+        ),
+        current_calibration_sha256=current_calibration_sha256,
     )
 
     shooter_capture_verified = (
@@ -189,6 +225,8 @@ def main(observation_path=None, shooter_path=None):
             identity_audit=identity_audit,
             candidate_report=candidate_report,
             snapshot_report=synchronized_snapshot,
+            current_source_file_sha256=evidence_bundle["file_sha256"],
+            current_calibration_sha256=current_calibration_sha256,
         )
     manager.stop()
     result["planning_evidence_gate"] = gate
