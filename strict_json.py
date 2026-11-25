@@ -6,6 +6,7 @@ constants are outside the JSON specification. Evidence pipelines use this
 loader so every object has one unambiguous interpretation.
 """
 import json
+import math
 
 
 def _unique_object(pairs):
@@ -21,6 +22,17 @@ def _reject_nonstandard_constant(value):
     raise ValueError(f"Non-standard JSON numeric constant is not permitted: {value}")
 
 
+
+def _finite_float(value):
+    """Reject valid JSON exponents that overflow Python's float range."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(
+            f"JSON floating-point number is outside the finite range: {value}"
+        )
+    return number
+
+
 def strict_json_loads(source):
     """Decode UTF-8 JSON while rejecting duplicate keys and NaN/Infinity."""
     if isinstance(source, (bytes, bytearray)):
@@ -31,4 +43,5 @@ def strict_json_loads(source):
         source,
         object_pairs_hook=_unique_object,
         parse_constant=_reject_nonstandard_constant,
+        parse_float=_finite_float,
     )
