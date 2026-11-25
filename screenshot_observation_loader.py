@@ -258,8 +258,40 @@ def load_observed_level(
     if errors:
         raise ValueError("Invalid integrated game state: " + "; ".join(errors))
 
+    shooter_quality_counts = {}
+    for shooter in shooters.values():
+        quality_status = shooter.observation_quality.get(
+            "sample_quality_status", "NOT_RECORDED"
+        )
+        shooter_quality_counts[quality_status] = (
+            shooter_quality_counts.get(quality_status, 0) + 1
+        )
+    shooter_observation_quality = {
+        "colour_independently_verified": all(
+            shooter.observation_quality.get(
+                "colour_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "ammunition_independently_verified": all(
+            shooter.observation_quality.get(
+                "ammunition_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "slot_mapping_independently_verified": all(
+            shooter.observation_quality.get(
+                "slot_mapping_independently_verified"
+            ) is True for shooter in shooters.values()
+        ) and bool(shooters),
+        "shooters_loaded": len(shooters),
+        "sample_quality_counts": shooter_quality_counts,
+        "interpretation": (
+            "Detector outputs are observations for simulation only; "
+            "colour, ammunition and slot mapping are not independently verified."
+        ),
+    }
     audit = {
         "source": "screenshot_observation",
+        "shooter_observation_quality": shooter_observation_quality,
         "snapshot_id": data["snapshot_id"],
         "image_size": data["image_size"],
         "grid_size": [width, height],
