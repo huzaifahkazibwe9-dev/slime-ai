@@ -69,6 +69,18 @@ class Shooter:
         if len(self.bonded_ids) != len(set(self.bonded_ids)):
             return False
 
+        if not isinstance(self.observation_quality, dict):
+            return False
+        for field_name in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            if field_name in self.observation_quality and type(
+                self.observation_quality[field_name]
+            ) is not bool:
+                return False
+
         return True
 
 
