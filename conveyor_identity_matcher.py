@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -241,6 +242,119 @@ def validate_identity_audit(identity, board, visual, expected_positions,
     return sorted(set(errors)), shooter_positions
 
 
+def validate_calibration_positions(positions):
+    """Validate geometry fields needed by candidate and reachability reports."""
+    if not isinstance(positions, dict) or not positions:
+        return ["Calibration positions must be a non-empty object map"]
+    errors = []
+    for position_id, position in positions.items():
+        if not isinstance(position, dict):
+            errors.append(f"{position_id}: calibration entry must be an object")
+            continue
+        if position.get("segment") not in ORDER:
+            errors.append(f"{position_id}: invalid conveyor segment")
+        center = position.get("center")
+        if (
+            not isinstance(center, list)
+            or len(center) != 2
+            or any(
+                type(value) not in (int, float)
+                or (type(value) is float and not math.isfinite(value))
+                for value in center
+            )
+        ):
+            errors.append(f"{position_id}: center must contain two finite coordinates")
+    return errors
+
+
+def derive_candidate_track(
+    name, specification, shooter_positions, current_position_by_shooter,
+    shooters, calibrated_positions, observations_by_position, visual,
+):
+    """Derive one candidate identity from human-confirmed historical tracks."""
+    track_positions = specification["positions"]
+    possible_shooters = None
+    for position_id in track_positions:
+        candidates_at_position = {
+            shooter_id
+            for shooter_id, known_positions in shooter_positions.items()
+            if isinstance(known_positions, list) and position_id in known_positions
+        }
+        possible_shooters = (
+            candidates_at_position if possible_shooters is None
+            else possible_shooters.intersection(candidates_at_position)
+        )
+    candidate_shooter = (
+        next(iter(possible_shooters))
+        if possible_shooters and len(possible_shooters) == 1
+        else None
+    )
+    current_position_id = (
+        current_position_by_shooter.get(candidate_shooter)
+        if candidate_shooter else None
+    )
+    shooter = (
+        shooters.get(candidate_shooter)
+        if candidate_shooter is not None else None
+    )
+    panel_colour = (
+        shooter.get("color", {}).get("name")
+        if isinstance(shooter, dict)
+        and isinstance(shooter.get("color"), dict)
+        else None
+    )
+
+    records = []
+    for position_id in track_positions:
+        observation = observations_by_position[position_id]
+        position = calibrated_positions[position_id]
+        records.append({
+            "position_id": position_id,
+            "segment": position.get("segment"),
+            "colour": observation["colour"],
+            "ammo": observation["ammo"],
+            "center": position.get("center"),
+            "board_snapshot_id": visual.get("board_snapshot_id"),
+            "capture_session_id": visual.get("capture_session_id"),
+            "captured_at": visual.get("captured_at"),
+            "timestamp_identified": visual.get("timestamp_identified") is True,
+        })
+
+    ammo = [record["ammo"] for record in records]
+    ammo_non_increasing = all(
+        later <= earlier for earlier, later in zip(ammo, ammo[1:])
+    )
+    panel_colour_match = panel_colour in specification["allowed_panel_colours"]
+    observed_colours_match = all(
+        (
+            record["colour"].lower() == "white"
+            if name == "white"
+            else record["colour"].lower() in {"blue", "cyan"}
+        )
+        for record in records
+    )
+    return {
+        "candidate_shooter": candidate_shooter,
+        "current_position_id": current_position_id,
+        "board_snapshot_id": visual.get("board_snapshot_id"),
+        "capture_session_id": visual.get("capture_session_id"),
+        "captured_at": visual.get("captured_at"),
+        "timestamp_identified": visual.get("timestamp_identified") is True,
+        "panel_colour": panel_colour,
+        "observations": records,
+        "ammo_non_increasing": ammo_non_increasing,
+        "panel_colour_match": panel_colour_match,
+        "observed_colour_consistent": observed_colours_match,
+        "candidate_supported": (
+            candidate_shooter is not None
+            and current_position_id in track_positions
+            and ammo_non_increasing
+            and panel_colour_match
+            and observed_colours_match
+        ),
+    }
+
+
 def main():
     calibration, calibration_digest = read_snapshot("conveyor_calibration.json")
     visual, visual_digest = read_snapshot("conveyor_visual_observations.json")
@@ -369,89 +483,33 @@ def main():
         ),
     }
 
-    for name, specification in track_specs.items():
-        track_positions = specification["positions"]
-        possible_shooters = None
-        for position_id in track_positions:
-            candidates_at_position = set(
-                shooter_id
-                for shooter_id, known_positions in shooter_positions.items()
-                if position_id in known_positions
-            )
-            possible_shooters = (
-                candidates_at_position if possible_shooters is None
-                else possible_shooters.intersection(candidates_at_position)
-            )
-        candidate_shooter = (
-            next(iter(possible_shooters))
-            if possible_shooters and len(possible_shooters) == 1
-            else None
-        )
-        current_position_id = (
-            identity_report.get("current_position_by_shooter", {}).get(
-                candidate_shooter
-            )
-            if candidate_shooter else None
-        )
-        shooter = shooters.get(candidate_shooter) if candidate_shooter else None
-        panel_colour = (
-            shooter.get("color", {}).get("name")
-            if isinstance(shooter, dict)
-            and isinstance(shooter.get("color"), dict)
-            else None
-        )
-        records = []
-        for position_id in track_positions:
-            observation = by_position[position_id]
-            position = positions[position_id]
-            records.append({
-                "position_id": position_id,
-                "segment": position["segment"],
-                "colour": observation["colour"],
-                "ammo": observation["ammo"],
-                "center": position["center"],
-                "board_snapshot_id": visual["board_snapshot_id"],
-                "capture_session_id": visual["capture_session_id"],
-                "captured_at": visual["captured_at"],
-                "timestamp_identified": True,
-            })
+    validation_errors.extend(validate_calibration_positions(positions))
+    if validation_errors:
+        report["validation_errors"] = sorted(set(validation_errors))
+        report["checks"]["calibration_geometry_valid"] = False
+        output = DATA / "conveyor_identity_candidates.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_suffix(output.suffix + ".tmp")
+        temporary.write_text(json.dumps(report, indent=2))
+        temporary.replace(output)
+        print("Candidate matching blocked by calibration geometry.")
+        for error in report["validation_errors"]:
+            print("-", error)
+        print("Identity verified:", identity_verified)
+        print("Gameplay taps enabled: False")
+        return report
 
-        ammo = [record["ammo"] for record in records]
-        non_increasing = all(
-            later <= earlier for earlier, later in zip(ammo, ammo[1:])
+    for name, specification in track_specs.items():
+        report["tracks"][name] = derive_candidate_track(
+            name,
+            specification,
+            shooter_positions,
+            identity_report.get("current_position_by_shooter", {}),
+            shooters,
+            positions,
+            by_position,
+            visual,
         )
-        panel_colour_match = panel_colour in specification[
-            "allowed_panel_colours"
-        ]
-        observed_colours_match = all(
-            (
-                record["colour"].lower() == "white"
-                if name == "white"
-                else record["colour"].lower() in {"blue", "cyan"}
-            )
-            for record in records
-        )
-        candidate_supported = (
-            candidate_shooter is not None
-            and current_position_id in track_positions
-            and non_increasing
-            and panel_colour_match
-            and observed_colours_match
-        )
-        report["tracks"][name] = {
-            "candidate_shooter": candidate_shooter,
-            "current_position_id": current_position_id,
-            "board_snapshot_id": visual["board_snapshot_id"],
-            "capture_session_id": visual["capture_session_id"],
-            "captured_at": visual["captured_at"],
-            "timestamp_identified": True,
-            "panel_colour": panel_colour,
-            "observations": records,
-            "ammo_non_increasing": non_increasing,
-            "panel_colour_match": panel_colour_match,
-            "observed_colour_consistent": observed_colours_match,
-            "candidate_supported": candidate_supported,
-        }
 
     candidate_pair = [
         track["candidate_shooter"]
