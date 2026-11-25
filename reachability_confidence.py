@@ -136,6 +136,20 @@ def observation_confidence(board):
     ]
 
 
+def validate_board_observation_source(report, board_sha256):
+    """Require confidence analysis to use the exact board bytes traced upstream."""
+    if not isinstance(report, dict):
+        raise ValueError("Reachability report must be a JSON object")
+    provenance = report.get("source_file_sha256")
+    if (
+        not isinstance(provenance, dict)
+        or provenance.get("board_json") != board_sha256
+    ):
+        raise ValueError(
+            "Board observation bytes do not match the reachability audit source"
+        )
+    return True
+
 def validate_edge_confidence_source(confidence_data, board_sha256):
     """Require the edge-confidence report to derive from this exact board file."""
     if not isinstance(confidence_data, dict):
@@ -168,7 +182,9 @@ def main():
     if args.board:
         board_bytes = Path(args.board).read_bytes()
         source = json.loads(board_bytes)
-        source_hashes["board_observation_json"] = hashlib.sha256(board_bytes).hexdigest()
+        board_digest = hashlib.sha256(board_bytes).hexdigest()
+        validate_board_observation_source(report, board_digest)
+        source_hashes["board_observation_json"] = board_digest
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
         source_snapshot_id = source.get("snapshot_id")
@@ -193,6 +209,7 @@ def main():
         board_source = json.loads(board_bytes)
         confidence_source = json.loads(confidence_bytes)
         board_digest = hashlib.sha256(board_bytes).hexdigest()
+        validate_board_observation_source(report, board_digest)
         validate_edge_confidence_source(confidence_source, board_digest)
         board_data = load_board(
             data=board_source,
