@@ -268,6 +268,8 @@ Strict UTF-8 JSON parsing is also enforced by the runtime board and confidence l
 
 The same parser contract is applied at the wider evidence and planning boundaries: capture preflight, planning-gate snapshots, reachability audits and confidence reports, conveyor consistency/geometry/timeline and identity reports, firing observations/simulations, visual transition auditors, calibration and identity trackers, and the remaining board/shooter diagnostic readers. Duplicate names are rejected at every object depth, and `NaN`/infinities are not accepted as JSON numbers. Readers that fingerprint evidence continue hashing the exact original bytes separately from parsing.
 
+The orchestration layer now uses the same strict parser for saved reports, pinned planning artifacts, and the board/shooter/pixel-audit capture bundle. If any of those inputs contain duplicate keys or invalid numeric values, evidence loading fails closed rather than presenting the artifact as current. The readiness coordinator returns its conservative fallback for malformed evidence, and the independent pixel-audit entry point reports invalid source observations as a controlled validation error.
+
 The capture and review workflows use strict UTF-8 JSON parsing for calibration,
 board and shooter observations, pixel audits, human-review datasets, review
 manifests, and batch manifests. Duplicate object keys (including nested keys)
