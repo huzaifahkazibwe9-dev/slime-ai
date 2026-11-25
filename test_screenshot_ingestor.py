@@ -145,6 +145,67 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
             self.assertEqual(len(repaired["raw_rgb"]), 3)
 
+    def test_ingest_uses_one_immutable_screenshot_byte_snapshot(self):
+        from unittest.mock import patch
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            original_bytes = image_path.read_bytes()
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+            real_read_bytes = Path.read_bytes
+            image_reads = []
+
+            def replace_image_after_read():
+                data = real_read_bytes(image_path)
+                image_reads.append(image_path)
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+                return data
+
+            with patch("pathlib.Path.read_bytes", side_effect=replace_image_after_read):
+                ingest(image_path, baseline_path, output_path)
+
+            result = json.loads(output_path.read_text())
+            self.assertEqual(image_reads, [image_path])
+            self.assertEqual(
+                result["source_sha256"], hashlib.sha256(original_bytes).hexdigest()
+            )
+            self.assertEqual(result["board"][0][0], "white")
+            self.assertEqual(result["raw_rgb"][0][0], [245, 245, 245])
+            self.assertEqual(set(result["counts"]), {"white"})
+            self.assertFalse(result["gameplay_verified"])
+            self.assertFalse(result["game_taps_enabled"])
+
+    def test_cached_pixel_edit_forces_fresh_full_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            }))
+
+            ingest(image_path, baseline_path, output_path)
+            cached = json.loads(output_path.read_text())
+            cached["raw_rgb"][0][0] = [230, 30, 30]
+            output_path.write_text(json.dumps(cached))
+
+            ingest(image_path, baseline_path, output_path)
+            repaired = json.loads(output_path.read_text())
+            self.assertEqual(repaired["analysis_cache_status"], "FULL_ANALYSIS")
+            self.assertEqual(repaired["raw_rgb"][0][0], [245, 245, 245])
+            self.assertEqual(repaired["board"][0][0], "white")
+            self.assertFalse(repaired["gameplay_verified"])
+            self.assertFalse(repaired["game_taps_enabled"])
+
     def test_calibration_change_invalidates_cached_board_analysis(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -249,6 +310,45 @@ class ScreenshotIngestorTests(unittest.TestCase):
                 with self.subTest(calibration=calibration):
                     with self.assertRaises(ValueError):
                         extract_board(path, calibration)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_grid_with_overlapping_sample_windows(self):
+        path = Path("data/test_ingestor_dense_grid.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaisesRegex(ValueError, "overlapping 3x3 sample windows"):
+                extract_board(path, {
+                    "grid_size": [10, 10],
+                    "bounds": [3, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_rejects_grid_dimensions_above_safe_sampling_limit(self):
+        path = Path("data/test_ingestor_huge_grid.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30)).save(path)
+        try:
+            with self.assertRaisesRegex(ValueError, "safe sampling limit"):
+                extract_board(path, {
+                    "grid_size": [10001, 1],
+                    "bounds": [3, 3, 27, 27],
+                })
+        finally:
+            path.unlink(missing_ok=True)
+    def test_extraction_records_exact_sample_centres(self):
+        path = Path("data/test_ingestor_sample_centres.png")
+        path.parent.mkdir(exist_ok=True)
+        Image.new("RGB", (30, 30), (245, 245, 245)).save(path)
+        try:
+            result = extract_board(path, {
+                "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
+            })
+            self.assertEqual(result["sample_centres"], {
+                "x": [7, 15, 23], "y": [7, 15, 23]
+            })
         finally:
             path.unlink(missing_ok=True)
 
