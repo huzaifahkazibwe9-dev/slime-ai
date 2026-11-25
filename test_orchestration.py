@@ -183,6 +183,36 @@ class OrchestrationTests(unittest.TestCase):
             )
             self.assertEqual(source, "missing")
 
+    def test_identity_audit_source_hashes_must_match_current_inputs(self):
+        identity = {
+            "source_file_sha256": {
+                "board_observation_json": "a" * 64,
+                "conveyor_visual_observations_json": "b" * 64,
+                "shooter_identity_observations_json": "c" * 64,
+                "conveyor_calibration_json": "d" * 64,
+                "shooter_detection_json": "e" * 64,
+            }
+        }
+        expected = {
+            "board_observation_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+            "identity_observations_json": "c" * 64,
+            "conveyor_calibration_json": "d" * 64,
+            "shooter_detection_json": "e" * 64,
+        }
+        checks = evidence_status(
+            {}, identity, None, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["identity_source_hashes_match"])
+
+        expected["identity_observations_json"] = "f" * 64
+        checks = evidence_status(
+            {}, identity, None, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["identity_source_hashes_match"])
+
     def test_snapshot_sync_source_hashes_must_match_current_inputs(self):
         baseline_snapshot = {
             "board_source_kind": "baseline_board",
