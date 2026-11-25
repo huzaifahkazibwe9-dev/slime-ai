@@ -54,6 +54,33 @@ class SlimeController:
                 )
                 capture_evidence_valid = capture.get("valid") is True
                 if capture_evidence_valid:
+                    # Compare both capture artifacts and every planning input
+                    # against the exact files consumed by the saved report.
+                    from orchestration import _read_planning_evidence_bundle
+                    candidate_info = report.get("candidate_report")
+                    candidate_path = (
+                        candidate_info.get("path")
+                        if isinstance(candidate_info, dict) else None
+                    )
+                    current_evidence = _read_planning_evidence_bundle(
+                        self.data_dir, candidate_path
+                    )
+                    saved_evidence_hashes = report.get(
+                        "planning_evidence_file_sha256"
+                    )
+                    current_evidence_hashes = current_evidence["file_sha256"]
+                    planning_evidence_matches = (
+                        isinstance(saved_evidence_hashes, dict)
+                        and all(
+                            isinstance(saved_evidence_hashes.get(key), str)
+                            and saved_evidence_hashes.get(key) == digest
+                            for key, digest in current_evidence_hashes.items()
+                        )
+                        and all(
+                            isinstance(value, str)
+                            for value in current_evidence_hashes.values()
+                        )
+                    )
                     # Compare the saved report with the same board object that
                     # passed preflight; never reopen a mutable capture path.
                     board = capture["board_data"]
@@ -69,7 +96,8 @@ class SlimeController:
                         "pixel_audit_json": pinned.get("pixel_audit_bytes_sha256"),
                     }
                     capture_report_matches = (
-                        isinstance(board, dict)
+                        planning_evidence_matches
+                        and isinstance(board, dict)
                         and isinstance(provenance, dict)
                         and all(
                             isinstance(board.get(key), str)
@@ -106,6 +134,10 @@ class SlimeController:
             "evidence_gate_passed": evidence_gate_passed,
             "capture_evidence_valid": capture_evidence_valid,
             "capture_report_matches_current_capture": capture_report_matches,
+            "planning_evidence_matches_current_files": (
+                planning_evidence_matches
+                if capture_evidence_valid else False
+            ),
             "touch_injection": False,
             "gameplay_actions_performed": False,
         }
