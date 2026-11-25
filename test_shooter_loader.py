@@ -39,6 +39,34 @@ class ShooterLoaderStructureTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
             self.assertEqual(len(load_panel_slots(path)), 12)
 
+    def test_panel_inventory_rejects_duplicate_json_keys(self):
+        from shooter_loader import load_panel_slots
+
+        payload = (
+            '{"panel_layout":{"rows":1,"columns":1,"slot_count":1,'
+            '"slot_count":2},"panel_slots":[]}'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(payload)
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                load_panel_slots(path)
+
+    def test_panel_inventory_rejects_duplicate_nested_slot_keys(self):
+        from shooter_loader import load_panel_slots
+
+        payload = (
+            '{"panel_layout":{"rows":1,"columns":1,"slot_count":1},'
+            '"panel_slots":[{"id":"A","id":"B","row":1,"column":1,'
+            '"center":[10,10],"status":"readable",'
+            '"selectable_candidate":false}]}'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "detection.json"
+            path.write_text(payload)
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                load_panel_slots(path)
+
     def test_panel_inventory_rejects_duplicate_positions(self):
         from shooter_loader import load_panel_slots
         slot = {

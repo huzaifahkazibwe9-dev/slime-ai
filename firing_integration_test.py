@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cross-check the firing adapter against the simulator on Level 39."""
 
-import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from game_state import GameState
@@ -9,7 +9,7 @@ from firing_adapter import evaluate_lane_target
 from firing_simulator import simulate, DIRECTIONS
 
 ROOT = Path(__file__).resolve().parent
-data = json.loads((ROOT / "data" / "vision_level39.json").read_text())
+data = strict_json_loads((ROOT / "data" / "vision_level39.json").read_bytes())
 board = data["board"]
 
 state = GameState(board)
