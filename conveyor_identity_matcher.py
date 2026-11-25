@@ -664,6 +664,8 @@ def main():
     print("Gameplay taps enabled: False")
     print("Report:", output)
     print("No game actions performed.")
+    return report
+
 
 if __name__ == "__main__":
     main()
