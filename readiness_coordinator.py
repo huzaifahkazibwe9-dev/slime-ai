@@ -135,25 +135,40 @@ def main(observation_path=None, shooter_path=None):
     if observation_path is not None:
         board_path = Path(observation_path)
         shooter_file = Path(shooter_path or "data/shooter_detection.json")
-        pinned_capture = _read_capture_bundle(board_path, shooter_file)
-        from capture_preflight import validate_capture_pair
-        capture = validate_capture_pair(
-            board_path,
-            shooter_file,
-            board_data=pinned_capture["board_data"],
-            shooter_data=pinned_capture["shooter_data"],
-            pixel_audit_data=pinned_capture["pixel_audit_data"],
-        )
-        if capture.get("valid") is not True:
-            raise ValueError(capture.get("reason", "Capture preflight failed."))
-        state, audit = load_level(
-            level=39,
-            observation_path=board_path,
-            shooter_path=shooter_file,
-            observation_data=capture["board_data"],
-            shooter_data=capture["shooter_data"],
-        )
-        board_observation = capture["board_data"]
+        pixel_audit_path = board_path.parent / "source_pixel_audit_latest.json"
+        if (
+            board_path.is_file()
+            and shooter_file.is_file()
+            and pixel_audit_path.is_file()
+        ):
+            pinned_capture = _read_capture_bundle(board_path, shooter_file)
+            from capture_preflight import validate_capture_pair
+            capture = validate_capture_pair(
+                board_path,
+                shooter_file,
+                board_data=pinned_capture["board_data"],
+                shooter_data=pinned_capture["shooter_data"],
+                pixel_audit_data=pinned_capture["pixel_audit_data"],
+            )
+            if capture.get("valid") is not True:
+                raise ValueError(capture.get("reason", "Capture preflight failed."))
+            state, audit = load_level(
+                level=39,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+                observation_data=capture["board_data"],
+                shooter_data=capture["shooter_data"],
+            )
+            board_observation = capture["board_data"]
+        else:
+            # Preserve the diagnostic report when a capture artifact is
+            # incomplete; the planner remains blocked without pinned bytes.
+            state, audit = load_level(
+                level=39,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+            )
+            board_observation = {}
     else:
         state, audit = load_level(level=39)
         board_observation = read_json("board_observation_latest.json", {})
