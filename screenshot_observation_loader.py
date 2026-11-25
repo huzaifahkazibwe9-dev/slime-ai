@@ -251,6 +251,7 @@ def load_observed_level(
     state.colour_mappings = {}
     state.colour_mappings_verified = False
     state.snapshot_id = data["snapshot_id"]
+    state.calibration_sha256 = data.get("calibration_sha256")
     state.capture_session_id = data.get("capture_session_id")
     state.timestamp_identified = data.get("timestamp_identified") is True
     state.shooter_capture_provenance_verified = board_capture_matches
