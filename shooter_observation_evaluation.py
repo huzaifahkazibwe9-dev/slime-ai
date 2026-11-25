@@ -19,11 +19,13 @@ from prepare_shooter_labels import (
     DETECTOR_STATUS_TO_VISIBILITY,
     build_template,
 )
+from shooter_review_coverage import (
+    HUMAN_VISIBILITY_LABELS,
+    coverage_profile,
+    review_follow_up,
+)
 
 SCHEMA_VERSION = 1
-HUMAN_VISIBILITY_LABELS = (
-    "visible", "unrevealed", "partially_occluded", "empty",
-)
 
 
 def _valid_sha256(value):
@@ -282,6 +284,7 @@ def _metric(pairs):
 def evaluate_dataset(data):
     samples = validate_dataset(data)
     confirmed = [sample for sample in samples if sample["review_status"] == "confirmed"]
+    reviewed_coverage = coverage_profile({"samples": samples})
 
     visibility_pairs = [
         (sample["human"]["visibility"], sample["detector"]["visibility"])
@@ -406,6 +409,8 @@ def evaluate_dataset(data):
             "visible_ammunition_ocr_status_counts": dict(ammo_status_counts),
             "coverage_adequacy_assessed": False,
         },
+        "coverage_profile": reviewed_coverage,
+        "review_follow_up": review_follow_up(reviewed_coverage),
         "sample_results": sample_results,
         "source_provenance": {
             "source_detection_sha256": data["source_detection_sha256"],
@@ -510,6 +515,21 @@ def main():
     ammo = metrics["ammunition"]
     print("Ammunition exact-match accuracy:", ammo["exact_match_accuracy"])
     print("Ammunition missing readings:", ammo["detector_missing_count"])
+    coverage = report["coverage_profile"]
+    follow_up = report["review_follow_up"]
+    print("Panel positions with confirmed labels:", (
+        coverage["panel_positions_with_confirmed_labels"], "/ 12"
+    ))
+    print("Panel positions with review follow-up:", len(
+        follow_up["panel_review_targets"]
+    ))
+    print("Visibility classes with zero support:", len(
+        follow_up["visibility_classes_with_zero_confirmed_support"]
+    ))
+    print("Visible colour classes with zero support:", len(
+        follow_up["visible_colour_classes_with_zero_confirmed_support"]
+    ))
+    print("Coverage adequacy assessed: False")
     print("Source detector hash checked: True")
     print("Source screenshot hash checked: True")
     print("Independent label verification: False")
