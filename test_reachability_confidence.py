@@ -9,7 +9,9 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from reachability_confidence import annotate_report, observation_confidence
+from reachability_confidence import (
+    annotate_report, observation_confidence, validate_edge_confidence_source,
+)
 
 
 def sample_report():
@@ -253,6 +255,25 @@ class ReachabilityConfidenceTests(unittest.TestCase):
         )
         self.assertFalse(report["confidence_audit"]["gameplay_verified"])
         self.assertFalse(report["confidence_audit"]["game_taps_enabled"])
+
+    def test_edge_confidence_requires_matching_board_digest(self):
+        digest = "a" * 64
+        self.assertTrue(validate_edge_confidence_source(
+            {"source_file_sha256": {"vision_level39_json": digest}},
+            digest,
+        ))
+
+    def test_edge_confidence_rejects_missing_or_stale_board_digest(self):
+        digest = "a" * 64
+        for report in (
+            {},
+            {"source_file_sha256": {}},
+            {"source_file_sha256": {"vision_level39_json": "b" * 64}},
+        ):
+            with self.subTest(report=report), self.assertRaisesRegex(
+                ValueError, "does not match"
+            ):
+                validate_edge_confidence_source(report, digest)
 
 
 if __name__ == "__main__":
