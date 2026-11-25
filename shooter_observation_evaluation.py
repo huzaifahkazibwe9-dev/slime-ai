@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 
 from prepare_shooter_labels import (
+    AMMUNITION_OBSERVATION_STATUSES,
     DETECTOR_COLOURS,
     DETECTOR_STATUS_TO_VISIBILITY,
     build_template,
@@ -145,6 +146,19 @@ def validate_dataset(data):
         quality_status = detector.get("sample_quality_status")
         if quality_status not in (None, "DISTINCT_SAMPLE", "LOW_CONFIDENCE_SAMPLE"):
             raise ValueError(f"Sample {slot_id} has invalid detector sample-quality status")
+        ammo_status = detector.get(
+            "ammunition_observation_status", "NOT_REPORTED"
+        )
+        if ammo_status not in AMMUNITION_OBSERVATION_STATUSES:
+            raise ValueError(f"Sample {slot_id} has invalid ammunition observation status")
+        if detector.get("ammunition") is not None and ammo_status != "PARSED_EXACT_DIGITS":
+            raise ValueError(f"Sample {slot_id} has a value with a non-success OCR status")
+        if detector.get("ammunition") is None and ammo_status == "PARSED_EXACT_DIGITS":
+            raise ValueError(f"Sample {slot_id} has a success OCR status without a value")
+        if detector.get("row") > 1 and ammo_status not in {
+            "NOT_ATTEMPTED_UNVERIFIED_SLOT", "NOT_REPORTED"
+        }:
+            raise ValueError(f"Sample {slot_id} attempted OCR on an unverified slot")
         center = detector.get("screen_center")
         box = detector.get("screen_box")
         screen_sample = detector.get("screen_sample")
@@ -308,6 +322,10 @@ def evaluate_dataset(data):
         sample["detector"]["sample_quality_status"] or "NOT_REPORTED"
         for sample in visible
     )
+    ammo_status_counts = Counter(
+        sample["detector"].get("ammunition_observation_status", "NOT_REPORTED")
+        for sample in visible
+    )
     sample_results = []
     for sample in confirmed:
         detector = sample["detector"]
@@ -340,6 +358,9 @@ def evaluate_dataset(data):
             ),
             "detected_ammunition": (
                 detector["ammunition"] if human["visibility"] == "visible" else None
+            ),
+            "detected_ammunition_status": detector.get(
+                "ammunition_observation_status", "NOT_REPORTED"
             ),
             "ammunition_correct": (
                 detector["ammunition"] == human["ammunition"]
@@ -380,6 +401,7 @@ def evaluate_dataset(data):
             "visible_samples_with_human_colour": len(colour_pairs),
             "visible_samples_with_legible_human_ammunition": len(ammo_reviewed),
             "visible_sample_quality_status_counts": dict(quality_counts),
+            "visible_ammunition_ocr_status_counts": dict(ammo_status_counts),
             "coverage_adequacy_assessed": False,
         },
         "sample_results": sample_results,
