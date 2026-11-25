@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Aggregate human-reviewed shooter detector evaluation across captures."""
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 
