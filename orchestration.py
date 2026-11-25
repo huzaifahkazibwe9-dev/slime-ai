@@ -237,6 +237,15 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
                 and planning.get("upstream_source_file_sha256", {}).get(
                     "edge_confidence_json"
                 ) == planning_input_file_sha256.get("edge_confidence_json")
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "board_json"
+                ) == planning_input_file_sha256.get("vision_calibration_json")
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "conveyor_calibration_json"
+                ) == planning_input_file_sha256.get("conveyor_calibration_json")
+                and planning.get("upstream_source_file_sha256", {}).get(
+                    "conveyor_observations_json"
+                ) == planning_input_file_sha256.get("conveyor_observations_json")
             )
         ),
     }
