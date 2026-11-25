@@ -211,11 +211,11 @@ def evaluate_visual_review_bundle(
     source_screenshot_path,
 ):
     """Verify one review bundle and return separate board/shooter metrics."""
-    manifest, _ = _read_json_object(manifest_path, "Visual review manifest")
+    manifest, manifest_bytes = _read_json_object(manifest_path, "Visual review manifest")
     verify_manifest(manifest)
 
-    board_labels, _ = _read_json_object(board_labels_path, "Board-colour labels")
-    shooter_labels, _ = _read_json_object(shooter_labels_path, "Shooter labels")
+    board_labels, board_label_bytes = _read_json_object(board_labels_path, "Board-colour labels")
+    shooter_labels, shooter_label_bytes = _read_json_object(shooter_labels_path, "Shooter labels")
     board_observation, board_bytes = _read_json_object(board_observation_path, "Board observation")
     shooter_detection, shooter_bytes = _read_json_object(shooter_detection_path, "Shooter detection")
     persisted_audit, audit_bytes = _read_json_object(pixel_audit_path, "Source-pixel audit")
@@ -328,6 +328,11 @@ def evaluate_visual_review_bundle(
             "source_screenshot_size": screenshot_size,
             "capture_session_id": session_id,
             "captured_at": captured_at,
+        },
+        "review_artifacts_sha256": {
+            "manifest_json": _sha256(manifest_bytes),
+            "board_labels_json": _sha256(board_label_bytes),
+            "shooter_labels_json": _sha256(shooter_label_bytes),
         },
         "source_verification": {
             "manifest_hash_checked": True,
