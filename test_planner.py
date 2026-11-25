@@ -24,6 +24,19 @@ def current_calibration_sha256():
     return "c" * 64
 
 
+SNAPSHOT_ID = "sha256:" + "d" * 64
+
+
+def current_board_observation():
+    return {
+        "source_sha256": "d" * 64,
+        "snapshot_id": SNAPSHOT_ID,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "calibration_sha256": current_calibration_sha256(),
+    }
+
+
 def make_state():
     state = GameState(
         board=[["red", "blue"], ["green", "red"]],
@@ -34,7 +47,8 @@ def make_state():
             "C": Shooter("C", "green", 10, accessible=False),
         },
     )
-    state.snapshot_id = "snap-39"
+    state.snapshot_id = SNAPSHOT_ID
+    state.capture_session_id = "session-1"
     state.calibration_sha256 = current_calibration_sha256()
     state.shooter_capture_provenance_verified = True
     return state
@@ -129,7 +143,7 @@ def make_evidence():
             "shooter_detection_json": source_hashes["shooter_detection_json"],
         },
         "identity_verified": True,
-        "current_snapshot_id": "snap-39",
+        "current_snapshot_id": SNAPSHOT_ID,
         "checks": candidate_checks,
         "tracks": tracks,
     }
@@ -155,15 +169,18 @@ def make_evidence():
         },
         "synchronised": True,
         "planning_allowed_by_sync": True,
-        "board_snapshot_id": "snap-39",
-        "observation_board_snapshot_id": "snap-39",
+        "board_snapshot_id": SNAPSHOT_ID,
+        "observation_board_snapshot_id": SNAPSHOT_ID,
         "checks": sync_checks,
     }
 
     return planning, identity, candidates, snapshot
 
 
-def run_plan(evidence, state=None, source_hashes=None, calibration_sha256=None):
+def run_plan(
+    evidence, state=None, source_hashes=None, calibration_sha256=None,
+    identity_audit=None, board_observation=None,
+):
     return plan_next_move(
         make_state() if state is None else state,
         *evidence,
@@ -173,6 +190,13 @@ def run_plan(evidence, state=None, source_hashes=None, calibration_sha256=None):
         current_calibration_sha256=(
             current_calibration_sha256()
             if calibration_sha256 is None else calibration_sha256
+        ),
+        current_identity_audit=(
+            evidence[1] if identity_audit is None else identity_audit
+        ),
+        current_board_observation=(
+            current_board_observation()
+            if board_observation is None else board_observation
         ),
     )
 
@@ -200,6 +224,29 @@ class PlannerEvidenceTests(unittest.TestCase):
         evidence = list(make_evidence())
         evidence[0]["upstream_source_kind"] = "unknown"
         self.assertIsNone(run_plan(evidence))
+
+    def test_identity_object_must_match_pinned_identity(self):
+        evidence = make_evidence()
+        self.assertIsNone(run_plan(
+            evidence,
+            identity_audit={"identity_verified": True},
+        ))
+
+    def test_board_object_must_match_loaded_state_identity(self):
+        board = current_board_observation()
+        board["snapshot_id"] = "sha256:" + "e" * 64
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            board_observation=board,
+        ))
+
+    def test_board_snapshot_digest_shape_is_required(self):
+        board = current_board_observation()
+        board["source_sha256"] = "not-a-digest"
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            board_observation=board,
+        ))
 
     def test_malformed_current_source_hash_fails_closed(self):
         hashes = current_source_hashes()
