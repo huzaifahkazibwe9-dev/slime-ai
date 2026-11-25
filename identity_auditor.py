@@ -50,7 +50,8 @@ def read_json_snapshot(path):
     return value, hashlib.sha256(raw).hexdigest()
 
 
-def audit_identity(board, visual, identity_data, calibration, detection):
+def audit_identity(board, visual, identity_data, calibration, detection,
+                   current_source_file_sha256=None):
     """Validate one user-confirmed identity frame against a current capture."""
     errors = []
     board = board if isinstance(board, dict) else {}
@@ -157,6 +158,32 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         errors.append("Identity observation timestamp differs from the board capture by more than 120 seconds")
     if identity_data.get("timestamp_identified") is not True:
         errors.append("Identity observation timestamp is not explicitly identified")
+
+    if current_source_file_sha256 is not None:
+        expected_template_sources = {
+            "board_observation_json": current_source_file_sha256.get(
+                "board_observation_json"
+            ),
+            "conveyor_visual_observations_json": current_source_file_sha256.get(
+                "conveyor_visual_observations_json"
+            ),
+            "conveyor_calibration_json": current_source_file_sha256.get(
+                "conveyor_calibration_json"
+            ),
+            "shooter_detection_json": current_source_file_sha256.get(
+                "shooter_detection_json"
+            ),
+        }
+        template_sources = identity_data.get("source_file_sha256")
+        if (
+            not isinstance(template_sources, dict)
+            or template_sources != expected_template_sources
+            or any(not _sha256(value) for value in expected_template_sources.values())
+        ):
+            errors.append(
+                "Identity template source fingerprints do not match the current board, "
+                "visual, calibration, and shooter files"
+            )
 
     current_frame_id = identity_data.get("current_frame_id")
     if not isinstance(current_frame_id, str) or not current_frame_id.strip():
@@ -329,6 +356,15 @@ def build_report(board_path=BOARD_FILE, visual_path=VISUAL_FILE,
         values["shooter_identity_observations_json"],
         values["conveyor_calibration_json"],
         values["shooter_detection_json"],
+        current_source_file_sha256={
+            key: hashes.get(key)
+            for key in (
+                "board_observation_json",
+                "conveyor_visual_observations_json",
+                "conveyor_calibration_json",
+                "shooter_detection_json",
+            )
+        },
     )
     if errors:
         result["errors"] = sorted(set(result["errors"] + errors))
