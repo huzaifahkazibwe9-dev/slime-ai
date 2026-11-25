@@ -20,11 +20,11 @@ if [[ -z "${PREFIX:-}" || "${PREFIX}" != *"/com.termux/"* ]]; then
 fi
 
 echo
-echo "[1/5] Synchronising the project"
+echo "[1/6] Synchronising the project"
 git pull --ff-only
 
 echo
-echo "[2/5] Checking local screenshot inputs"
+echo "[2/6] Checking local screenshot inputs"
 if [[ ! -f "screenshots/level39.jpg" ]]; then
     echo "ERROR: screenshots/level39.jpg is missing." >&2
     exit 2
@@ -54,11 +54,6 @@ if ! command -v python >/dev/null 2>&1; then
     exit 2
 fi
 python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else "ERROR: Slime AI requires Python 3.10 or newer.")'
-if ! python -m pip --version >/dev/null 2>&1; then
-    echo "ERROR: Python pip is unavailable in this Termux environment." >&2
-    echo "Repair the Termux Python installation before deployment." >&2
-    exit 2
-fi
 python --version
 
 echo
@@ -71,7 +66,8 @@ fi
 
 echo
 echo "[5/6] Verifying installed libraries and OCR data"
-python -c 'import numpy; from PIL import Image; print("NumPy:", numpy.__version__); print("Pillow:", Image.__version__ if hasattr(Image, "__version__") else "available")'
+python -c 'import re, numpy, PIL; parts = lambda value: tuple(int(x) for x in re.findall(r"[0-9]+", value)[:2]); raise SystemExit(0 if parts(numpy.__version__) >= (1, 26) and parts(PIL.__version__) >= (10, 0) else "ERROR: NumPy >=1.26 and Pillow >=10.0 are required.")'
+python -c 'import numpy, PIL; print("NumPy:", numpy.__version__); print("Pillow:", PIL.__version__)'
 if [[ "$NEED_TESSERACT" -eq 1 ]]; then
     if ! command -v tesseract >/dev/null 2>&1; then
         echo "ERROR: Tesseract installation did not provide the tesseract command." >&2
@@ -82,9 +78,8 @@ if [[ "$NEED_TESSERACT" -eq 1 ]]; then
         exit 2
     fi
 fi
-# Dependencies are already supplied by Termux packages. Do not let pip
-# replace native Android builds with incompatible PyPI wheels.
-python -m pip install --no-deps -r requirements.txt
+# requirements.txt remains the host-CI dependency declaration. Termux's
+# native packages above provide the Android-compatible NumPy and Pillow builds.
 
 echo
 echo "[6/6] Running the validated build pipeline"
