@@ -55,36 +55,40 @@ python observation_region_audit.py --input "$OBSERVATION"
 
 if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observations.json" ]]; then
     echo
-    echo "[5/11] Auditing reachability against the latest screenshot"
+    echo "[5/12] Synchronising conveyor observations to this screenshot"
+    python snapshot_sync.py --board "$OBSERVATION"
+
+    echo
+    echo "[6/12] Auditing reachability against the latest screenshot"
     python reachability_auditor.py --board "$OBSERVATION"
 
     echo
-    echo "[6/11] Applying screenshot-derived confidence and planning gates"
+    echo "[7/12] Applying screenshot-derived confidence and planning gates"
     python reachability_confidence.py --board "$OBSERVATION"
     python planning_gate.py
 
     echo
-    echo "[7/11] Mapping lanes onto colour regions"
+    echo "[8/12] Mapping lanes onto colour regions"
     python region_lane_mapper.py --board "$OBSERVATION"
 else
     echo
-    echo "[5-7/11] Skipping conveyor analysis: local calibration/observation files are missing"
+    echo "[6-8/12] Skipping conveyor analysis: local calibration/observation files are missing"
 fi
 
 echo
-echo "[8/11] Running evidence-gated dry-run orchestration"
+echo "[9/12] Running evidence-gated dry-run orchestration"
 python orchestration.py --observation "$OBSERVATION"
 
 echo
-echo "[9/11] Running central diagnostics"
+echo "[10/12] Running central diagnostics"
 python main.py --observation "$OBSERVATION"
 
 echo
-echo "[10/11] Assessing readiness from the same screenshot evidence"
+echo "[11/12] Assessing readiness from the same screenshot evidence"
 python readiness_coordinator.py --observation "$OBSERVATION" --shooters "$SHOOTER_DATA"
 
 echo
-echo "[11/11] Running the complete unit-test suite"
+echo "[12/12] Running the complete unit-test suite"
 python -m unittest discover -q
 
 echo
