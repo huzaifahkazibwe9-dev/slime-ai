@@ -59,7 +59,8 @@ if [[ -f "data/conveyor_calibration.json" && -f "data/conveyor_visual_observatio
     python snapshot_sync.py --board "$OBSERVATION"
 
     echo
-    echo "[6/13] Building user-confirmed identity and candidate reports"
+    echo "[6/13] Preparing and validating user-confirmed identity evidence"
+    python prepare_identity_observations.py --board "$OBSERVATION"
     python identity_auditor.py --board "$OBSERVATION"
     python conveyor_identity_matcher.py
 
