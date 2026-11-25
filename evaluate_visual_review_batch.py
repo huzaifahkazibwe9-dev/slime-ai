@@ -10,8 +10,8 @@ from collections import Counter
 import hashlib
 import json
 import math
-from pathlib
-import re import Path
+import re
+from pathlib import Path
 
 from evaluate_visual_review_bundle import evaluate_visual_review_bundle
 from screenshot_ingestor import COLOUR_LABELS
