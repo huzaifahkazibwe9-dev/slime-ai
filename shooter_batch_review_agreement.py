@@ -105,12 +105,10 @@ def evaluate_agreement_manifest(
             paths[field] = path if path.is_absolute() else root / path
 
         try:
-            dataset_a = strict_json_loads(
-                paths["reviewer_a_dataset"].read_bytes()
-            )
-            dataset_b = strict_json_loads(
-                paths["reviewer_b_dataset"].read_bytes()
-            )
+            dataset_a_bytes = paths["reviewer_a_dataset"].read_bytes()
+            dataset_b_bytes = paths["reviewer_b_dataset"].read_bytes()
+            dataset_a = strict_json_loads(dataset_a_bytes)
+            dataset_b = strict_json_loads(dataset_b_bytes)
             detection_bytes = paths["detection"].read_bytes()
             screenshot_bytes = paths["screenshot"].read_bytes()
         except (OSError, UnicodeDecodeError, ValueError) as exc:
@@ -125,6 +123,8 @@ def evaluate_agreement_manifest(
             reviewer_b_id,
             detection_bytes,
             screenshot_bytes,
+            dataset_a_bytes,
+            dataset_b_bytes,
         )
         session_id = report["source_provenance"]["capture_session_id"]
         screenshot_hash = report["source_provenance"]["source_screenshot_sha256"]
@@ -140,6 +140,9 @@ def evaluate_agreement_manifest(
         capture_reports.append({
             "capture_session_id": session_id,
             "source_screenshot_sha256": screenshot_hash,
+            "review_dataset_provenance": report[
+                "review_dataset_provenance"
+            ],
             "sample_count": report["sample_count"],
             "both_confirmed_sample_count": report[
                 "both_confirmed_sample_count"

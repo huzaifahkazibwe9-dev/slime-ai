@@ -70,7 +70,9 @@ The report includes pooled exact-agreement counts and rates for review status,
 visibility, panel position, colour, ammunition readability, and exact
 ammunition values. It includes per-slot pooled agreement, per-capture reports,
 and sample-level disagreements. Each field retains its own eligible support
-denominator.
+denominator. Every per-capture report also retains the SHA-256 hashes of both
+reviewer dataset inputs. Batch CLI reports use exact file-byte hashes and
+verify that those bytes parse to the supplied dataset objects.
 
 Cohen's kappa remains available in each per-capture report. The top-level
 aggregate does not average kappa values: a weighted average of per-capture
