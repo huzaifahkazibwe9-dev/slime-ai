@@ -489,6 +489,17 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sample-quality coverage"):
             batch.verify_batch_report(report)
 
+    def test_rejects_nonzero_ammunition_mae_when_all_detector_readings_match(self):
+        report = self._valid_report()
+        ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
+        ammo["exact_match_count"] = ammo["detector_reading_count"]
+        ammo["exact_match_accuracy"] = 1.0
+        _reseal_report(report)
+        with self.assertRaisesRegex(
+            ValueError, "MAE must be zero when all detector readings match"
+        ):
+            batch.verify_batch_report(report)
+
     def test_rejects_ammunition_exact_matches_exceeding_detector_readings(self):
         report = self._valid_report()
         ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
