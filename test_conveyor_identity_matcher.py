@@ -36,6 +36,33 @@ def observations():
 
 
 class ConveyorIdentityMatcherTests(unittest.TestCase):
+    def test_read_snapshot_rejects_unreadable_utf8_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_bytes(bytes((255, 254)))
+            with patch.object(conveyor_identity_matcher, "DATA", Path(directory)):
+                with self.assertRaisesRegex(ValueError, "unreadable JSON"):
+                    read_snapshot("invalid.json")
+
+    def test_main_writes_blocked_report_for_missing_or_invalid_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(conveyor_identity_matcher, "DATA", root):
+                report = conveyor_identity_matcher.main()
+
+            self.assertIsInstance(report, dict)
+            self.assertFalse(report["identity_verified"])
+            self.assertFalse(report["candidate_provenance_verified"])
+            self.assertFalse(report["game_taps_enabled"])
+            self.assertTrue(any(
+                "conveyor_calibration.json" in error
+                for error in report["validation_errors"]
+            ))
+            saved = json.loads(
+                (root / "conveyor_identity_candidates.json").read_text()
+            )
+            self.assertEqual(saved, report)
+
     def test_read_snapshot_hashes_exact_json_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             raw = b'{ "value": 9 }'
