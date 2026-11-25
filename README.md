@@ -109,6 +109,18 @@ compatible. This is a conservative input filter, not proof of shooter
 identity, accessibility, or correct colour mapping; gameplay and tap gates
 remain disabled.
 
+## Human-reviewed shooter observation evaluation
+
+The repository now includes a blank-label template builder and an offline
+evaluator for shooter-panel visibility assumptions, calibrated slot positions,
+colour classification, and ammunition OCR. The template is bound to the exact
+detector JSON and original screenshot, and human labels are kept separate from
+detector outputs. See
+[docs/SHOOTER_OBSERVATION_EVALUATION.md](docs/SHOOTER_OBSERVATION_EVALUATION.md)
+for the review protocol and metric limitations. Synthetic unit tests cover the
+workflow; no real-game accuracy result is claimed until genuine captures are
+manually reviewed.
+
 ## Bonded-shooter confirmation
 
 The detector does not infer bonded relationships from fixed screen positions.
