@@ -98,12 +98,16 @@ def verify_manifest(manifest):
     ):
         raise ValueError("Review manifest source_screenshot_size is invalid")
     session_id = manifest.get("capture_session_id")
+    if not isinstance(session_id, str) or not session_id.strip():
+        raise ValueError("Review manifest capture_session_id is invalid")
     try:
         if validate_capture_session_id(session_id) != session_id:
             raise ValueError("Capture session ID is not canonical")
     except ValueError as exc:
         raise ValueError("Review manifest capture_session_id is invalid") from exc
     captured_at = manifest.get("captured_at")
+    if not isinstance(captured_at, str) or not captured_at.strip():
+        raise ValueError("Review manifest captured_at is invalid")
     try:
         if parse_aware_capture_timestamp(captured_at) != captured_at:
             raise ValueError("Capture timestamp is not canonical")
