@@ -628,5 +628,13 @@ class PlanningGateTests(unittest.TestCase):
         self.assertFalse(result["actions_performed"])
 
 
+    def test_read_json_snapshot_rejects_duplicate_object_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            path.write_text('{"capture_session_id":"first","capture_session_id":"second"}')
+            with self.assertRaisesRegex(ValueError, "not valid UTF-8 JSON"):
+                _read_json_snapshot(path)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
