@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -144,11 +145,17 @@ def main():
     parser.add_argument("--output", default=str(OUTPUT_FILE))
     args = parser.parse_args()
 
-    report = json.loads(Path(args.input).read_text())
+    report_bytes = Path(args.input).read_bytes()
+    report = json.loads(report_bytes)
+    source_hashes = {
+        "reachability_audit_json": hashlib.sha256(report_bytes).hexdigest(),
+    }
     confidence_snapshot_id = None
     confidence_snapshot_match_verified = False
     if args.board:
-        source = json.loads(Path(args.board).read_text())
+        board_bytes = Path(args.board).read_bytes()
+        source = json.loads(board_bytes)
+        source_hashes["board_observation_json"] = hashlib.sha256(board_bytes).hexdigest()
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
         source_snapshot_id = source.get("snapshot_id")
@@ -167,13 +174,24 @@ def main():
         confidence_snapshot_id = source_snapshot_id
         confidence_snapshot_match_verified = True
     else:
-        board_data = load_board()
+        from board_loader import VISION_FILE, CONFIDENCE_FILE
+        board_bytes = Path(VISION_FILE).read_bytes()
+        confidence_bytes = Path(CONFIDENCE_FILE).read_bytes()
+        board_source = json.loads(board_bytes)
+        confidence_source = json.loads(confidence_bytes)
+        board_data = load_board(
+            data=board_source,
+            confidence_data=confidence_source,
+        )
+        source_hashes["vision_level39_json"] = hashlib.sha256(board_bytes).hexdigest()
+        source_hashes["edge_confidence_json"] = hashlib.sha256(confidence_bytes).hexdigest()
         confidence_matrix = board_data.get("confidence")
 
     if confidence_matrix is None:
         raise ValueError("No board confidence data is available")
 
     report = annotate_report(report, confidence_matrix)
+    report["source_file_sha256"] = source_hashes
     report["confidence_audit"]["source_snapshot_id"] = confidence_snapshot_id
     report["confidence_audit"]["snapshot_match_verified"] = (
         confidence_snapshot_match_verified
