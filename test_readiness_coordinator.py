@@ -312,6 +312,13 @@ class LearningSummaryTests(unittest.TestCase):
         self.assertFalse(result["checks"]["physical_shooter_identity_verified"])
         self.assertFalse(result["checks"]["actual_firing_verified"])
 
+    def test_read_json_rejects_unreadable_utf8_payloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "invalid.json").write_bytes(b"\\xff\\xfe")
+            with patch.object(readiness, "DATA", root):
+                self.assertEqual(readiness.read_json("invalid.json", {}), {})
+
     def test_read_json_rejects_non_object_top_level_payloads(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
