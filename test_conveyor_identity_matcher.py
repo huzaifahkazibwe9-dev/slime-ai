@@ -8,6 +8,7 @@ from conveyor_identity_matcher import (
     validate_visual_observations,
     validate_visual_provenance,
     validate_observation_provenance,
+    validate_identity_audit,
     read_snapshot,
 )
 
@@ -35,6 +36,77 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                 value, digest = read_snapshot("sample.json")
         self.assertEqual(value, {"value": 9})
         self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
+
+    def identity_fixture(self):
+        snapshot_id = "sha256:" + "a" * 64
+        captured_at = "2026-11-25T08:00:00+00:00"
+        board = {
+            "snapshot_id": snapshot_id,
+            "source_sha256": "a" * 64,
+            "capture_session_id": "session-001",
+            "captured_at": captured_at,
+        }
+        visual = {
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": "session-001",
+            "captured_at": captured_at,
+        }
+        identity = {
+            "identity_verified": True,
+            "errors": [],
+            "blockers": [],
+            "board_snapshot_id": snapshot_id,
+            "capture_session_id": "session-001",
+            "captured_at": captured_at,
+            "timestamp_identified": True,
+            "verified_by_user": True,
+            "positions_checked": 2,
+            "known_shooters": ["A", "B"],
+            "shooter_positions": {"A": ["bottom_1"], "B": ["bottom_2"]},
+            "current_position_by_shooter": {"A": "bottom_1", "B": "bottom_2"},
+            "source_file_sha256": {
+                "board_observation_json": "a" * 64,
+                "conveyor_visual_observations_json": "b" * 64,
+                "shooter_identity_observations_json": "c" * 64,
+                "conveyor_calibration_json": "d" * 64,
+                "shooter_detection_json": "e" * 64,
+            },
+        }
+        expected = dict(identity["source_file_sha256"])
+        return identity, board, visual, {"bottom_1", "bottom_2"}, expected
+
+    def test_matching_human_identity_audit_is_accepted(self):
+        identity, board, visual, positions, expected = self.identity_fixture()
+        errors, mapping = validate_identity_audit(
+            identity, board, visual, positions, expected
+        )
+        self.assertEqual(errors, [])
+        self.assertEqual(mapping["A"], ["bottom_1"])
+        self.assertEqual(mapping["B"], ["bottom_2"])
+
+    def test_stale_identity_source_fingerprint_is_rejected(self):
+        identity, board, visual, positions, expected = self.identity_fixture()
+        expected["shooter_detection_json"] = "f" * 64
+        errors, _ = validate_identity_audit(
+            identity, board, visual, positions, expected
+        )
+        self.assertTrue(any("source fingerprints" in item for item in errors))
+
+    def test_unverified_identity_report_is_rejected(self):
+        identity, board, visual, positions, expected = self.identity_fixture()
+        identity["identity_verified"] = False
+        errors, _ = validate_identity_audit(
+            identity, board, visual, positions, expected
+        )
+        self.assertTrue(any("not verified" in item for item in errors))
+
+    def test_incomplete_current_position_map_is_rejected(self):
+        identity, board, visual, positions, expected = self.identity_fixture()
+        identity["current_position_by_shooter"].pop("B")
+        errors, _ = validate_identity_audit(
+            identity, board, visual, positions, expected
+        )
+        self.assertTrue(any("current frame" in item for item in errors))
 
     def test_complete_unique_frame_is_valid(self):
         self.assertEqual(
