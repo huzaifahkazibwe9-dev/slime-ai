@@ -154,7 +154,7 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Duplicate capture session_id"):
                 evaluate_manifest(manifest, base_dir=root)
 
-    def test_rejects_duplicate_detector_json_even_when_listed_twice(self):
+    def test_rejects_same_capture_entry_listed_twice(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             first = write_capture(root, 1, (10, 20, 30))
