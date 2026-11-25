@@ -15,7 +15,10 @@ from pathlib import Path
 
 from evaluate_visual_review_bundle import evaluate_visual_review_bundle
 from screenshot_ingestor import COLOUR_LABELS
-from prepare_shooter_labels import DETECTOR_COLOURS
+from prepare_shooter_labels import (
+    AMMUNITION_OBSERVATION_STATUSES,
+    DETECTOR_COLOURS,
+)
 from shooter_observation_evaluation import HUMAN_VISIBILITY_LABELS
 from capture_provenance import (
     parse_aware_capture_timestamp,
@@ -23,6 +26,11 @@ from capture_provenance import (
 )
 
 SCHEMA_VERSION = 1
+SAMPLE_QUALITY_STATUSES = frozenset({
+    "DISTINCT_SAMPLE",
+    "LOW_CONFIDENCE_SAMPLE",
+    "NOT_REPORTED",
+})
 BUNDLE_FIELDS = (
     "manifest",
     "board_labels",
@@ -358,11 +366,15 @@ def _verify_shooter_summary(shooter):
         raise ValueError("Shooter metric support exceeds confirmed sample count")
     if not set(visibility["labels"]).issubset(set(HUMAN_VISIBILITY_LABELS)):
         raise ValueError("Shooter visibility metrics contain an unknown visibility label")
-    if any(
-        re.fullmatch(r"r[0-9]+c[0-9]+", label) is None
-        for label in position["labels"]
-    ):
-        raise ValueError("Shooter position metrics contain an invalid coordinate label")
+    for label in position["labels"]:
+        match = re.fullmatch(r"r([0-9]+)c([0-9]+)", label)
+        if match is None:
+            raise ValueError("Shooter position metrics contain an invalid coordinate label")
+        row, column = (int(value) for value in match.groups())
+        if label != f"r{row}c{column}":
+            raise ValueError("Shooter position metrics contain a noncanonical coordinate")
+        if not (1 <= row <= 3 and 1 <= column <= 4):
+            raise ValueError("Shooter position metrics contain an out-of-panel coordinate")
     if not set(colour["labels"]).issubset(set(DETECTOR_COLOURS)):
         raise ValueError("Shooter colour metrics contain a noncanonical colour label")
 
@@ -432,6 +444,12 @@ def _verify_shooter_summary(shooter):
         coverage["visible_ammunition_ocr_status_counts"],
         "visible_ammunition_ocr_status_counts",
     )
+    if not set(visibility_counts).issubset(set(HUMAN_VISIBILITY_LABELS)):
+        raise ValueError("Shooter visibility coverage contains an unknown visibility label")
+    if not set(quality_counts).issubset(SAMPLE_QUALITY_STATUSES):
+        raise ValueError("Shooter sample-quality coverage contains an unknown status")
+    if not set(ammo_status_counts).issubset(set(AMMUNITION_OBSERVATION_STATUSES)):
+        raise ValueError("Shooter ammunition coverage contains an unknown OCR status")
     if sum(visibility_counts.values()) != confirmed:
         raise ValueError("Shooter visibility coverage counts do not equal confirmed samples")
     visible_count = visibility_counts.get("visible", 0)
@@ -650,6 +668,8 @@ def _count_dictionary(value, field):
         if not isinstance(key, str) or not key:
             raise ValueError(f"{field} keys must be non-empty strings")
         result[key] = _nonnegative_count(count, f"{field}.{key}")
+        if result[key] == 0:
+            raise ValueError(f"{field}.{key} must be a positive count")
     return result
 
 
