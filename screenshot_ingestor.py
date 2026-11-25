@@ -2,6 +2,7 @@
 import argparse
 import colorsys
 import hashlib
+import io
 import json
 import math
 import statistics
@@ -15,6 +16,30 @@ from PIL import Image
 
 BASELINE = Path("data/vision_level39.json")
 OUTPUT = Path("data/board_observation_latest.json")
+
+COLOUR_LABELS = (
+    "dark", "white", "gray", "red", "orange", "yellow",
+    "green", "cyan", "blue", "purple", "pink",
+)
+
+
+def _is_finite_number(value):
+    """Accept exact ints and finite floats, excluding bool and huge-int overflow."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
+def sample_centres_for_grid(grid_size, bounds):
+    """Return rounded pixel centres used for each logical board cell."""
+    cols, rows = grid_size
+    left, top, right, bottom = bounds
+    cell_width = (right - left) / cols
+    cell_height = (bottom - top) / rows
+    return {
+        "x": [round(left + (col + 0.5) * cell_width) for col in range(cols)],
+        "y": [round(top + (row + 0.5) * cell_height) for row in range(rows)],
+    }
 
 
 def classify_rgb(rgb):
@@ -55,78 +80,108 @@ def median_rgb(img, x, y):
     )
 
 
-def extract_board(image_path, calibration):
-    started = time.perf_counter()
-    image_path = Path(image_path)
-    if not image_path.is_file():
-        raise FileNotFoundError(image_path)
+def _extract_board_image(img, calibration):
+    """Extract from an already-open image so callers can bind work to fixed bytes."""
+    img = img.convert("RGB")
+    width, height = img.size
 
-    with Image.open(image_path) as original:
-        img = original.convert("RGB")
-        width, height = img.size
+    if not isinstance(calibration, dict):
+        raise ValueError("Calibration must be a JSON object")
+    grid_size = calibration.get("grid_size")
+    bounds = calibration.get("bounds")
+    if not isinstance(grid_size, list) or len(grid_size) != 2:
+        raise ValueError("Calibration grid_size must be [columns, rows]")
+    if not isinstance(bounds, list) or len(bounds) != 4:
+        raise ValueError("Calibration bounds must contain four coordinates")
+    cols, rows = grid_size
+    left, top, right, bottom = bounds
 
-        if not isinstance(calibration, dict):
-            raise ValueError("Calibration must be a JSON object")
-        grid_size = calibration.get("grid_size")
-        bounds = calibration.get("bounds")
-        if not isinstance(grid_size, list) or len(grid_size) != 2:
-            raise ValueError("Calibration grid_size must be [columns, rows]")
-        if not isinstance(bounds, list) or len(bounds) != 4:
-            raise ValueError("Calibration bounds must contain four coordinates")
-        cols, rows = grid_size
-        left, top, right, bottom = bounds
+    if (
+        type(cols) is not int or type(rows) is not int
+        or cols < 1 or rows < 1
+    ):
+        raise ValueError("Grid dimensions must be positive integers")
+    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
+        raise ValueError("Grid dimensions exceed the safe sampling limit")
 
-        if (
-            type(cols) is not int or type(rows) is not int
-            or cols < 1 or rows < 1
-        ):
-            raise ValueError("Grid dimensions must be positive integers")
+    if (
+        any(not _is_finite_number(value)
+            for value in (left, top, right, bottom))
+        or left < 1 or top < 1
+        or right <= left or bottom <= top
+        or right > width - 1 or bottom > height - 1
+    ):
+        raise ValueError(
+            "Board bounds must be ordered and inside the screenshot "
+            "with room for the 3x3 sampling window"
+        )
 
-        if (
-            any(type(value) not in (int, float) or not math.isfinite(value)
-                for value in (left, top, right, bottom))
-            or left < 1 or top < 1
-            or right <= left or bottom <= top
-            or right > width - 1 or bottom > height - 1
-        ):
-            raise ValueError(
-                "Board bounds must be ordered and inside the screenshot "
-                "with room for the 3x3 sampling window"
-            )
+    sample_centres = sample_centres_for_grid(grid_size, bounds)
+    x_centers = sample_centres["x"]
+    y_centers = sample_centres["y"]
+    if (any(b - a < 3 for a, b in zip(x_centers, x_centers[1:]))
+            or any(b - a < 3 for a, b in zip(y_centers, y_centers[1:]))):
+        raise ValueError(
+            "Calibration grid produces overlapping 3x3 sample windows; "
+            "increase board bounds or reduce grid dimensions"
+        )
+    if (any(x - 1 < 0 or x + 1 >= width for x in x_centers)
+            or any(y - 1 < 0 or y + 1 >= height for y in y_centers)):
+        raise ValueError("Calibration grid places a sample window outside the screenshot")
+    pixels = np.asarray(img, dtype=np.uint8)
 
-        cell_width = (right - left) / cols
-        cell_height = (bottom - top) / rows
-        pixels = np.asarray(img, dtype=np.uint8)
+    board, raw_rgb = [], []
+    counts = {}
 
-        board, raw_rgb = [], []
-        counts = {}
-
-        for row in range(rows):
-            labels, rgb_row = [], []
-            for col in range(cols):
-                x = round(left + (col + 0.5) * cell_width)
-                y = round(top + (row + 0.5) * cell_height)
-                # NumPy computes the exact 3x3 per-channel median in one
-                # vectorised operation, avoiding nine PIL getpixel calls.
-                patch = pixels[y - 1:y + 2, x - 1:x + 2]
-                rgb = tuple(int(v) for v in np.median(patch, axis=(0, 1)))
-                colour = classify_rgb(rgb)
-                labels.append(colour)
-                rgb_row.append(list(rgb))
-                counts[colour] = counts.get(colour, 0) + 1
-            board.append(labels)
-            raw_rgb.append(rgb_row)
+    for row, y in enumerate(y_centers):
+        labels, rgb_row = [], []
+        for col, x in enumerate(x_centers):
+            patch = pixels[y - 1:y + 2, x - 1:x + 2]
+            rgb = tuple(int(v) for v in np.median(patch, axis=(0, 1)))
+            colour = classify_rgb(rgb)
+            labels.append(colour)
+            rgb_row.append(list(rgb))
+            counts[colour] = counts.get(colour, 0) + 1
+        board.append(labels)
+        raw_rgb.append(rgb_row)
 
     return {
         "image_size": [width, height],
         "grid_size": [cols, rows],
         "bounds": [left, top, right, bottom],
+        "sample_centres": sample_centres,
         "board": board,
         "raw_rgb": raw_rgb,
         "counts": counts,
-        "processing_seconds": round(time.perf_counter() - started, 6),
         "sampling_method": "numpy_vectorized_3x3_median",
     }
+
+
+def extract_board(image_path, calibration):
+    """Extract a board from a path, preserving the public path-based interface."""
+    started = time.perf_counter()
+    image_path = Path(image_path)
+    if not image_path.is_file():
+        raise FileNotFoundError(image_path)
+    with Image.open(image_path) as original:
+        extracted = _extract_board_image(original, calibration)
+    extracted["processing_seconds"] = round(time.perf_counter() - started, 6)
+    return extracted
+
+
+def _extraction_payload_sha256(extracted):
+    """Fingerprint cached extraction fields to detect accidental payload edits."""
+    payload = {
+        key: extracted[key]
+        for key in (
+            "image_size", "grid_size", "bounds", "sample_centres", "board", "raw_rgb",
+            "counts", "sampling_method"
+        )
+    }
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calibration):
@@ -137,7 +192,14 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if cached.get("calibration_sha256") != calibration_digest:
         return False
-    if cached.get("image_size") != list(image_size):
+    cached_image_size = cached.get("image_size")
+    if (
+        not isinstance(cached_image_size, list)
+        or len(cached_image_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_image_size)
+        or cached_image_size != list(image_size)
+    ):
         return False
 
     grid_size = calibration.get("grid_size")
@@ -145,15 +207,32 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     if (not isinstance(grid_size, list) or len(grid_size) != 2
             or any(type(value) is not int or value < 1 for value in grid_size)
             or not isinstance(bounds, list) or len(bounds) != 4
-            or any(type(value) not in (int, float) or not math.isfinite(value)
-                   for value in bounds)):
+            or any(not _is_finite_number(value) for value in bounds)):
         return False
-    if cached.get("grid_size") != grid_size or cached.get("bounds") != bounds:
+    cached_grid_size = cached.get("grid_size")
+    cached_bounds = cached.get("bounds")
+    if (
+        not isinstance(cached_grid_size, list)
+        or len(cached_grid_size) != 2
+        or any(type(value) is not int or value < 1
+               for value in cached_grid_size)
+        or cached_grid_size != grid_size
+        or not isinstance(cached_bounds, list)
+        or len(cached_bounds) != 4
+        or any(not _is_finite_number(value) for value in cached_bounds)
+        or cached_bounds != bounds
+    ):
         return False
     left, top, right, bottom = bounds
     image_width, image_height = image_size
     if (left < 1 or top < 1 or right <= left or bottom <= top
             or right > image_width - 1 or bottom > image_height - 1):
+        return False
+    try:
+        expected_centres = sample_centres_for_grid(grid_size, bounds)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+    if cached.get("sample_centres") != expected_centres:
         return False
     board = cached.get("board")
     raw_rgb = cached.get("raw_rgb")
@@ -165,7 +244,7 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
     if any(
         not isinstance(row, list) or len(row) != grid_size[0]
-        or any(not isinstance(label, str) for label in row)
+        or any(label not in COLOUR_LABELS for label in row)
         for row in board
     ):
         return False
@@ -181,11 +260,35 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
     ):
         return False
 
+    # The cached labels must be reproducible from the cached RGB samples.
+    # This detects internally inconsistent cache records; it does not prove
+    # that the shared classifier matches the game's true tile colours.
+    for row_index, row in enumerate(board):
+        for column_index, label in enumerate(row):
+            if classify_rgb(raw_rgb[row_index][column_index]) != label:
+                return False
+
+    # Require exact integer counts: bool is an int subclass in Python and
+    # would otherwise compare equal to 0 or 1 in a dictionary.
+    if any(
+        key not in COLOUR_LABELS or type(value) is not int or value < 1
+        for key, value in counts.items()
+    ):
+        return False
+
     actual_counts = {}
     for row in board:
         for label in row:
             actual_counts[label] = actual_counts.get(label, 0) + 1
-    return counts == actual_counts
+    if counts != actual_counts:
+        return False
+
+    # Detect accidental edits to cached extraction data. This is not an
+    # authenticity signature; a writer can recompute it after editing.
+    try:
+        return cached.get("extraction_sha256") == _extraction_payload_sha256(cached)
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
@@ -198,13 +301,16 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     # Hash exact bytes, not a perceptual approximation. Calibration is
     # fingerprinted separately so any edit invalidates cached extraction.
-    digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    # Read the screenshot exactly once. Hashing, dimensions, extraction and
+    # EXIF metadata must all describe this immutable in-memory byte snapshot.
+    image_bytes = image_path.read_bytes()
+    digest = hashlib.sha256(image_bytes).hexdigest()
     calibration_bytes = json.dumps(
         baseline, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
     calibration_digest = hashlib.sha256(calibration_bytes).hexdigest()
 
-    with Image.open(image_path) as source_image:
+    with Image.open(io.BytesIO(image_bytes)) as source_image:
         image_size = source_image.size
 
     cached = None
@@ -219,14 +325,19 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         extracted = {
             key: cached[key]
             for key in (
-                "image_size", "grid_size", "bounds", "board", "raw_rgb",
+                "image_size", "grid_size", "bounds", "sample_centres", "board", "raw_rgb",
                 "counts", "sampling_method"
             )
         }
         extracted["processing_seconds"] = 0.0
         cache_status = "EXACT_MATCH_REUSED"
     else:
-        extracted = extract_board(image_path, baseline)
+        with Image.open(io.BytesIO(image_bytes)) as source_image:
+            extraction_started = time.perf_counter()
+            extracted = _extract_board_image(source_image, baseline)
+            extracted["processing_seconds"] = round(
+                time.perf_counter() - extraction_started, 6
+            )
         cache_status = "FULL_ANALYSIS"
 
     stat = image_path.stat()
@@ -239,7 +350,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         parse_exif_capture_time,
         validate_capture_session_id,
     )
-    with Image.open(image_path) as img:
+    with Image.open(io.BytesIO(image_bytes)) as img:
         exif_time = parse_exif_capture_time(img.getexif())
     exif_time = (
         parse_aware_capture_timestamp(captured_at)
@@ -249,8 +360,10 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     snapshot_id = "sha256:" + digest
 
+    extraction_sha256 = _extraction_payload_sha256(extracted)
     result = {
         **extracted,
+        "extraction_sha256": extraction_sha256,
         "source": str(image_path),
         "source_sha256": digest,
         "calibration_sha256": calibration_digest,
