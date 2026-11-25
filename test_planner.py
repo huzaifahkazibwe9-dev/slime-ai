@@ -106,7 +106,7 @@ def make_evidence():
             "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
             "shooter_detection_json": source_hashes["shooter_detection_json"],
         },
-        "positions_checked": 8,
+        "positions_checked": 2,
         "known_shooters": ["A", "B"],
         "current_position_by_shooter": {"A": "pA", "B": "pB"},
         "timestamps_known": True,
@@ -316,6 +316,16 @@ class PlannerEvidenceTests(unittest.TestCase):
         evidence = list(make_evidence())
         evidence[2]["tracks"]["red"]["current_position_id"] = "pB"
         evidence[2]["tracks"]["red"]["observations"][0]["position_id"] = "pB"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_confirmed_identity_map_must_cover_all_checked_positions(self):
+        evidence = list(make_evidence())
+        evidence[1]["positions_checked"] = 3
+        self.assertIsNone(run_plan(evidence))
+
+    def test_confirmed_identity_map_must_use_distinct_positions(self):
+        evidence = list(make_evidence())
+        evidence[1]["current_position_by_shooter"]["B"] = "pA"
         self.assertIsNone(run_plan(evidence))
 
     def test_missing_human_confirmed_current_position_map_rejected(self):
