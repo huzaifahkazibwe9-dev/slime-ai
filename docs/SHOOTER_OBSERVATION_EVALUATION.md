@@ -115,3 +115,23 @@ gameplay_verified = false, and game_taps_enabled = false.
 
 This is an offline evaluation path only. It does not perform device actions,
 purchase power-ups, select shooters, or modify the game.
+
+
+## Multi-capture aggregation
+
+For a more representative evaluation, review multiple different captures and
+aggregate their labelled records with shooter_batch_evaluation.py. Its JSON
+manifest has schema version 1 and a captures list. Each entry supplies three
+paths: dataset, detection, and screenshot. Paths that are not absolute are
+resolved relative to the manifest file's directory.
+
+The batch evaluator independently verifies every dataset against its exact
+detector JSON and original screenshot before including it. It rejects repeated
+capture sessions, identical source detector files, and duplicate screenshot
+bytes so the same screenshot cannot inflate the sample count. Reports retain
+per-capture results as well as support-weighted aggregate visibility, slot
+alignment, colour, and ammunition metrics.
+
+A combined report still does not prove that human labels are correct or that
+the captures represent every gameplay condition. Coverage adequacy and label
+truth remain explicitly unverified.
