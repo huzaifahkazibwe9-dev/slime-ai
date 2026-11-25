@@ -6,6 +6,7 @@ are caller-supplied labels, not authenticated identities; this tool does not
 establish ground truth or enable gameplay.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -20,6 +21,31 @@ def _reviewer_id(value, label):
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be a non-empty reviewer identifier")
     return value.strip()
+
+
+def _dataset_fingerprint(dataset, raw_bytes, label):
+    if raw_bytes is None:
+        payload = json.dumps(
+            dataset,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        mode = "canonical_json_content"
+    else:
+        if not isinstance(raw_bytes, bytes):
+            raise TypeError(f"{label} must be bytes when supplied")
+        try:
+            parsed = strict_json_loads(raw_bytes)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise ValueError(f"{label} is not strict UTF-8 JSON") from exc
+        if parsed != dataset:
+            raise ValueError(
+                f"{label} bytes do not match the parsed review dataset"
+            )
+        payload = raw_bytes
+        mode = "raw_file_bytes"
+    return hashlib.sha256(payload).hexdigest(), mode
 
 
 def _agreement_summary(left, right):
@@ -96,6 +122,8 @@ def evaluate_review_agreement(
     reviewer_b_id,
     detection_bytes,
     screenshot_bytes,
+    reviewer_a_dataset_bytes=None,
+    reviewer_b_dataset_bytes=None,
 ):
     """Evaluate agreement between two separately labelled source-bound datasets."""
     reviewer_a_id = _reviewer_id(reviewer_a_id, "reviewer_a_id")
@@ -105,6 +133,12 @@ def evaluate_review_agreement(
 
     samples_a = validate_dataset(dataset_a)
     samples_b = validate_dataset(dataset_b)
+    reviewer_a_hash, reviewer_a_hash_mode = _dataset_fingerprint(
+        dataset_a, reviewer_a_dataset_bytes, "reviewer_a_dataset_bytes"
+    )
+    reviewer_b_hash, reviewer_b_hash_mode = _dataset_fingerprint(
+        dataset_b, reviewer_b_dataset_bytes, "reviewer_b_dataset_bytes"
+    )
     verification_a = verify_source_artifacts(
         dataset_a, detection_bytes, screenshot_bytes
     )
@@ -292,6 +326,12 @@ def evaluate_review_agreement(
         "per_slot_agreement": per_slot_reports,
         "disagreement_count": len(disagreements),
         "disagreements": disagreements,
+        "review_dataset_provenance": {
+            "reviewer_a_dataset_sha256": reviewer_a_hash,
+            "reviewer_b_dataset_sha256": reviewer_b_hash,
+            "reviewer_a_hash_mode": reviewer_a_hash_mode,
+            "reviewer_b_hash_mode": reviewer_b_hash_mode,
+        },
         "source_provenance": {
             "capture_session_id": dataset_a["capture_provenance"][
                 "capture_session_id"
@@ -337,12 +377,10 @@ def main():
     )
     args = parser.parse_args()
 
-    dataset_a = strict_json_loads(
-        Path(args.reviewer_a_dataset).read_bytes()
-    )
-    dataset_b = strict_json_loads(
-        Path(args.reviewer_b_dataset).read_bytes()
-    )
+    dataset_a_bytes = Path(args.reviewer_a_dataset).read_bytes()
+    dataset_b_bytes = Path(args.reviewer_b_dataset).read_bytes()
+    dataset_a = strict_json_loads(dataset_a_bytes)
+    dataset_b = strict_json_loads(dataset_b_bytes)
     detection_bytes = Path(args.source_detection).read_bytes()
     screenshot_bytes = Path(args.source_screenshot).read_bytes()
     report = evaluate_review_agreement(
@@ -352,6 +390,8 @@ def main():
         args.reviewer_b_id,
         detection_bytes,
         screenshot_bytes,
+        dataset_a_bytes,
+        dataset_b_bytes,
     )
 
     output = Path(args.output)
