@@ -15,6 +15,8 @@ def plan_next_decision(
     identity_audit=None,
     candidate_report=None,
     snapshot_report=None,
+    current_source_file_sha256=None,
+    current_calibration_sha256=None,
     powerup_inventory=None,
     hidden_board_circles=None,
     observed_extra_slots=None,
@@ -25,6 +27,8 @@ def plan_next_decision(
         identity_audit=identity_audit,
         candidate_report=candidate_report,
         snapshot_report=snapshot_report,
+        current_source_file_sha256=current_source_file_sha256,
+        current_calibration_sha256=current_calibration_sha256,
     )
     powerup_result = None
     if powerup_inventory is not None:
