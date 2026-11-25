@@ -141,11 +141,11 @@ def _require_exact_keys(value, expected, context):
 
 
 def _require_finite_number(value, expected, field):
-    if (
-        type(value) not in (int, float)
-        or not math.isfinite(value)
-        or value != expected
-    ):
+    if expected is None:
+        if value is not None:
+            raise ValueError(f"{field} is inconsistent with its sample counts")
+        return
+    if type(value) is not float or not math.isfinite(value) or value != expected:
         raise ValueError(f"{field} is inconsistent with its sample counts")
 
 
@@ -162,9 +162,9 @@ def _classification_summary(summary, context):
     matrix = summary["confusion_matrix"]
     if not isinstance(matrix, dict):
         raise ValueError(f"{context}.confusion_matrix must be an object")
-    labels = sorted(matrix)
-    if any(not isinstance(label, str) or not label for label in labels):
+    if any(not isinstance(label, str) or not label for label in matrix):
         raise ValueError(f"{context} confusion-matrix labels must be non-empty strings")
+    labels = sorted(matrix)
     total = 0
     diagonal = 0
     row_counts = {}
@@ -187,8 +187,9 @@ def _classification_summary(summary, context):
     if total != support or diagonal != correct:
         raise ValueError(f"{context} confusion matrix disagrees with support or correct_count")
     expected_accuracy = round(correct / support, 6) if support else None
-    if summary["accuracy"] != expected_accuracy:
-        raise ValueError(f"{context}.accuracy is inconsistent with its confusion matrix")
+    _require_finite_number(
+        summary["accuracy"], expected_accuracy, f"{context}.accuracy"
+    )
     return {
         "support": support,
         "correct_count": correct,
@@ -343,14 +344,16 @@ def _verify_shooter_summary(shooter):
     expected_accuracy = (
         round(exact_matches / ammo_support, 6) if ammo_support else None
     )
-    if ammo["exact_match_accuracy"] != expected_accuracy:
-        raise ValueError("Shooter ammunition exact-match accuracy is inconsistent")
+    _require_finite_number(
+        ammo["exact_match_accuracy"], expected_accuracy,
+        "Shooter ammunition exact-match accuracy",
+    )
     mae = ammo["mean_absolute_error_on_detected_readings"]
     if detected == 0:
         if mae is not None:
             raise ValueError("Shooter ammunition MAE must be null without detector readings")
     elif (
-        type(mae) not in (int, float)
+        type(mae) is not float
         or not math.isfinite(mae)
         or mae < 0
     ):
@@ -430,6 +433,15 @@ def verify_batch_report(report):
         raise ValueError("Batch evaluation report content does not match evaluation_sha256")
     if not _is_sha256(report.get("batch_sha256")):
         raise ValueError("Batch evaluation report batch_sha256 is invalid")
+    expected_interpretation = (
+        "Metrics pool reviewed samples only after each capture bundle passes its own "
+        "source-bound verification. Board-colour and shooter-observation metrics remain "
+        "separate. The pooled results measure agreement with user-supplied labels; they "
+        "do not independently verify label truth, calibration alignment, game semantics, "
+        "or gameplay performance."
+    )
+    if report.get("interpretation") != expected_interpretation:
+        raise ValueError("Batch evaluation report interpretation is invalid")
     if type(report.get("bundle_count")) is not int or report["bundle_count"] < 2:
         raise ValueError("Batch evaluation report bundle_count is invalid")
     bundles = report.get("bundles")
