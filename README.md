@@ -179,6 +179,17 @@ single stage manually, use this order:
 No stage taps the game or changes gold, inventory, or power-up state. A
 candidate recommendation remains a simulation-only result.
 
+## User-confirmed bonded shooter groups
+
+The build pipeline also prepares `data/bonded_groups_confirmed.json` before
+shooter detection, but only when the file is absent. The initial file has
+`verified_by_user: false` and an empty group list. It does not infer or add
+pairs. To enable bonded-group candidates, manually confirm the exact currently
+detected shooter IDs and edit the file according to
+[`docs/USER_CONFIRMED_BONDS.md`](docs/USER_CONFIRMED_BONDS.md).
+The detector, matcher, planner and `STATUS` compare the config's exact SHA-256;
+changing the file invalidates prior candidate reports and saved plans.
+
 ## Human-confirmed shooter identity
 
 The build pipeline now validates physical shooter-to-conveyor-position identity
