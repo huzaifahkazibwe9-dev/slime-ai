@@ -169,6 +169,40 @@ class IdentityAuditorTests(unittest.TestCase):
         self.assertFalse(report["identity_verified"])
         self.assertTrue(report["errors"])
 
+    def test_missing_user_identity_file_fails_closed(self):
+        board, visual, identity, calibration, detection = valid_bundle()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = {}
+            for name, payload in (
+                ("board.json", board),
+                ("visual.json", visual),
+                ("calibration.json", calibration),
+                ("detection.json", detection),
+            ):
+                path = root / name
+                path.write_text(json.dumps(payload))
+                paths[name] = path
+
+            report = build_report(
+                board_path=paths["board.json"],
+                visual_path=paths["visual.json"],
+                identity_path=root / "missing_identity.json",
+                calibration_path=paths["calibration.json"],
+                detection_path=paths["detection.json"],
+            )
+
+            self.assertFalse(report["identity_verified"])
+            self.assertTrue(any(
+                "shooter_identity_observations_json" in error
+                for error in report["errors"]
+            ))
+            self.assertNotIn(
+                "shooter_identity_observations_json",
+                report["source_file_sha256"],
+            )
+            self.assertFalse(report["game_taps_enabled"])
+
     def test_build_report_hashes_exact_source_bytes(self):
         board, visual, identity, calibration, detection = valid_bundle()
         with tempfile.TemporaryDirectory() as directory:
