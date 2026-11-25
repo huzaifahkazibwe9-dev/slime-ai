@@ -81,6 +81,12 @@ class Shooter:
                 or self.observation_quality[field_name] is not False
             ):
                 return False
+        if (
+            self.observation_quality.get("evidence_source") == "detector_declared"
+            and self.observation_quality.get("ammunition_ocr_status")
+            != "PARSED_EXACT_DIGITS"
+        ):
+            return False
 
         return True
 
