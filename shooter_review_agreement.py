@@ -223,6 +223,61 @@ def evaluate_review_agreement(
         name: _agreement_summary(*pairs)
         for name, pairs in fields.items()
     }
+
+    # Preserve slot-level detail so aggregate agreement cannot hide a
+    # consistently problematic panel position.
+    per_slot_reports = {}
+    for sample_a, sample_b in zip(samples_a, samples_b):
+        sample_id = sample_a["detector"]["id"]
+        slot_fields = {
+            "review_status": ([sample_a["review_status"]], [sample_b["review_status"]]),
+            "visibility": ([], []),
+            "position": ([], []),
+            "colour": ([], []),
+            "ammunition_readability": ([], []),
+            "ammunition_exact_value": ([], []),
+        }
+        confirmed = (
+            sample_a["review_status"] == "confirmed"
+            and sample_b["review_status"] == "confirmed"
+        )
+        if confirmed:
+            for field in ("visibility", "position"):
+                slot_fields[field][0].append(_sample_label(sample_a, field))
+                slot_fields[field][1].append(_sample_label(sample_b, field))
+            visible = (
+                sample_a["human"]["visibility"] == "visible"
+                and sample_b["human"]["visibility"] == "visible"
+            )
+            if visible:
+                slot_fields["colour"][0].append(_sample_label(sample_a, "colour"))
+                slot_fields["colour"][1].append(_sample_label(sample_b, "colour"))
+                slot_fields["ammunition_readability"][0].append(
+                    _sample_label(sample_a, "ammunition_readable")
+                )
+                slot_fields["ammunition_readability"][1].append(
+                    _sample_label(sample_b, "ammunition_readable")
+                )
+                readable = (
+                    sample_a["human"]["ammunition_readable"] is True
+                    and sample_b["human"]["ammunition_readable"] is True
+                )
+                if readable:
+                    slot_fields["ammunition_exact_value"][0].append(
+                        _sample_label(sample_a, "ammunition")
+                    )
+                    slot_fields["ammunition_exact_value"][1].append(
+                        _sample_label(sample_b, "ammunition")
+                    )
+        per_slot_reports[sample_id] = {
+            "row": sample_a["detector"]["row"],
+            "column": sample_a["detector"]["column"],
+            "field_agreement": {
+                name: _agreement_summary(*pairs)
+                for name, pairs in slot_fields.items()
+            },
+        }
+
     return {
         "schema_version": 1,
         "evaluator": "shooter_review_agreement",
@@ -234,6 +289,7 @@ def evaluate_review_agreement(
         "both_ambiguous_sample_count": both_ambiguous,
         "one_or_both_ambiguous_sample_count": one_or_both_ambiguous,
         "field_agreement": field_reports,
+        "per_slot_agreement": per_slot_reports,
         "disagreement_count": len(disagreements),
         "disagreements": disagreements,
         "source_provenance": {
