@@ -26,7 +26,7 @@ class StrictJsonTests(unittest.TestCase):
 
     def test_rejects_invalid_utf8_bytes(self):
         with self.assertRaises(UnicodeDecodeError):
-            strict_json_loads(b'{"value":"\\xff"}')
+            strict_json_loads(b'{"value":"' + bytes((255,)) + b'"}')
 
 
 if __name__ == "__main__":
