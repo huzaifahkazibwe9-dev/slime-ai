@@ -49,7 +49,7 @@ def read_report(path):
     try:
         data = json.loads(Path(path).read_text())
         return data if isinstance(data, dict) else None
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return None
 
 
