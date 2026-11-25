@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
@@ -101,7 +102,7 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
     if not image_path.is_file():
         raise FileNotFoundError(image_path)
 
-    baseline_data = json.loads(baseline_path.read_text())
+    baseline_data = strict_json_loads(baseline_path.read_text())
     extracted = extract_board(image_path, baseline_data)
 
     if extracted["grid_size"] != baseline_data["grid_size"]:
