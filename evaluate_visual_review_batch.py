@@ -367,6 +367,25 @@ def evaluate_batch(batch_path):
                 raise ValueError(
                     f"Bundle {bundle_id} {artifact_name} digest is invalid"
                 )
+        source_hashes = report.get("source_artifacts_sha256")
+        if not isinstance(source_hashes, dict):
+            raise ValueError(f"Bundle {bundle_id} source artifact hashes are missing")
+        for artifact_name in (
+            "board_observation_json",
+            "shooter_detection_json",
+            "source_pixel_audit_json",
+            "source_screenshot",
+        ):
+            digest = source_hashes.get(artifact_name)
+            if (not isinstance(digest, str) or len(digest) != 64
+                    or any(character not in "0123456789abcdef" for character in digest)):
+                raise ValueError(
+                    f"Bundle {bundle_id} {artifact_name} source digest is invalid"
+                )
+        if source_hashes["source_screenshot"] != screenshot_hash:
+            raise ValueError(
+                f"Bundle {bundle_id} source screenshot hash disagrees with capture identity"
+            )
         if screenshot_hash in seen_screenshots:
             raise ValueError(f"Duplicate source screenshot in batch: {screenshot_hash}")
         if session_id in seen_sessions:
@@ -377,7 +396,8 @@ def evaluate_batch(batch_path):
         bundle_summaries.append({
             "id": bundle_id,
             "capture_identity": identity,
-            "review_artifacts_sha256": report.get("review_artifacts_sha256", {}),
+            "review_artifacts_sha256": artifact_hashes,
+            "source_artifacts_sha256": source_hashes,
         })
 
     board = _aggregate_board(reports)
