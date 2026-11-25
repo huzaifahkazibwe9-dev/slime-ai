@@ -424,44 +424,37 @@ def plan_next_move(
 
 
 if __name__ == "__main__":
-    import json
-    from pathlib import Path
-    from level_loader import load_level
+    import argparse
+    from orchestration import run_orchestration
 
-    state, _ = load_level()
-
-    def read_report(filename):
-        path = Path("data") / filename
-        return json.loads(path.read_text()) if path.exists() else None
-
-    planning = read_report("planning_gate_latest.json")
-    identity = read_report("identity_audit_report.json")
-    candidates = read_report("conveyor_identity_candidates.json")
-    snapshot = read_report("snapshot_sync_report.json")
-    from orchestration import (
-        _canonical_json_sha256,
-        _read_planning_evidence_bundle,
+    parser = argparse.ArgumentParser(
+        description="Run the screenshot-bound, simulation-only Slime AI planner"
     )
-    evidence_bundle = _read_planning_evidence_bundle(Path("data"))
-    planning = evidence_bundle["planning"]
-    identity = evidence_bundle["identity"]
-    candidates = evidence_bundle["candidates"]
-    snapshot = evidence_bundle["snapshot"]
-
-    result = plan_next_move(
-        state, planning, identity, candidates, snapshot,
-        current_source_file_sha256=evidence_bundle["file_sha256"],
-        current_calibration_sha256=_canonical_json_sha256(
-            evidence_bundle["vision_calibration"]
-        ),
+    parser.add_argument(
+        "--observation",
+        required=True,
+        help="Explicit board observation JSON from the current screenshot capture",
     )
+    parser.add_argument(
+        "--shooters",
+        required=True,
+        help="Matching shooter detector JSON from the same capture",
+    )
+    parser.add_argument("--data-dir", default="data")
+    parser.add_argument("--candidate-report")
+    args = parser.parse_args()
 
-    print("SLIME AI — BUILD 11J EVIDENCE-BOUND PLANNER")
-    print("=" * 52)
-    print("Level:", state.level)
-    print("Accessible shooters:", len(state.accessible_shooters()))
-    print("Identity audit verified:", bool(identity and identity.get("identity_verified") is True))
-    print("Snapshot synchronised:", bool(snapshot and snapshot.get("synchronised") is True))
-    print("Planning gameplay verified:", bool(planning and planning.get("gameplay_verified") is True))
-    print("Recommended group:", result)
+    report = run_orchestration(
+        data_dir=args.data_dir,
+        candidate_report_path=args.candidate_report,
+        observation_path=args.observation,
+        shooter_path=args.shooters,
+    )
+    print("SLIME AI — EVIDENCE-BOUND PLANNER")
+    print("=" * 48)
+    print("Evidence gate:", report["evidence"]["evidence_gate_passed"])
+    print("Recommended group:", report["planner"]["recommended_group"])
+    print("Status:", report["planner"]["recommendation_status"])
     print("Game taps enabled: False")
+    print("Live execution allowed: False")
+    print("Actions performed: False")
