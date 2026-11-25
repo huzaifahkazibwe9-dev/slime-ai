@@ -9,6 +9,8 @@ import argparse
 import json
 from pathlib import Path
 
+from strict_json import strict_json_loads
+
 
 def build_template(observation):
     if not isinstance(observation, dict):
@@ -76,7 +78,7 @@ def main():
     parser.add_argument("--output", default="data/colour_labels_template.json")
     args = parser.parse_args()
 
-    observation = json.loads(Path(args.observation).read_text(encoding="utf-8"))
+    observation = strict_json_loads(Path(args.observation).read_bytes())
     template = build_template(observation)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
