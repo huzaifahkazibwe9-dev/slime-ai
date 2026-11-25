@@ -423,7 +423,8 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
 
             with patch("shooter_detector.IMAGE", panel_path), \
                  patch("shooter_detector.OUTPUT", output_path), \
-                 patch("shooter_detector.read_ammunition_with_status", side_effect=sample_ocr):
+                 patch("shooter_detector.read_ammunition_with_status", side_effect=sample_ocr), \
+                 patch.object(sys, "argv", ["shooter_detector.py"]):
                 main()
 
             payload = json.loads(output_path.read_text())
