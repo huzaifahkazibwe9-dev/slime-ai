@@ -468,7 +468,7 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         report = self._valid_report()
         report["board_colour_evaluation"]["per_class"]["cyan"]["precision"] = 0.0
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "per_class metrics disagree"):
+        with self.assertRaisesRegex(ValueError, "precision is inconsistent with its sample counts"):
             batch.verify_batch_report(report)
 
     def test_rejects_shooter_ammunition_accuracy_inconsistent_with_counts(self):
@@ -501,7 +501,7 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         report = self._valid_report()
         report["board_colour_evaluation"]["per_class"]["cyan"]["precision"] = True
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "precision must be numeric"):
+        with self.assertRaisesRegex(ValueError, "precision is inconsistent with its sample counts"):
             batch.verify_batch_report(report)
 
     def test_rejects_noncanonical_board_colour_label_even_when_resealed(self):
