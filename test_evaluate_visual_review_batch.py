@@ -500,6 +500,18 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         ):
             batch.verify_batch_report(report)
 
+    def test_rejects_ammunition_mae_below_minimum_implied_by_mismatches(self):
+        report = self._valid_report()
+        ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
+        self.assertEqual(ammo["detector_reading_count"], 2)
+        self.assertEqual(ammo["exact_match_count"], 1)
+        ammo["mean_absolute_error_on_detected_readings"] = 0.25
+        _reseal_report(report)
+        with self.assertRaisesRegex(
+            ValueError, "MAE is below the minimum implied by its exact-match count"
+        ):
+            batch.verify_batch_report(report)
+
     def test_rejects_ammunition_exact_matches_exceeding_detector_readings(self):
         report = self._valid_report()
         ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
