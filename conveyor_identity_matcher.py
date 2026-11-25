@@ -11,8 +11,15 @@ DATA = Path("data")
 ORDER = ["bottom", "right", "top", "left"]
 
 def read_snapshot(name):
+    """Parse one JSON object and hash the exact bytes that were parsed."""
     raw = (DATA / name).read_bytes()
-    return json.loads(raw), hashlib.sha256(raw).hexdigest()
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{name}: unreadable JSON payload") from exc
+    if not isinstance(value, dict):
+        raise ValueError(f"{name}: top-level JSON value must be an object")
+    return value, hashlib.sha256(raw).hexdigest()
 
 
 def validate_visual_observations(observations, expected_positions):
@@ -426,12 +433,21 @@ def derive_candidate_track(
 
 
 def main():
-    calibration, calibration_digest = read_snapshot("conveyor_calibration.json")
-    visual, visual_digest = read_snapshot("conveyor_visual_observations.json")
-    detection, detection_digest = read_snapshot("shooter_detection.json")
-    identity_report, identity_digest = read_snapshot("identity_audit_report.json")
-    board, board_digest = read_snapshot("board_observation_latest.json")
-    _, identity_observations_digest = read_optional_snapshot(
+    input_errors = []
+
+    def read_required(name):
+        try:
+            return read_snapshot(name)
+        except (OSError, ValueError) as exc:
+            input_errors.append(f"{name}: {type(exc).__name__}: {exc}")
+            return {}, None
+
+    calibration, calibration_digest = read_required("conveyor_calibration.json")
+    visual, visual_digest = read_required("conveyor_visual_observations.json")
+    detection, detection_digest = read_required("shooter_detection.json")
+    identity_report, identity_digest = read_required("identity_audit_report.json")
+    board, board_digest = read_required("board_observation_latest.json")
+    _, identity_observations_digest = read_required(
         "shooter_identity_observations.json"
     )
     source_file_sha256 = {
@@ -457,7 +473,8 @@ def main():
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
 
-    validation_errors = list(calibration_errors)
+    validation_errors = list(input_errors)
+    validation_errors.extend(calibration_errors)
     validation_errors.extend(validate_visual_observations(
         observations, positions
     ))
