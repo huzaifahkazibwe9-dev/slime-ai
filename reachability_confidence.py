@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from board_loader import load_board
@@ -173,7 +174,7 @@ def main():
     args = parser.parse_args()
 
     report_bytes = Path(args.input).read_bytes()
-    report = json.loads(report_bytes)
+    report = strict_json_loads(report_bytes)
     source_hashes = {
         "reachability_audit_json": hashlib.sha256(report_bytes).hexdigest(),
     }
@@ -181,7 +182,7 @@ def main():
     confidence_snapshot_match_verified = False
     if args.board:
         board_bytes = Path(args.board).read_bytes()
-        source = json.loads(board_bytes)
+        source = strict_json_loads(board_bytes)
         board_digest = hashlib.sha256(board_bytes).hexdigest()
         from screenshot_observation_loader import _require_grid
         _require_grid(source)
@@ -206,8 +207,8 @@ def main():
         from board_loader import VISION_FILE, CONFIDENCE_FILE
         board_bytes = Path(VISION_FILE).read_bytes()
         confidence_bytes = Path(CONFIDENCE_FILE).read_bytes()
-        board_source = json.loads(board_bytes)
-        confidence_source = json.loads(confidence_bytes)
+        board_source = strict_json_loads(board_bytes)
+        confidence_source = strict_json_loads(confidence_bytes)
         board_digest = hashlib.sha256(board_bytes).hexdigest()
         validate_board_observation_source(report, board_digest)
         validate_edge_confidence_source(confidence_source, board_digest)
