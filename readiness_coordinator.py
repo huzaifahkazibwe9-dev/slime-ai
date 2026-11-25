@@ -22,7 +22,7 @@ def read_json(name, default=None):
         return default
     try:
         value = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return default
     return value if isinstance(value, dict) else default
 
