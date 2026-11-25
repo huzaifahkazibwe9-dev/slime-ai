@@ -9,6 +9,7 @@ from unittest.mock import patch
 from capture_preflight import validate_capture_pair
 from orchestration import _read_capture_bundle
 from screenshot_observation_loader import load_observed_level
+from level_loader import load_level
 
 
 class ImmutableCaptureHandoffTests(unittest.TestCase):
@@ -105,6 +106,24 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             self.assertEqual(state.capture_session_id, "session-abc")
             self.assertTrue(level_audit["shooter_capture_provenance_verified"])
             self.assertFalse(level_audit["game_taps_enabled"])
+
+
+    def test_level_loader_forwards_pinned_objects_without_reopening_paths(self):
+        board_data = {"source_sha256": "a" * 64}
+        shooter_data = {"visible_shooters": []}
+        with patch(
+            "screenshot_observation_loader.load_observed_level",
+            return_value=("state", {"source": "screenshot_observation"}),
+        ) as loader:
+            result = load_level(
+                observation_path="mutable-board.json",
+                shooter_path="mutable-shooters.json",
+                observation_data=board_data,
+                shooter_data=shooter_data,
+            )
+        self.assertEqual(result[0], "state")
+        self.assertIs(loader.call_args.kwargs["observation_data"], board_data)
+        self.assertIs(loader.call_args.kwargs["shooter_data"], shooter_data)
 
 
 if __name__ == "__main__":
