@@ -54,13 +54,19 @@ def run_tests():
             ammo=10,
         )
 
-        result = apply_geometry(
-            shooter,
-            item["center"],
-            item["segment"],
-            image_size,
-            position_verified=True,
-        )
+        try:
+            result = apply_geometry(
+                shooter,
+                item["center"],
+                item["segment"],
+                image_size,
+                position_verified=True,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Calibration entry {item.get('id', '<unknown>')} "
+                f"({item.get('segment', '<unknown>')}) is invalid: {exc}"
+            ) from exc
 
         assert shooter.direction == data["directions"][item["segment"]]
         assert (shooter.x, shooter.y) == result["origin"]
