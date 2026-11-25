@@ -36,13 +36,33 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     print("Timer running:", resource_manager.status()["timer_running"])
     print("Game taps enabled:", resource_manager.game_taps_enabled)
 
-    # Load either the legacy baseline or an explicit screenshot observation.
+    # Pin screenshot, shooter panel and pixel-audit artifacts before loading.
     section("LEVEL LOADING")
-    state, vision_verified = load_level(
-        level=level,
-        observation_path=observation_path,
-        shooter_path=shooter_path,
-    )
+    pinned_capture = None
+    if observation_path is not None:
+        from orchestration import _read_capture_bundle
+        from capture_preflight import validate_capture_pair
+        board_path = Path(observation_path)
+        shooter_file = Path(shooter_path or "data/shooter_detection.json")
+        pinned_capture = _read_capture_bundle(board_path, shooter_file)
+        capture = validate_capture_pair(
+            board_path,
+            shooter_file,
+            board_data=pinned_capture["board_data"],
+            shooter_data=pinned_capture["shooter_data"],
+            pixel_audit_data=pinned_capture["pixel_audit_data"],
+        )
+        if capture.get("valid") is not True:
+            raise ValueError(capture.get("reason", "Capture preflight failed."))
+        state, vision_verified = load_level(
+            level=level,
+            observation_path=board_path,
+            shooter_path=shooter_file,
+            observation_data=capture["board_data"],
+            shooter_data=capture["shooter_data"],
+        )
+    else:
+        state, vision_verified = load_level(level=level)
 
     print("Level:", state.level)
     print("Board dimensions:", state.width, "x", state.height)
@@ -101,6 +121,11 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
         _read_planning_evidence_bundle,
     )
     evidence_bundle = _read_planning_evidence_bundle(PROJECT_DIR / "data")
+    current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    if pinned_capture is not None:
+        current_source_file_sha256["board_observation_json"] = (
+            pinned_capture["board_bytes_sha256"]
+        )
     planning_report = evidence_bundle["planning"]
     identity_report = evidence_bundle["identity"]
     candidate_report = evidence_bundle["candidates"]
@@ -124,7 +149,7 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
             identity_audit=identity_report,
             candidate_report=candidate_report,
             snapshot_report=snapshot_report,
-            current_source_file_sha256=evidence_bundle["file_sha256"],
+            current_source_file_sha256=current_source_file_sha256,
             current_calibration_sha256=_canonical_json_sha256(
                 evidence_bundle["vision_calibration"]
             ),
