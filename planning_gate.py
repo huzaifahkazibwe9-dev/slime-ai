@@ -320,7 +320,10 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None,
 def _read_json_snapshot(path):
     """Parse a JSON object and fingerprint the exact bytes that were parsed."""
     raw = Path(path).read_bytes()
-    value = json.loads(raw)
+    try:
+        value = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Evidence artifact is not valid UTF-8 JSON: {path}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"Evidence artifact must contain a JSON object: {path}")
     return value, hashlib.sha256(raw).hexdigest()
