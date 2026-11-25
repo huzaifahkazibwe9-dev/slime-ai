@@ -111,6 +111,10 @@ def make_evidence():
         "current_position_by_shooter": {"A": "pA", "B": "pB"},
         "timestamps_known": True,
         "identity_verified": True,
+        "verified_by_user": True,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "captured_at": "2026-11-25T08:00:00+00:00",
         "errors": [],
         "blockers": [],
     }
@@ -140,8 +144,18 @@ def make_evidence():
             "ammo_non_increasing": True,
             "panel_colour_match": True,
             "observed_colour_consistent": True,
+            "board_snapshot_id": SNAPSHOT_ID,
+            "capture_session_id": "session-1",
+            "captured_at": "2026-11-25T08:00:00+00:00",
+            "timestamp_identified": True,
             "observations": [
-                {"position_id": position, "colour": colour, "ammo": ammo}
+                {
+                    "position_id": position, "colour": colour, "ammo": ammo,
+                    "board_snapshot_id": SNAPSHOT_ID,
+                    "capture_session_id": "session-1",
+                    "captured_at": "2026-11-25T08:00:00+00:00",
+                    "timestamp_identified": True,
+                }
             ],
         }
 
@@ -158,6 +172,10 @@ def make_evidence():
         },
         "identity_verified": True,
         "current_snapshot_id": SNAPSHOT_ID,
+        "board_snapshot_id": SNAPSHOT_ID,
+        "capture_session_id": "session-1",
+        "captured_at": "2026-11-25T08:00:00+00:00",
+        "timestamp_identified": True,
         "checks": candidate_checks,
         "tracks": tracks,
     }
@@ -311,6 +329,33 @@ class PlannerEvidenceTests(unittest.TestCase):
         e = list(make_evidence())
         e[2]["identity_verified"] = False
         self.assertIsNone(run_plan(e))
+
+    def test_candidate_must_be_user_confirmed(self):
+        evidence = list(make_evidence())
+        evidence[1]["verified_by_user"] = False
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_capture_session_must_match_identity(self):
+        evidence = list(make_evidence())
+        evidence[2]["capture_session_id"] = "other-session"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_track_capture_metadata_must_match_report(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["capture_session_id"] = "other-session"
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_observation_timestamp_must_be_identified(self):
+        evidence = list(make_evidence())
+        evidence[2]["tracks"]["red"]["observations"][0][
+            "timestamp_identified"
+        ] = False
+        self.assertIsNone(run_plan(evidence))
+
+    def test_candidate_and_identity_timestamps_must_align(self):
+        evidence = list(make_evidence())
+        evidence[2]["captured_at"] = "2026-11-25T08:10:00+00:00"
+        self.assertIsNone(run_plan(evidence))
 
     def test_candidate_position_must_match_human_confirmed_current_map(self):
         evidence = list(make_evidence())
