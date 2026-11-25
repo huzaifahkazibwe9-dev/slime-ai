@@ -183,7 +183,7 @@ def read_ammunition_with_status(image, box, temp):
     if not isinstance(stdout, str):
         return {"value": None, "status": "INVALID_TESSERACT_OUTPUT"}
 
-    match = re.fullmatch(r"\\s*(\\d+)\\s*", stdout)
+    match = re.fullmatch(r"\s*(\d+)\s*", stdout)
 
     digits = match.group(1)
     if len(digits) > 128:
