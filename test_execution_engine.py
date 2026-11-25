@@ -56,6 +56,34 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertEqual(report["best"]["groups"], [["A", "B"]])
         self.assertEqual(report["best"]["conveyor_used"], 2)
 
+    def test_conveyor_batch_preserves_shooter_ocr_provenance(self):
+        quality = {
+            "evidence_source": "detector_declared",
+            "ammunition_ocr_status": "PARSED_EXACT_DIGITS",
+            "ammunition_independently_verified": False,
+        }
+        existing = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=False, observation_quality=quality,
+        )
+        candidate = Shooter(
+            "B", "blue", 2, "left", 2, 0,
+            accessible=True, observation_quality=quality,
+        )
+        state = self.make_state([["red", "blue"]], [existing, candidate], conveyor=["A"])
+        report = _simulate_conveyor_batch(state, state, [["B"]])
+        self.assertTrue(report["batch_selection_valid"])
+        records = {
+            item["id"]: item
+            for item in report["shooter_observation_quality"]
+        }
+        self.assertEqual(
+            records["A"]["ammunition_ocr_status"], "PARSED_EXACT_DIGITS"
+        )
+        self.assertEqual(
+            records["B"]["ammunition_ocr_status"], "PARSED_EXACT_DIGITS"
+        )
+
     def test_game_state_rejects_unsubstantiated_visual_verification_flags(self):
         shooter = Shooter(
             "A", "red", 2, "right", -1, 0,
