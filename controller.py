@@ -43,11 +43,20 @@ class SlimeController:
         if observation.is_file() and shooters.is_file():
             try:
                 from capture_preflight import validate_capture_pair
-                capture_evidence_valid = (
-                    validate_capture_pair(observation, shooters).get("valid") is True
+                from orchestration import _read_capture_bundle
+                pinned = _read_capture_bundle(observation, shooters)
+                capture = validate_capture_pair(
+                    observation,
+                    shooters,
+                    board_data=pinned["board_data"],
+                    shooter_data=pinned["shooter_data"],
+                    pixel_audit_data=pinned["pixel_audit_data"],
                 )
+                capture_evidence_valid = capture.get("valid") is True
                 if capture_evidence_valid:
-                    board = json.loads(observation.read_text(encoding="utf-8"))
+                    # Compare the saved report with the same board object that
+                    # passed preflight; never reopen a mutable capture path.
+                    board = capture["board_data"]
                     provenance = report.get("capture_provenance")
                     capture_fields = (
                         "source_sha256", "capture_session_id", "captured_at",
