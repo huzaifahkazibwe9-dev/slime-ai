@@ -38,6 +38,7 @@ class SlimeController:
         )
         capture_evidence_valid = False
         capture_report_matches = False
+        board_calibration_matches = False
         observation = self.data_dir / "board_observation_latest.json"
         shooters = self.data_dir / "shooter_detection.json"
         if observation.is_file() and shooters.is_file():
@@ -56,7 +57,10 @@ class SlimeController:
                 if capture_evidence_valid:
                     # Compare both capture artifacts and every planning input
                     # against the exact files consumed by the saved report.
-                    from orchestration import _read_planning_evidence_bundle
+                    from orchestration import (
+                        _canonical_json_sha256,
+                        _read_planning_evidence_bundle,
+                    )
                     candidate_info = report.get("candidate_report")
                     candidate_path = (
                         candidate_info.get("path")
@@ -84,6 +88,14 @@ class SlimeController:
                     # Compare the saved report with the same board object that
                     # passed preflight; never reopen a mutable capture path.
                     board = capture["board_data"]
+                    board_calibration_matches = (
+                        isinstance(board, dict)
+                        and isinstance(current_evidence.get("vision_calibration"), dict)
+                        and board.get("calibration_sha256")
+                        == _canonical_json_sha256(
+                            current_evidence["vision_calibration"]
+                        )
+                    )
                     provenance = report.get("capture_provenance")
                     capture_fields = (
                         "source_sha256", "capture_session_id", "captured_at",
@@ -97,6 +109,7 @@ class SlimeController:
                     }
                     capture_report_matches = (
                         planning_evidence_matches
+                        and board_calibration_matches
                         and isinstance(board, dict)
                         and isinstance(provenance, dict)
                         and all(
@@ -149,6 +162,7 @@ class SlimeController:
             "evidence_gate_passed": evidence_gate_passed,
             "capture_evidence_valid": capture_evidence_valid,
             "capture_report_matches_current_capture": capture_report_matches,
+            "board_calibration_matches_current_config": board_calibration_matches,
             "planning_evidence_matches_current_files": (
                 planning_evidence_matches
                 if capture_evidence_valid else False
