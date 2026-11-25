@@ -355,6 +355,17 @@ class CapturePipelineConfigTests(unittest.TestCase):
             ):
                 audit_capture_pixels(board_path, b"source screenshot bytes")
 
+    def test_audit_capture_pixels_rejects_duplicate_json_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(
+                '{"source_sha256":"first","source_sha256":"second"}'
+            )
+            with self.assertRaisesRegex(
+                ValueError, "missing or invalid for pixel audit"
+            ):
+                audit_capture_pixels(board_path, b"source screenshot bytes")
+
     def test_audit_capture_pixels_rejects_sample_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
             board_path = Path(directory) / "board.json"
