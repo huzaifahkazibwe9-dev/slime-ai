@@ -12,6 +12,7 @@ from conveyor_identity_matcher import (
     validate_observation_provenance,
     validate_identity_audit,
     validate_calibration_positions,
+    validate_required_position_layout,
     derive_candidate_track,
     read_snapshot,
 )
@@ -135,6 +136,48 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
         self.assertEqual(len(errors), 2)
         self.assertTrue(any("segment" in error for error in errors))
         self.assertTrue(any("center" in error for error in errors))
+
+    def test_calibration_record_list_rejects_duplicate_ids(self):
+        records = [
+            {"id": "bottom_1", "segment": "bottom", "center": [10, 20]},
+            {"id": "bottom_1", "segment": "bottom", "center": [11, 21]},
+        ]
+        errors = validate_calibration_positions(records)
+        self.assertTrue(any("Duplicate calibrated position ID" in error for error in errors))
+
+    def test_calibration_record_list_rejects_malformed_records(self):
+        records = [
+            None,
+            {"id": "", "segment": "bottom", "center": [10, 20]},
+            {"id": "top_1", "segment": "top", "center": [10, True]},
+        ]
+        errors = validate_calibration_positions(records)
+        self.assertEqual(len(errors), 3)
+
+    def test_required_conveyor_layout_requires_all_eight_named_slots(self):
+        valid = {
+            f"{side}_{slot}": {
+                "segment": side, "center": [slot * 10, slot * 20]
+            }
+            for side in ("bottom", "right", "top", "left")
+            for slot in (1, 2)
+        }
+        self.assertEqual(validate_required_position_layout(valid), [])
+        del valid["left_2"]
+        errors = validate_required_position_layout(valid)
+        self.assertTrue(any("left_2" in error for error in errors))
+
+    def test_required_conveyor_layout_rejects_segment_id_mismatch(self):
+        positions = {
+            f"{side}_{slot}": {
+                "segment": "top" if side == "bottom" and slot == 1 else side,
+                "center": [10, 20],
+            }
+            for side in ("bottom", "right", "top", "left")
+            for slot in (1, 2)
+        }
+        errors = validate_required_position_layout(positions)
+        self.assertTrue(any("segment does not match" in error for error in errors))
 
     def test_candidate_track_uses_unique_historical_intersection(self):
         positions = ["bottom_1", "right_2", "top_2", "left_1"]
