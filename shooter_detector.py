@@ -359,6 +359,7 @@ def main():
     parser.add_argument("--panel-bounds", nargs=4, type=int)
     parser.add_argument("--capture-session-id")
     parser.add_argument("--captured-at")
+    parser.add_argument("--capture-config-sha256")
     parser.add_argument("--extract-panel", action="store_true")
     args = parser.parse_args()
 
@@ -468,6 +469,8 @@ def main():
         "source_sha256": None,
         "capture_session_id": None,
         "captured_at": None,
+        "capture_config_sha256": None,
+        "panel_bounds": None,
     }
     if args.source_screenshot:
         from capture_provenance import (
@@ -479,11 +482,17 @@ def main():
         )
         session_id = validate_capture_session_id(args.capture_session_id)
         captured_at = parse_aware_capture_timestamp(args.captured_at)
+        config_hash = args.capture_config_sha256
+        if (config_hash is not None
+                and re.fullmatch(r"[0-9a-f]{64}", config_hash) is None):
+            raise ValueError("Capture config SHA-256 must be 64 lowercase hexadecimal characters")
         provenance = {
             "verified": bool(session_id and captured_at),
             "source_sha256": source_hash,
             "capture_session_id": session_id,
             "captured_at": captured_at,
+            "capture_config_sha256": config_hash,
+            "panel_bounds": list(args.panel_bounds),
         }
 
     panel_slots = build_panel_slot_inventory(image.width, image.height)
@@ -512,6 +521,14 @@ def main():
         "bonded_groups": bonded_groups,
         "bonding_source": bonding_source,
         "bonding_config_sha256": bonding_config_sha256,
+        "observation_quality": {
+            "colour_method": "fixed_panel_sample_hsv_thresholds",
+            "colour_independently_verified": False,
+            "ammunition_method": "tesseract_exact_digit_ocr",
+            "ammunition_independently_verified": False,
+            "slot_mapping_method": "fixed_panel_calibration",
+            "slot_mapping_independently_verified": False,
+        },
         "unrevealed_shooters": [
             {
                 "id": f"question_{i}",
