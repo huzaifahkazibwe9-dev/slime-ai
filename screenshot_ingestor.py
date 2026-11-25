@@ -14,6 +14,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from strict_json import strict_json_loads
+
 BASELINE = Path("data/vision_level39.json")
 OUTPUT = Path("data/board_observation_latest.json")
 
@@ -295,7 +297,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
     started = time.perf_counter()
     image_path = Path(image_path).expanduser().resolve()
     output_path = Path(output_path)
-    baseline = json.loads(Path(baseline_path).read_text())
+    baseline = strict_json_loads(Path(baseline_path).read_bytes())
     if not isinstance(baseline, dict):
         raise ValueError("Calibration must be a JSON object")
 
@@ -315,8 +317,8 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     cached = None
     try:
-        cached = json.loads(output_path.read_text())
-    except (OSError, json.JSONDecodeError):
+        cached = strict_json_loads(output_path.read_bytes())
+    except (OSError, ValueError):
         pass
 
     if _cached_board_is_valid(
