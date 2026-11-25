@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from game_state import Shooter
@@ -236,7 +235,7 @@ def load_panel_slots(path=DETECTION_FILE):
     Slot inventory is metadata only. Unrevealed or occluded slots never become
     Shooter objects or selectable candidates through this function.
     """
-    data = json.loads(Path(path).read_text())
+    data = strict_json_loads(Path(path).read_bytes())
     if not isinstance(data, dict):
         raise ValueError("Shooter detection must be a JSON object")
 
