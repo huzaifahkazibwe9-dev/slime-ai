@@ -40,6 +40,11 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             raise ValueError(
                 f"observation_quality.{field_name} must be a boolean"
             )
+        if value is not False:
+            raise ValueError(
+                f"observation_quality.{field_name} cannot be true "
+                "without independent validation evidence"
+            )
     normalized_quality = {
         field_name: raw_quality.get(field_name, False)
         for field_name in quality_fields
