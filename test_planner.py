@@ -163,8 +163,9 @@ def make_evidence():
     }
 
     snapshot = {
+        "board_source_kind": "screenshot_observation",
         "source_file_sha256": {
-            "vision_level39_json": source_hashes["vision_calibration_json"],
+            "board_observation_json": source_hashes["board_observation_json"],
             "conveyor_observations_json": source_hashes["conveyor_observations_json"],
         },
         "synchronised": True,
