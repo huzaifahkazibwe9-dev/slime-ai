@@ -93,11 +93,15 @@ def _verify_report_bundle_provenance(bundles):
         image_size = identity.get("source_screenshot_size")
         if not _is_sha256(screenshot_hash):
             raise ValueError(f"{context} screenshot hash is invalid")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError(f"{context} capture session ID is invalid")
         try:
             if validate_capture_session_id(session_id) != session_id:
                 raise ValueError(f"{context} capture session ID is not canonical")
         except ValueError as exc:
             raise ValueError(f"{context} capture session ID is invalid") from exc
+        if not isinstance(captured_at, str) or not captured_at.strip():
+            raise ValueError(f"{context} capture timestamp is invalid")
         try:
             parsed_captured_at = parse_aware_capture_timestamp(captured_at)
         except ValueError as exc:
