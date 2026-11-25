@@ -149,12 +149,17 @@ single stage manually, use this order:
    `python observation_region_audit.py --input data/board_observation_latest.json`
 5. Synchronise conveyor observations to the current board capture:
    `python snapshot_sync.py --board data/board_observation_latest.json`
-6. Build the human-confirmed identity audit and candidate report:
+6. Prepare the unverified identity template, then build the human-confirmed
+   identity audit and candidate report:
+   `python prepare_identity_observations.py --board data/board_observation_latest.json`
+   Complete `data/shooter_identity_observations.json` with independently
+   user-confirmed records, then run:
    `python identity_auditor.py --board data/board_observation_latest.json`
    `python conveyor_identity_matcher.py`
-   The local `data/shooter_identity_observations.json` file must contain
-   independently user-confirmed records. Without it, identity and candidate
-   reports remain blocked; the program does not infer or fabricate labels.
+   The template generator never overwrites an existing observation file and
+   never sets confirmation flags. Without valid user-confirmed records,
+   identity and candidate reports remain blocked; the program does not infer
+   or fabricate labels.
 7. Trace reachability against the latest screenshot:
    `python reachability_auditor.py --board data/board_observation_latest.json`
 8. Apply screenshot-derived confidence and planning gates:
