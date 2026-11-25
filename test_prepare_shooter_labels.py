@@ -167,6 +167,26 @@ class PrepareShooterLabelsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly panel_layout.slot_count"):
             build_template(detection, raw, screenshot_bytes)
 
+    def test_template_rejects_panel_slot_status_not_matching_row(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["panel_slots"][4]["status"] = "readable"
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "inconsistent with its calibrated row"):
+            build_template(detection, raw, screenshot_bytes)
+
+    def test_template_rejects_any_slot_marked_selectable_or_verified(self):
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["panel_slots"][4]["selectable_candidate"] = True
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "cannot be marked selectable"):
+            build_template(detection, raw, screenshot_bytes)
+
+        detection, _, screenshot_bytes = fixture_artifacts()
+        detection["panel_slot_observations"][0]["verified"] = True
+        raw = json.dumps(detection).encode()
+        with self.assertRaisesRegex(ValueError, "cannot be marked verified"):
+            build_template(detection, raw, screenshot_bytes)
+
     def test_template_rejects_unknown_detector_colour(self):
         detection, _, screenshot_bytes = fixture_artifacts()
         detection["panel_slot_observations"][0]["color_observation"]["name"] = "turquoise"
