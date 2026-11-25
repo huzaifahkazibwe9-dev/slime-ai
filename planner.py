@@ -97,16 +97,29 @@ def _source_provenance_matches(
     ):
         return False
 
-    expected_snapshot = {
-        "vision_level39_json": current_source_file_sha256["vision_calibration_json"],
-        "conveyor_observations_json": current_source_file_sha256[
-            "conveyor_observations_json"
-        ],
-    }
-    if (
-        not isinstance(snapshot, dict)
-        or snapshot.get("source_file_sha256") != expected_snapshot
-    ):
+    if not isinstance(snapshot, dict):
+        return False
+    if snapshot.get("board_source_kind") == "screenshot_observation":
+        expected_snapshot = {
+            "board_observation_json": current_source_file_sha256[
+                "board_observation_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    elif snapshot.get("board_source_kind") == "baseline_board":
+        expected_snapshot = {
+            "vision_level39_json": current_source_file_sha256[
+                "vision_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    else:
+        return False
+    if snapshot.get("source_file_sha256") != expected_snapshot:
         return False
 
     expected_planning = {
