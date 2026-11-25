@@ -99,7 +99,7 @@ class TermuxDeploymentTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(build_marker.is_file())
             commands = log_path.read_text()
-            self.assertIn("pkg install -y python-numpy python-pillow", commands)
+            self.assertIn("pkg install -y python python-numpy python-pillow", commands)
             self.assertIn("pkg install -y tesseract", commands)
 
     def test_refuses_non_termux_environment_before_running_commands(self):
