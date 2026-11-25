@@ -414,14 +414,6 @@ class ControllerTests(unittest.TestCase):
 
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-
-if __name__ == "__main__":
-    unittest.main()
-
 
 
     def test_status_hides_saved_plan_when_planning_evidence_file_changes(self):
@@ -455,4 +447,13 @@ if __name__ == "__main__":
         self.assertFalse(status["planning_evidence_matches_current_files"])
         self.assertFalse(status["plan_available"])
 
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+
+if __name__ == "__main__":
+    unittest.main()
 
