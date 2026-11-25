@@ -159,5 +159,15 @@ class BoardLoaderConfidenceTests(unittest.TestCase):
         self.assertFalse(result["verified"])
 
 
+    def test_board_loader_rejects_duplicate_grid_size_key(self):
+        self.write_files()
+        raw = self.vision_path.read_text()
+        self.vision_path.write_text(
+            raw.replace('"grid_size": [3, 2]', '"grid_size": [3, 2], "grid_size": [2, 3]', 1)
+        )
+        with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+            load_board(self.vision_path, self.confidence_path)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
