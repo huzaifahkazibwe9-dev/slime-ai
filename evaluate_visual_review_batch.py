@@ -417,10 +417,17 @@ def _verify_shooter_summary(shooter):
         or mae < 0
     ):
         raise ValueError("Shooter ammunition MAE must be finite and non-negative")
-    elif exact_matches == detected and mae != 0.0:
-        raise ValueError(
-            "Shooter ammunition MAE must be zero when all detector readings match"
-        )
+    else:
+        minimum_mae = round((detected - exact_matches) / detected, 6)
+        if mae < minimum_mae:
+            raise ValueError(
+                "Shooter ammunition MAE is below the minimum implied by "
+                "its exact-match count"
+            )
+        if exact_matches == detected and mae != 0.0:
+            raise ValueError(
+                "Shooter ammunition MAE must be zero when all detector readings match"
+            )
 
     coverage = shooter["review_coverage"]
     _require_exact_keys(
