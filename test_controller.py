@@ -116,6 +116,7 @@ def planning_evidence_hashes(directory):
         "candidate_json": "conveyor_identity_candidates.json",
         "conveyor_observations_json": "conveyor_visual_observations.json",
         "shooter_detection_json": "shooter_detection.json",
+        "board_observation_json": "board_observation_latest.json",
     }
     return {
         key: hashlib.sha256((root / name).read_bytes()).hexdigest()
