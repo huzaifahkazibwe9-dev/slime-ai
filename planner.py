@@ -300,7 +300,21 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
 
     tracks = candidates.get("tracks")
     known = identity.get("known_shooters")
-    if not isinstance(tracks, dict) or not tracks or not isinstance(known, list):
+    confirmed_positions = identity.get("current_position_by_shooter")
+    if (
+        not isinstance(tracks, dict)
+        or not tracks
+        or not isinstance(known, list)
+        or not isinstance(confirmed_positions, dict)
+        or not confirmed_positions
+        or any(
+            not isinstance(shooter_id, str)
+            or not isinstance(position_id, str)
+            or not position_id
+            for shooter_id, position_id in confirmed_positions.items()
+        )
+        or len(set(confirmed_positions.values())) != len(confirmed_positions)
+    ):
         return None
 
     mapping = {}
@@ -346,6 +360,11 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
             or type(obs.get("ammo")) is not int
             or obs["ammo"] <= 0
         ):
+            return None
+
+        # Reconfirm the candidate position against the human-confirmed
+        # current-frame mapping; candidate JSON alone cannot override it.
+        if confirmed_positions.get(shooter_id) != position_id:
             return None
 
         if position_id in mapping:
