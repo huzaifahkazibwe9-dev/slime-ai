@@ -160,6 +160,35 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
         "planning_report_present": isinstance(planning, dict),
         "identity_report_present": isinstance(identity, dict),
+        "identity_source_hashes_match": (
+            planning_input_file_sha256 is None
+            or (
+                isinstance(identity, dict)
+                and isinstance(identity.get("source_file_sha256"), dict)
+                and identity.get("source_file_sha256") == {
+                    "board_observation_json": planning_input_file_sha256.get(
+                        "board_observation_json"
+                    ),
+                    "conveyor_visual_observations_json": planning_input_file_sha256.get(
+                        "conveyor_observations_json"
+                    ),
+                    "shooter_identity_observations_json": planning_input_file_sha256.get(
+                        "identity_observations_json"
+                    ),
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                    "shooter_detection_json": planning_input_file_sha256.get(
+                        "shooter_detection_json"
+                    ),
+                }
+                and all(
+                    isinstance(value, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+                    for value in identity["source_file_sha256"].values()
+                )
+            )
+        ),
         "snapshot_report_present": isinstance(snapshot, dict),
         "candidate_report_present": isinstance(candidates, dict),
         "planning_conveyor_timing_calibrated": (
@@ -303,15 +332,31 @@ def evidence_status(planning, identity, snapshot, candidates, shooter_capture_ve
             or (
                 isinstance(candidates, dict)
                 and isinstance(candidates.get("source_file_sha256"), dict)
-                and candidates.get("source_file_sha256", {}).get(
-                    "conveyor_calibration_json"
-                ) == planning_input_file_sha256.get("conveyor_calibration_json")
-                and candidates.get("source_file_sha256", {}).get(
-                    "conveyor_visual_observations_json"
-                ) == planning_input_file_sha256.get("conveyor_observations_json")
-                and candidates.get("source_file_sha256", {}).get(
-                    "shooter_detection_json"
-                ) == planning_input_file_sha256.get("shooter_detection_json")
+                and candidates.get("source_file_sha256") == {
+                    "conveyor_calibration_json": planning_input_file_sha256.get(
+                        "conveyor_calibration_json"
+                    ),
+                    "conveyor_visual_observations_json": planning_input_file_sha256.get(
+                        "conveyor_observations_json"
+                    ),
+                    "shooter_detection_json": planning_input_file_sha256.get(
+                        "shooter_detection_json"
+                    ),
+                    "identity_audit_json": planning_input_file_sha256.get(
+                        "identity_json"
+                    ),
+                    "board_observation_json": planning_input_file_sha256.get(
+                        "board_observation_json"
+                    ),
+                    "shooter_identity_observations_json": planning_input_file_sha256.get(
+                        "identity_observations_json"
+                    ),
+                }
+                and all(
+                    isinstance(value, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+                    for value in candidates["source_file_sha256"].values()
+                )
             )
         ),
         "confidence_source_hashes_match": (
