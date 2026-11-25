@@ -47,6 +47,19 @@ class SimulatorSnapshotTests(unittest.TestCase):
             quality,
         )
 
+    def test_simulator_rejects_unsubstantiated_visual_verification(self):
+        for flag in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            with self.subTest(flag=flag):
+                with self.assertRaisesRegex(ValueError, "independent evidence"):
+                    create_simulator([{
+                        "id": "a", "ammo": 3,
+                        "observation_quality": {flag: True},
+                    }])
+
     def test_legacy_snapshot_defaults_observation_quality_to_unverified(self):
         snapshot = snapshot_simulator(
             create_simulator([{"id": "a", "ammo": 3}])
