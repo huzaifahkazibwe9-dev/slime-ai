@@ -76,9 +76,10 @@ class Shooter:
             "ammunition_independently_verified",
             "slot_mapping_independently_verified",
         ):
-            if field_name in self.observation_quality and type(
-                self.observation_quality[field_name]
-            ) is not bool:
+            if field_name in self.observation_quality and (
+                type(self.observation_quality[field_name]) is not bool
+                or self.observation_quality[field_name] is not False
+            ):
                 return False
 
         return True
