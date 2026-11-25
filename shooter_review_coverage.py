@@ -6,7 +6,9 @@ minimum sample thresholds, representativeness claims, and deployment gates.
 from collections import Counter
 
 from prepare_shooter_labels import DETECTOR_COLOURS
-from shooter_observation_evaluation import HUMAN_VISIBILITY_LABELS
+HUMAN_VISIBILITY_LABELS = (
+    "visible", "unrevealed", "partially_occluded", "empty",
+)
 
 
 PANEL_POSITION_LABELS = tuple(
