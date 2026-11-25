@@ -248,6 +248,14 @@ def build_template(detection, detection_bytes, screenshot_bytes):
     panel_size = _positive_dimensions(
         detection.get("image_dimensions"), "image_dimensions"
     )
+    left, top, right, bottom = capture["panel_bounds"]
+    screenshot_width, screenshot_height = screenshot_size
+    if right > screenshot_width or bottom > screenshot_height:
+        raise ValueError("Capture provenance panel_bounds are outside the source screenshot")
+    crop_ratio = (right - left) / (bottom - top)
+    panel_ratio = panel_size[0] / panel_size[1]
+    if abs(crop_ratio - panel_ratio) / panel_ratio > 0.02:
+        raise ValueError("Capture panel bounds aspect ratio does not match detector panel dimensions")
     layout, samples = _validate_detector_layout(detection, panel_size)
     observation_quality = detection.get("observation_quality", {})
     if not isinstance(observation_quality, dict):
