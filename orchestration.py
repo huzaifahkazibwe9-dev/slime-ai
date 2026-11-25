@@ -556,6 +556,19 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         },
         "level": getattr(state, "level", None),
         "level_audit": level_audit,
+        "shooter_observation_quality": level_audit.get(
+            "shooter_observation_quality",
+            {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+                "interpretation": "Shooter visual quality metadata is unavailable.",
+            },
+        ),
+        "plan_verification_status": (
+            "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+            if recommended_group else "NO_CANDIDATE_PLAN"
+        ),
         "candidate_report": {
             "path": str(candidate_path),
             "selection_source": candidate_path_source,
@@ -566,6 +579,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
         "planner": {
             "recommended_group": (
                 list(recommended_group) if recommended_group else None
+            ),
+            "recommendation_status": (
+                "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED"
+                if recommended_group else "NO_CANDIDATE_PLAN"
             ),
             "error": planner_error,
         },
