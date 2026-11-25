@@ -6,6 +6,7 @@ import json
 from strict_json import strict_json_loads
 from pathlib import Path
 
+from prepare_shooter_labels import DETECTOR_COLOURS
 from shooter_observation_evaluation import (
     HUMAN_VISIBILITY_LABELS,
     evaluate_dataset,
