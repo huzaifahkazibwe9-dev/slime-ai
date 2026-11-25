@@ -97,6 +97,7 @@ def _read_planning_evidence_bundle(data_dir, candidate_report_path=None):
         values[name], digests[name] = _read_json_artifact(path)
     return {
         "vision_calibration": values["vision_calibration_json"],
+        "conveyor_calibration": values["conveyor_calibration_json"],
         "planning": values["planning_json"],
         "identity": values["identity_json"],
         "identity_observations": values["identity_observations_json"],
