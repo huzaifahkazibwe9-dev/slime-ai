@@ -187,6 +187,9 @@ def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
             panel_box=tuple(box) if box else None,
             observation_quality={
                 **normalized_quality,
+                "ammunition_ocr_status": item.get(
+                    "ammo_observation_status", "NOT_REPORTED"
+                ),
                 "sample_quality_status": (
                     item.get("sample_quality", {}).get("status", "NOT_RECORDED")
                     if isinstance(item.get("sample_quality"), dict)
