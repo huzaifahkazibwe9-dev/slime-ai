@@ -59,6 +59,35 @@ def validate_capture_outputs(board_path, shooter_path, expected_source_sha256,
 
     if not isinstance(board, dict) or not isinstance(shooter, dict):
         raise ValueError("Capture pipeline outputs must be JSON objects")
+
+    # Capture is observation only. Require explicit false values rather than
+    # allowing absent, null, or truthy flags to be interpreted as verified.
+    board_unverified_flags = (
+        "same_board_state_confirmed",
+        "gameplay_verified",
+        "vision_classification_verified",
+        "game_taps_enabled",
+    )
+    for flag in board_unverified_flags:
+        if board.get(flag) is not False:
+            raise ValueError(
+                f"Board observation {flag} must remain False during capture"
+            )
+
+    quality = shooter.get("observation_quality")
+    if not isinstance(quality, dict):
+        raise ValueError("Shooter output is missing observation_quality flags")
+    shooter_unverified_flags = (
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+        "slot_mapping_independently_verified",
+    )
+    for flag in shooter_unverified_flags:
+        if quality.get(flag) is not False:
+            raise ValueError(
+                f"Shooter observation {flag} must remain False during capture"
+            )
+
     provenance = shooter.get("capture_provenance")
     if not isinstance(provenance, dict):
         raise ValueError("Shooter output is missing capture provenance")
