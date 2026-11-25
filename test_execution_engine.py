@@ -346,8 +346,10 @@ class ConveyorGeometryIntegrationTests(unittest.TestCase):
         cases = (
             ("bottom", (200, 1200)),
             ("top", (200, 400)),
-            ("right", (850, 700)),
-            ("left", (250, 700)),
+            ("right", (900, 430)),
+            ("right", (900, 1114)),
+            ("left", (180, 430)),
+            ("left", (180, 1114)),
         )
         for segment, center in cases:
             with self.subTest(segment=segment, center=center):
