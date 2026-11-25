@@ -150,6 +150,10 @@ class CombinedVisualReviewTests(unittest.TestCase):
         self.shooter_labels_path.write_bytes(encoded(self.shooter_labels))
 
     def _write_manifest(self):
+        blank_board = build_colour_template(self.board)
+        blank_shooter = build_shooter_template(
+            self.shooter, self.detection_bytes, self.image_bytes
+        )
         manifest = {
             "schema_version": 1,
             "review_status": "NOT_REVIEWED",
@@ -166,12 +170,12 @@ class CombinedVisualReviewTests(unittest.TestCase):
             "review_templates": {
                 "board_colour": {
                     "file": self.board_labels_path.name,
-                    "sha256": hashlib.sha256(self.board_labels_path.read_bytes()).hexdigest(),
+                    "sha256": hashlib.sha256(encoded(blank_board)).hexdigest(),
                     "sample_count": 4,
                 },
                 "shooter_observation": {
                     "file": self.shooter_labels_path.name,
-                    "sha256": hashlib.sha256(self.shooter_labels_path.read_bytes()).hexdigest(),
+                    "sha256": hashlib.sha256(encoded(blank_shooter)).hexdigest(),
                     "sample_count": 12,
                 },
             },
@@ -215,6 +219,23 @@ class CombinedVisualReviewTests(unittest.TestCase):
         self.board_path.write_bytes(encoded(self.board))
         with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
             with self.assertRaisesRegex(ValueError, "source artifact hashes"):
+                self._evaluate()
+
+    def test_rejects_board_template_metadata_change(self):
+        self.board_labels["unapproved_metadata"] = "changed"
+        self.board_labels_path.write_bytes(encoded(self.board_labels))
+        with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
+            with self.assertRaisesRegex(ValueError, "metadata changed outside human label fields"):
+                self._evaluate()
+
+    def test_rejects_manifest_template_baseline_hash_mismatch(self):
+        manifest = json.loads(self.manifest_path.read_text())
+        manifest["review_templates"]["board_colour"]["sha256"] = "b" * 64
+        manifest.pop("bundle_sha256")
+        manifest["bundle_sha256"] = hashlib.sha256(encoded(manifest)).hexdigest()
+        self.manifest_path.write_bytes(encoded(manifest))
+        with patch.object(combined, "audit_source_pixels", return_value=self._audit_report()):
+            with self.assertRaisesRegex(ValueError, "Manifest board template hash"):
                 self._evaluate()
 
     def test_rejects_board_shooter_session_mismatch(self):
