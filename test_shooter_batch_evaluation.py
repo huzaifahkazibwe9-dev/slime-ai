@@ -117,9 +117,90 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(report["metrics"]["ammunition"]["exact_match_accuracy"], 0.875)
         self.assertTrue(report["source_provenance"]["all_source_artifacts_verified"])
         self.assertFalse(report["coverage_adequacy_assessed"])
+
+        coverage = report["coverage_profile"]
+        self.assertEqual(
+            coverage["panel_positions_with_confirmed_labels"], 12
+        )
+        self.assertEqual(
+            coverage["detector_panel_position_review_counts"]["r1c1"],
+            {"confirmed": 2, "ambiguous": 0},
+        )
+        self.assertEqual(
+            coverage["human_visibility_class_support"],
+            {
+                "visible": 8, "unrevealed": 8,
+                "partially_occluded": 8, "empty": 0,
+            },
+        )
+        self.assertEqual(
+            coverage["human_visible_colour_support"]["red"], 7
+        )
+        self.assertEqual(
+            coverage["human_visible_colour_support"]["cyan"], 1
+        )
+        self.assertEqual(
+            coverage["human_legible_ammunition_value_support"],
+            [
+                {"value": 11, "count": 1},
+                {"value": 12, "count": 3},
+                {"value": 13, "count": 2},
+                {"value": 14, "count": 2},
+            ],
+        )
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertEqual(
+            report["captures"][0]["coverage_profile"][
+                "panel_positions_with_confirmed_labels"
+            ],
+            12,
+        )
         self.assertFalse(report["label_truth_independently_verified"])
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["game_taps_enabled"])
+
+    def test_reports_ambiguous_panel_positions_and_unrepresented_classes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = write_capture(root, 1, (10, 20, 30))
+            dataset = capture["dataset_object"]
+            dataset["samples"][0]["review_status"] = "ambiguous"
+            dataset["samples"][0]["human"] = {
+                "visibility": "", "row": None, "column": None,
+                "colour": "", "ammunition_readable": None, "ammunition": None,
+            }
+            (root / capture["dataset"]).write_text(
+                json.dumps(dataset), encoding="utf-8"
+            )
+            manifest = {
+                "schema_version": 1,
+                "captures": [{
+                    key: capture[key]
+                    for key in ("dataset", "detection", "screenshot")
+                }],
+            }
+
+            report = evaluate_manifest(manifest, base_dir=root)
+
+        coverage = report["coverage_profile"]
+        self.assertEqual(
+            coverage["detector_panel_position_review_counts"]["r1c1"],
+            {"confirmed": 0, "ambiguous": 1},
+        )
+        self.assertEqual(
+            coverage["panel_positions_with_confirmed_labels"], 11
+        )
+        self.assertEqual(
+            coverage["panel_positions_with_only_ambiguous_labels"], 1
+        )
+        self.assertEqual(
+            coverage["human_visibility_class_support"]["empty"], 0
+        )
+        self.assertEqual(
+            coverage["human_visible_colour_support"]["cyan"], 0
+        )
+        self.assertFalse(coverage["coverage_adequacy_assessed"])
+        self.assertFalse(report["coverage_adequacy_assessed"])
 
     def test_rejects_duplicate_screenshot_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
