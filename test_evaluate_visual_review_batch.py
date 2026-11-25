@@ -409,6 +409,20 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid SHA-256 digest"):
             batch.verify_batch_report(report)
 
+    def test_rejects_missing_capture_session_id_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["capture_session_id"] = None
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture session ID is invalid"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_missing_capture_timestamp_in_saved_report(self):
+        report = self._valid_report()
+        report["bundles"][0]["capture_identity"]["captured_at"] = None
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "capture timestamp is invalid"):
+            batch.verify_batch_report(report)
+
     def test_rejects_naive_timestamp_in_saved_report(self):
         report = self._valid_report()
         report["bundles"][0]["capture_identity"]["captured_at"] = (
