@@ -389,6 +389,9 @@ class ConveyorSimulator:
                         "colour_independently_verified": False,
                         "ammunition_independently_verified": False,
                         "slot_mapping_independently_verified": False,
+                        "ammunition_ocr_status": s.observation_quality.get(
+                            "ammunition_ocr_status", "NOT_REPORTED"
+                        ),
                     },
                 }
                 for s in self.active
@@ -399,6 +402,9 @@ class ConveyorSimulator:
                     "colour_independently_verified": False,
                     "ammunition_independently_verified": False,
                     "slot_mapping_independently_verified": False,
+                    "ammunition_ocr_status": s.observation_quality.get(
+                        "ammunition_ocr_status", "NOT_REPORTED"
+                    ),
                 }
                 for s in self.shooters
             ],
