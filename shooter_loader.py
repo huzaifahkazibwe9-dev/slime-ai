@@ -7,8 +7,11 @@ from geometry_adapter import apply_geometry
 DETECTION_FILE = Path("data/shooter_detection.json")
 
 
-def load_shooters(path=DETECTION_FILE, geometry_observations=None):
-    data = json.loads(Path(path).read_text())
+def load_shooters(path=DETECTION_FILE, geometry_observations=None, data=None):
+    # Callers that already validated an immutable capture bundle pass the
+    # parsed object directly; never reopen its mutable source path.
+    if data is None:
+        data = json.loads(Path(path).read_text())
     if not isinstance(data, dict):
         raise ValueError("Shooter detection must be a JSON object")
     detected = data.get("visible_shooters")
