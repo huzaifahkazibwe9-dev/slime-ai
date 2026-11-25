@@ -84,7 +84,19 @@ class ReadinessAssessTests(unittest.TestCase):
         self.assertTrue(result["checks"]["conveyor_calibration_present"])
         self.assertTrue(result["checks"]["conveyor_timing_calibrated"])
         self.assertTrue(result["checks"]["physical_shooter_identity_verified"])
-        self.assertTrue(result["checks"]["actual_firing_verified"])
+        self.assertFalse(result["checks"]["actual_firing_verified"])
+        self.assertFalse(result["checks"]["actual_firing_verification_available"])
+        self.assertTrue(result["checks"]["actual_firing_claim_ignored"])
+
+
+    def test_external_firing_boolean_cannot_self_verify(self):
+        result = readiness.assess(
+            FakeState(accessible=1), {}, {}, {},
+            {"actual_firing_verified": True},
+        )
+        self.assertFalse(result["checks"]["actual_firing_verified"])
+        self.assertFalse(result["checks"]["actual_firing_verification_available"])
+        self.assertTrue(result["checks"]["actual_firing_claim_ignored"])
 
     def test_missing_evidence_stays_pending(self):
         result = readiness.assess(FakeState(), {}, {}, {}, {})
@@ -135,6 +147,9 @@ class ReadinessAssessTests(unittest.TestCase):
                 "live_execution_path_implemented",
                 "live_gameplay_validation_complete",
                 "explicit_live_execution_opt_in",
+                "actual_firing_verified",
+                "actual_firing_verification_available",
+                "actual_firing_claim_ignored",
             }
         }
         self.assertTrue(all(evidence_checks.values()))
