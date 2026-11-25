@@ -63,6 +63,20 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     }
     for name, payload in evidence_files.items():
         (root / name).write_text(json.dumps(payload))
+    candidate_path = root / "conveyor_identity_candidates.json"
+    candidate = json.loads(candidate_path.read_text())
+    candidate["source_file_sha256"] = {
+        "conveyor_calibration_json": hashlib.sha256(
+            (root / "conveyor_calibration.json").read_bytes()
+        ).hexdigest(),
+        "conveyor_visual_observations_json": hashlib.sha256(
+            (root / "conveyor_visual_observations.json").read_bytes()
+        ).hexdigest(),
+        "shooter_detection_json": hashlib.sha256(
+            (root / "shooter_detection.json").read_bytes()
+        ).hexdigest(),
+    }
+    candidate_path.write_text(json.dumps(candidate))
 
 
 
@@ -95,6 +109,7 @@ def planning_evidence_hashes(directory):
         "snapshot_json": "snapshot_sync_report.json",
         "candidate_json": "conveyor_identity_candidates.json",
         "conveyor_observations_json": "conveyor_visual_observations.json",
+        "shooter_detection_json": "shooter_detection.json",
     }
     return {
         key: hashlib.sha256((root / name).read_bytes()).hexdigest()
