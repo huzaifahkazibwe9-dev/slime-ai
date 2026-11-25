@@ -149,6 +149,13 @@ class OrchestrationTests(unittest.TestCase):
         )["checks"]
         self.assertFalse(checks["snapshot_source_hashes_match"])
 
+        expected["vision_calibration_json"] = "not-a-sha256"
+        checks = evidence_status(
+            {}, None, snapshot, {},
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["snapshot_source_hashes_match"])
+
         checks = evidence_status(
             {}, None, {"source_file_sha256": {}}, {},
             planning_input_file_sha256=expected,
