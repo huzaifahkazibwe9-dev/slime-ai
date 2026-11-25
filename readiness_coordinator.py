@@ -54,7 +54,8 @@ def learning_summary():
     except sqlite3.Error as error:
         return {"available": False, "error": str(error)}
 
-def assess(state, audit, calibration, identity, firing):
+def assess(state, audit, calibration, identity, firing,
+           capture_preflight_verified=False):
     # Evidence artifacts are external JSON inputs; malformed top-level shapes
     # should produce unavailable checks, not crash readiness reporting.
     audit = audit if isinstance(audit, dict) else {}
@@ -79,8 +80,12 @@ def assess(state, audit, calibration, identity, firing):
         "colour_classification_verified": (
             audit.get("colour_classification_verified") is True
         ),
+        "source_pixel_capture_preflight_verified": (
+            capture_preflight_verified is True
+        ),
         "shooter_capture_provenance_verified": (
-            audit.get("shooter_capture_provenance_verified") is True
+            capture_preflight_verified is True
+            and audit.get("shooter_capture_provenance_verified") is True
         ),
         "colour_mappings_gameplay_verified": mapping_verified,
         "at_least_one_accessible_shooter": accessible > 0,
@@ -211,7 +216,8 @@ def main(observation_path=None, shooter_path=None):
     learning = learning_summary()
 
     result = assess(
-        state, audit, calibration, identity, firing
+        state, audit, calibration, identity, firing,
+        capture_preflight_verified=pinned_capture is not None,
     )
     manager = ResourceManager()
 
@@ -255,7 +261,8 @@ def main(observation_path=None, shooter_path=None):
     )
 
     shooter_capture_verified = (
-        audit.get("shooter_capture_provenance_verified") is True
+        pinned_capture is not None
+        and audit.get("shooter_capture_provenance_verified") is True
     )
     manager.set_mode("ANALYSE")
     candidate = None

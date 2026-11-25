@@ -75,8 +75,11 @@ class ReadinessAssessTests(unittest.TestCase):
         audit, calibration, identity, firing = self.complete_evidence()
         state = FakeState(mappings_verified=True, accessible=1)
         result = readiness.assess(
-            state, audit, calibration, identity, firing
+            state, audit, calibration, identity, firing,
+            capture_preflight_verified=True,
         )
+        self.assertTrue(result["checks"]["source_pixel_capture_preflight_verified"])
+        self.assertTrue(result["checks"]["shooter_capture_provenance_verified"])
         self.assertTrue(result["checks"]["initial_occupancy_user_confirmed"])
         self.assertTrue(result["checks"]["colour_classification_verified"])
         self.assertTrue(result["checks"]["colour_mappings_gameplay_verified"])
@@ -88,6 +91,26 @@ class ReadinessAssessTests(unittest.TestCase):
         self.assertFalse(result["checks"]["actual_firing_verification_available"])
         self.assertTrue(result["checks"]["actual_firing_claim_ignored"])
 
+
+    def test_metadata_match_without_pixel_preflight_does_not_verify_shooter_capture(self):
+        result = readiness.assess(
+            FakeState(accessible=1),
+            {"shooter_capture_provenance_verified": True},
+            {}, {}, {},
+            capture_preflight_verified=False,
+        )
+        self.assertFalse(result["checks"]["source_pixel_capture_preflight_verified"])
+        self.assertFalse(result["checks"]["shooter_capture_provenance_verified"])
+
+    def test_pixel_preflight_without_matching_shooter_metadata_does_not_verify_capture(self):
+        result = readiness.assess(
+            FakeState(accessible=1),
+            {"shooter_capture_provenance_verified": False},
+            {}, {}, {},
+            capture_preflight_verified=True,
+        )
+        self.assertTrue(result["checks"]["source_pixel_capture_preflight_verified"])
+        self.assertFalse(result["checks"]["shooter_capture_provenance_verified"])
 
     def test_external_firing_boolean_cannot_self_verify(self):
         result = readiness.assess(
@@ -139,7 +162,8 @@ class ReadinessAssessTests(unittest.TestCase):
         audit, calibration, identity, firing = self.complete_evidence()
         result = readiness.assess(
             FakeState(mappings_verified=True, accessible=1),
-            audit, calibration, identity, firing
+            audit, calibration, identity, firing,
+            capture_preflight_verified=True,
         )
         evidence_checks = {
             key: value for key, value in result["checks"].items()
