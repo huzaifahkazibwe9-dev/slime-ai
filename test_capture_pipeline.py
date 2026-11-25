@@ -1,10 +1,16 @@
+import hashlib
 import json
 import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from capture_pipeline import load_capture_config, run_capture_pipeline
+from capture_pipeline import (
+    load_capture_config,
+    run_capture_pipeline,
+    validate_capture_outputs,
+    audit_capture_pixels,
+)
 
 
 class CapturePipelineConfigTests(unittest.TestCase):
@@ -12,6 +18,28 @@ class CapturePipelineConfigTests(unittest.TestCase):
         path = Path(root) / "capture.json"
         path.write_text(json.dumps(value))
         return path
+
+    def write_outputs(self, root, source_hash, session="session-abc",
+                      captured_at="2026-11-23T12:30:00+03:00",
+                      shooter_verified=True):
+        board_path = Path(root) / "board.json"
+        shooter_path = Path(root) / "shooter.json"
+        board_path.write_text(json.dumps({
+            "source_sha256": source_hash,
+            "snapshot_id": "sha256:" + source_hash,
+            "board_snapshot_id": "sha256:" + source_hash,
+            "capture_session_id": session,
+            "captured_at": captured_at,
+        }))
+        shooter_path.write_text(json.dumps({
+            "capture_provenance": {
+                "verified": shooter_verified,
+                "source_sha256": source_hash,
+                "capture_session_id": session,
+                "captured_at": captured_at,
+            }
+        }))
+        return board_path, shooter_path
 
     def test_accepts_explicit_same_capture_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -54,7 +82,9 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
-            with patch("capture_pipeline.subprocess.run") as run:
+            with patch("capture_pipeline.subprocess.run") as run, patch(
+                "capture_pipeline.validate_capture_outputs"
+            ) as validate, patch("capture_pipeline.audit_capture_pixels") as audit:
                 run_capture_pipeline(screenshot, config)
         self.assertEqual(run.call_count, 2)
         ingestor_args = run.call_args_list[0].args[0]
@@ -69,6 +99,56 @@ class CapturePipelineConfigTests(unittest.TestCase):
                           detector_args.index("--panel-bounds") + 5],
             ["10", "20", "900", "600"],
         )
+        validate.assert_called_once()
+        audit.assert_called_once()
+        self.assertEqual(
+            validate.call_args.args[2],
+            hashlib.sha256(b"placeholder").hexdigest(),
+        )
+        self.assertEqual(audit.call_args.args[1], b"placeholder")
+
+    def test_rejects_board_hash_that_differs_from_input_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            with self.assertRaisesRegex(ValueError, "Board observation"):
+                validate_capture_outputs(
+                    board, shooter, "b" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_shooter_hash_that_differs_from_board_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(directory, "a" * 64)
+            data = json.loads(shooter.read_text())
+            data["capture_provenance"]["source_sha256"] = "b" * 64
+            shooter.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError, "Shooter observation"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_capture_session_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(
+                directory, "a" * 64, session="different-session"
+            )
+            with self.assertRaisesRegex(ValueError, "Board capture session"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
+
+    def test_rejects_unverified_shooter_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooter = self.write_outputs(
+                directory, "a" * 64, shooter_verified=False
+            )
+            with self.assertRaisesRegex(ValueError, "not verified"):
+                validate_capture_outputs(
+                    board, shooter, "a" * 64, "session-abc",
+                    "2026-11-23T12:30:00+03:00",
+                )
 
     def test_rejects_non_integer_crop_bounds(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -79,6 +159,60 @@ class CapturePipelineConfigTests(unittest.TestCase):
             })
             with self.assertRaisesRegex(ValueError, "integer coordinates"):
                 load_capture_config(path)
+
+
+    def test_audit_capture_pixels_persists_report_only_when_all_checks_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            output_path = Path(directory) / "audit.json"
+            board_path.write_text(json.dumps({
+                "fixture": True,
+                "capture_session_id": "session-abc",
+                "captured_at": "2026-11-25T12:00:00+00:00",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            }))
+            report = {
+                "pixel_samples_reproduced": True,
+                "extraction_fingerprint_match": True,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                result = audit_capture_pixels(board_path, b"source", output_path)
+            self.assertEqual(result["pixel_samples_reproduced"], True)
+            self.assertEqual(result["capture_session_id"], "session-abc")
+            self.assertEqual(result["captured_at"], "2026-11-25T12:00:00+00:00")
+            self.assertEqual(result["snapshot_id"], "sha256:" + "a" * 64)
+            self.assertEqual(json.loads(output_path.read_text()), result)
+
+    def test_audit_capture_pixels_rejects_sample_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": False,
+                "extraction_fingerprint_match": True,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                with self.assertRaisesRegex(ValueError, "RGB sample mismatches"):
+                    audit_capture_pixels(board_path, b"source", Path(directory) / "audit.json")
+
+    def test_audit_capture_pixels_rejects_missing_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            board_path.write_text(json.dumps({"fixture": True}))
+            report = {
+                "pixel_samples_reproduced": True,
+                "extraction_fingerprint_match": False,
+                "label_mismatch_count": 0,
+                "colour_counts_match": True,
+            }
+            with patch("capture_pipeline.audit_source_pixels", return_value=report):
+                with self.assertRaisesRegex(ValueError, "fingerprint"):
+                    audit_capture_pixels(board_path, b"source", Path(directory) / "audit.json")
 
 
 if __name__ == "__main__":
