@@ -6,6 +6,7 @@ source artifacts, independently reproduces board RGB samples from the original
 screenshot, then invokes the existing specialist evaluators.
 """
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -22,6 +23,8 @@ from shooter_observation_evaluation import (
     evaluate_dataset as evaluate_shooter_dataset,
     verify_source_artifacts as verify_shooter_source_artifacts,
 )
+from prepare_colour_labels import build_template as build_colour_template
+from prepare_shooter_labels import build_template as build_shooter_template
 
 
 def _sha256(raw):
@@ -139,6 +142,65 @@ def _verify_colour_samples(dataset, board_observation):
     }
 
 
+def _verify_review_template_baselines(
+    manifest,
+    board_labels,
+    shooter_labels,
+    board_observation,
+    shooter_detection,
+    shooter_detection_bytes,
+    screenshot_bytes,
+):
+    """Allow edits only in human annotation fields, preserving template provenance."""
+    expected_board = build_colour_template(board_observation)
+    board_candidate = copy.deepcopy(board_labels)
+    if not isinstance(board_candidate.get("samples"), list):
+        raise ValueError("Board review template samples are invalid")
+    if len(board_candidate["samples"]) != len(expected_board["samples"]):
+        raise ValueError("Board review template no longer matches its blank baseline")
+    board_candidate["labelled_by_user"] = False
+    for index, expected_sample in enumerate(expected_board["samples"]):
+        sample = board_candidate["samples"][index]
+        if not isinstance(sample, dict) or sample.get("id") != expected_sample["id"]:
+            raise ValueError("Board review template sample identity/order changed")
+        sample["label"] = ""
+    if _canonical_json_bytes(board_candidate) != _canonical_json_bytes(expected_board):
+        raise ValueError("Board review template metadata changed outside human label fields")
+
+    expected_shooter = build_shooter_template(
+        shooter_detection, shooter_detection_bytes, screenshot_bytes
+    )
+    shooter_candidate = copy.deepcopy(shooter_labels)
+    if not isinstance(shooter_candidate.get("samples"), list):
+        raise ValueError("Shooter review template samples are invalid")
+    if len(shooter_candidate["samples"]) != len(expected_shooter["samples"]):
+        raise ValueError("Shooter review template no longer matches its blank baseline")
+    shooter_candidate["labelled_by_user"] = False
+    for index, expected_sample in enumerate(expected_shooter["samples"]):
+        sample = shooter_candidate["samples"][index]
+        if not isinstance(sample, dict):
+            raise ValueError(f"Shooter review sample {index} must be an object")
+        if sample.get("detector") != expected_sample["detector"]:
+            raise ValueError(f"Shooter review detector snapshot {index} changed")
+        sample["review_status"] = expected_sample["review_status"]
+        sample["human"] = copy.deepcopy(expected_sample["human"])
+    if _canonical_json_bytes(shooter_candidate) != _canonical_json_bytes(expected_shooter):
+        raise ValueError("Shooter review template metadata changed outside human annotation fields")
+
+    records = manifest["review_templates"]
+    expected_board_hash = _sha256(_canonical_json_bytes(expected_board))
+    expected_shooter_hash = _sha256(_canonical_json_bytes(expected_shooter))
+    if records["board_colour"]["sha256"] != expected_board_hash:
+        raise ValueError("Manifest board template hash does not match reconstructed blank template")
+    if records["shooter_observation"]["sha256"] != expected_shooter_hash:
+        raise ValueError("Manifest shooter template hash does not match reconstructed blank template")
+    return {
+        "board_template_baseline_matched": True,
+        "shooter_template_baseline_matched": True,
+        "human_annotation_fields_only_changed": True,
+    }
+
+
 def evaluate_visual_review_bundle(
     manifest_path,
     board_labels_path,
@@ -245,6 +307,15 @@ def evaluate_visual_review_bundle(
     if shooter_labels.get("capture_provenance", {}).get("capture_session_id") != session_id:
         raise ValueError("Shooter label capture session does not match manifest")
 
+    template_baseline_status = _verify_review_template_baselines(
+        manifest,
+        board_labels,
+        shooter_labels,
+        board_observation,
+        shooter_detection,
+        shooter_bytes,
+        screenshot_bytes,
+    )
     colour_report = evaluate_colour_dataset(board_labels)
     shooter_report = evaluate_shooter_dataset(shooter_labels)
 
@@ -265,6 +336,7 @@ def evaluate_visual_review_bundle(
             "board_extraction_fingerprint_matched": True,
             "reviewed_board_rgb_matches_source_observation": True,
             "shooter_detector_snapshot_matched": True,
+            **template_baseline_status,
             "screenshot_dimensions_checked": True,
             "board_details": {
                 **colour_image_provenance,
