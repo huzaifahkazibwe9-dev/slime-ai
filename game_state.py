@@ -33,6 +33,7 @@ class Shooter:
     screen_center_verified: bool = False
     panel_center: Optional[tuple] = None
     panel_box: Optional[tuple] = None
+    observation_quality: dict = field(default_factory=dict)
 
     def valid(self):
         # bool is a subclass of int in Python; reject it as malformed ammo.
