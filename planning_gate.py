@@ -343,12 +343,18 @@ def main():
         "candidate_json": candidate_digest,
         "conveyor_calibration_json": calibration_digest,
     }
+    upstream_source_file_sha256 = report.get("source_file_sha256")
+    if not isinstance(upstream_source_file_sha256, dict):
+        raise ValueError(
+            "Reachability confidence report is missing upstream source hashes"
+        )
     result = evaluate_planning(
         report,
         candidate_report=candidate_report,
         conveyor_calibration=conveyor_calibration,
         input_file_sha256=input_file_sha256,
     )
+    result["upstream_source_file_sha256"] = dict(upstream_source_file_sha256)
     OUTPUT_FILE.write_text(json.dumps(result, indent=2))
 
     print("SLIME AI — BUILD 11H PLANNING GATE")
