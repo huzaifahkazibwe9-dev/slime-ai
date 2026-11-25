@@ -243,11 +243,32 @@ def validate_identity_audit(identity, board, visual, expected_positions,
 
 
 def validate_calibration_positions(positions):
-    """Validate geometry fields needed by candidate and reachability reports."""
-    if not isinstance(positions, dict) or not positions:
-        return ["Calibration positions must be a non-empty object map"]
+    """Validate unique calibration records and finite geometry coordinates."""
     errors = []
+    if isinstance(positions, list):
+        if not positions:
+            return ["Calibration shooter list must be non-empty"]
+        normalized = {}
+        for index, item in enumerate(positions):
+            if not isinstance(item, dict):
+                errors.append(f"Calibration record {index} must be an object")
+                continue
+            position_id = item.get("id")
+            if not isinstance(position_id, str) or not position_id.strip():
+                errors.append(f"Calibration record {index} has an invalid ID")
+                continue
+            if position_id in normalized:
+                errors.append(f"Duplicate calibrated position ID: {position_id}")
+                continue
+            normalized[position_id] = item
+        positions = normalized
+    if not isinstance(positions, dict) or not positions:
+        return errors + ["Calibration positions must be a non-empty object map"]
+
     for position_id, position in positions.items():
+        if not isinstance(position_id, str) or not position_id.strip():
+            errors.append("Calibration position ID must be a non-empty string")
+            continue
         if not isinstance(position, dict):
             errors.append(f"{position_id}: calibration entry must be an object")
             continue
@@ -264,6 +285,38 @@ def validate_calibration_positions(positions):
             )
         ):
             errors.append(f"{position_id}: center must contain two finite coordinates")
+    return errors
+
+
+def validate_required_position_layout(positions):
+    """Require the eight calibrated positions expected by the four-side matcher."""
+    expected = {
+        f"{side}_{slot}"
+        for side in ORDER
+        for slot in (1, 2)
+    }
+    if not isinstance(positions, dict):
+        return ["Calibration positions must be an object map"]
+    actual = set(positions)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        errors = []
+        if missing:
+            errors.append("Missing required conveyor positions: " + ", ".join(missing))
+        if unexpected:
+            errors.append("Unexpected conveyor positions: " + ", ".join(unexpected))
+        return errors
+    errors = []
+    for position_id, position in positions.items():
+        expected_segment = position_id.split("_", 1)[0]
+        if (
+            not isinstance(position, dict)
+            or position.get("segment") != expected_segment
+        ):
+            errors.append(
+                f"{position_id}: calibrated segment does not match its position ID"
+            )
     return errors
 
 
@@ -376,18 +429,21 @@ def main():
     observations = visual.get("observations", [])
     raw_positions = calibration.get("shooters", [])
     raw_shooters = detection.get("visible_shooters", [])
+    calibration_errors = validate_calibration_positions(raw_positions)
     positions = {
         item["id"]: item for item in raw_positions
         if isinstance(item, dict) and isinstance(item.get("id"), str)
-    }
+    } if isinstance(raw_positions, list) else {}
+    calibration_errors.extend(validate_required_position_layout(positions))
     shooters = {
         item["id"]: item for item in raw_shooters
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
 
-    validation_errors = validate_visual_observations(
+    validation_errors = list(calibration_errors)
+    validation_errors.extend(validate_visual_observations(
         observations, positions
-    )
+    ))
     validation_errors.extend(validate_visual_provenance(visual))
     validation_errors.extend(
         validate_observation_provenance(observations, visual)
