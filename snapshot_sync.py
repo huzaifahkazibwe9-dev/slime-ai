@@ -366,15 +366,44 @@ def read_input_snapshots(board_path=BOARD_FILE, observations_path=OBS_FILE):
 
 def main(board_path=None, observations_path=OBS_FILE, output_path=OUTPUT):
     board_path = BOARD_FILE if board_path is None else Path(board_path)
+    observations_path = Path(observations_path)
     output_path = Path(output_path)
-    board, observations, source_hashes = read_input_snapshots(
-        board_path, observations_path
-    )
-    report = synchronise_audit(board, observations)
-    report["board_source_kind"] = (
-        "screenshot_observation" if "raw_rgb" in board else "baseline_board"
-    )
-    report["source_file_sha256"] = source_hashes
+    input_error = None
+    try:
+        board, observations, source_hashes = read_input_snapshots(
+            board_path, observations_path
+        )
+        report = synchronise_audit(board, observations)
+        report["board_source_kind"] = (
+            "screenshot_observation" if "raw_rgb" in board else "baseline_board"
+        )
+        report["source_file_sha256"] = source_hashes
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        input_error = f"{type(exc).__name__}: {exc}"
+        report = {
+            "synchronised": False,
+            "planning_allowed_by_sync": False,
+            "checks": {
+                "input_files_valid": False,
+                "board_observation_available": board_path.is_file(),
+                "conveyor_observations_available": observations_path.is_file(),
+            },
+            "board_snapshot_id": None,
+            "artifact_snapshot_ids": {},
+            "board_capture_session": None,
+            "artifact_capture_sessions": {},
+            "board_captured_at": None,
+            "timestamp_alignment_limit_seconds": 120,
+            "source_file_sha256": {},
+            "board_source_kind": None,
+            "input_error": input_error,
+            "game_taps_enabled": False,
+            "actions_performed": False,
+            "warning": (
+                "Snapshot synchronization failed because one or more source "
+                "artifacts could not be read as JSON objects. Planning is blocked."
+            ),
+        }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_suffix(output_path.suffix + ".tmp")
@@ -388,6 +417,8 @@ def main(board_path=None, observations_path=OBS_FILE, output_path=OUTPUT):
         print(f"[{'PASS' if passed else 'PENDING'}] {name}")
 
     print()
+    if input_error:
+        print("Input error:", input_error)
     print("Synchronised:", report["synchronised"])
     print("Planning allowed by sync:", report["planning_allowed_by_sync"])
     print("Game taps enabled:", report["game_taps_enabled"])
