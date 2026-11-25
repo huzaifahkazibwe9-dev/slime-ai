@@ -271,7 +271,7 @@ The same parser contract is applied at the wider evidence and planning boundarie
 The capture and review workflows use strict UTF-8 JSON parsing for calibration,
 board and shooter observations, pixel audits, human-review datasets, review
 manifests, and batch manifests. Duplicate object keys (including nested keys)
-and non-standard numeric constants such as `NaN` and `Infinity`, as well as numeric exponents that overflow the finite floating-point range, and nonzero numbers that underflow to zero are rejected,
+and non-standard numeric constants such as `NaN` and `Infinity`, exponents that overflow the finite floating-point range, and nonzero values that underflow to zero are rejected,
 so each accepted evidence file has one unambiguous parsed representation.
 This is a parsing-integrity check, not an authenticity signature; exact source
 hashes and independent screenshot checks remain separate requirements.
