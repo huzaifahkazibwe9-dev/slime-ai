@@ -75,6 +75,8 @@ def persistent_transition(baseline, first, second,
 
     rows = len(boards[0])
     cols = len(boards[0][0])
+    if rows != grid_size[1] or cols != grid_size[0]:
+        raise ValueError("RGB grid dimensions do not match calibrated grid_size")
 
     for board in boards:
         if len(board) != rows or any(
