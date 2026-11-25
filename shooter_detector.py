@@ -262,17 +262,20 @@ def extract_panel_crop(source_path, bounds, output_path=IMAGE):
     return extract_panel_crop_bytes(source_bytes, bounds, output_path)
 
 
-def load_user_confirmed_bonded_groups(path, shooter_ids):
-    """Load bonds only from an explicit, user-confirmed local config."""
+def load_user_confirmed_bonded_groups_with_provenance(path, shooter_ids):
+    """Load user-confirmed bonds and fingerprint the exact bytes parsed."""
     path = Path(path)
-    if not path.is_file():
-        return [], "not_configured"
+    try:
+        config_bytes = path.read_bytes()
+    except FileNotFoundError:
+        return [], "not_configured", None
 
-    data = json.loads(path.read_text())
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
+    data = json.loads(config_bytes)
     if not isinstance(data, dict):
         raise ValueError("Bonded-group config must be a JSON object")
     if data.get("verified_by_user") is not True:
-        return [], "not_user_confirmed"
+        return [], "not_user_confirmed", config_sha256
 
     groups = data.get("bonded_groups")
     if not isinstance(groups, list):
@@ -301,7 +304,15 @@ def load_user_confirmed_bonded_groups(path, shooter_ids):
                 + ", ".join(sorted(overlap))
             )
         grouped_ids.update(group)
-    return groups, "user_confirmed"
+    return groups, "user_confirmed", config_sha256
+
+
+def load_user_confirmed_bonded_groups(path, shooter_ids):
+    """Compatibility wrapper preserving the original two-value return."""
+    groups, source, _ = load_user_confirmed_bonded_groups_with_provenance(
+        path, shooter_ids
+    )
+    return groups, source
 
 
 def build_panel_slot_inventory(image_width, image_height):
@@ -429,9 +440,11 @@ def main():
 
     # Bond relationships are never inferred from fixed screen positions.
     # They are loaded only from a separate, explicit user-confirmed file.
-    bonded_groups, bonding_source = load_user_confirmed_bonded_groups(
-        "data/bonded_groups_confirmed.json",
-        [shooter["id"] for shooter in detected],
+    bonded_groups, bonding_source, bonding_config_sha256 = (
+        load_user_confirmed_bonded_groups_with_provenance(
+            "data/bonded_groups_confirmed.json",
+            [shooter["id"] for shooter in detected],
+        )
     )
 
     for shooter in detected:
@@ -498,6 +511,7 @@ def main():
         "visible_shooters": detected,
         "bonded_groups": bonded_groups,
         "bonding_source": bonding_source,
+        "bonding_config_sha256": bonding_config_sha256,
         "unrevealed_shooters": [
             {
                 "id": f"question_{i}",
