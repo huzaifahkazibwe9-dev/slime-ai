@@ -17,6 +17,7 @@ class Shooter:
     completed_laps: int = 0
     selected: bool = False
     returned: bool = False
+    observation_quality: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if (not isinstance(self.shooter_id, str) or not self.shooter_id
@@ -37,6 +38,18 @@ class Shooter:
             raise ValueError("Completed laps cannot be negative")
         if not isinstance(self.selected, bool) or not isinstance(self.returned, bool):
             raise ValueError("Selected and returned flags must be booleans")
+        if not isinstance(self.observation_quality, dict):
+            raise ValueError("Observation quality must be an object")
+        for flag in (
+            "colour_independently_verified",
+            "ammunition_independently_verified",
+            "slot_mapping_independently_verified",
+        ):
+            if flag in self.observation_quality and (
+                type(self.observation_quality[flag]) is not bool
+                or self.observation_quality[flag] is not False
+            ):
+                raise ValueError("Shooter visual verification requires independent evidence")
 
 
 @dataclass
