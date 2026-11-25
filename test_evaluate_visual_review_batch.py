@@ -86,6 +86,12 @@ def _report(bundle_index):
             "board_labels_json": "b" * 64,
             "shooter_labels_json": "c" * 64,
         },
+        "source_artifacts_sha256": {
+            "board_observation_json": "d" * 64,
+            "shooter_detection_json": "e" * 64,
+            "source_pixel_audit_json": "f" * 64,
+            "source_screenshot": str(bundle_index) * 64,
+        },
         "board_colour_evaluation": {
             "sample_count": len(board_samples),
             "sample_results": board_samples,
@@ -142,6 +148,12 @@ class VisualReviewBatchTests(unittest.TestCase):
 
         self.assertEqual(evaluator.call_count, 2)
         self.assertEqual(report["bundle_count"], 2)
+        self.assertEqual(
+            report["bundles"][0]["source_artifacts_sha256"]["source_screenshot"],
+            report["bundles"][0]["capture_identity"]["source_screenshot_sha256"],
+        )
+        self.assertEqual(len(report["bundles"][0]["source_artifacts_sha256"]), 4)
+        self.assertEqual(len(report["bundles"][0]["review_artifacts_sha256"]), 3)
         self.assertEqual(report["board_colour_evaluation"]["sample_count"], 4)
         self.assertEqual(report["board_colour_evaluation"]["correct_count"], 3)
         self.assertEqual(report["board_colour_evaluation"]["accuracy"], 0.75)
@@ -199,6 +211,24 @@ class VisualReviewBatchTests(unittest.TestCase):
             batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
         ):
             with self.assertRaisesRegex(ValueError, "review artifact hashes are missing"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_missing_source_artifact_hashes(self):
+        first = _report(1)
+        first.pop("source_artifacts_sha256")
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "source artifact hashes are missing"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_source_screenshot_hash_identity_mismatch(self):
+        first = _report(1)
+        first["source_artifacts_sha256"]["source_screenshot"] = "9" * 64
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "disagrees with capture identity"):
                 batch.evaluate_batch(self.batch_path)
 
     def test_rejects_duplicate_capture_session(self):
