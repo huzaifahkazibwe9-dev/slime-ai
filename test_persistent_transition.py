@@ -6,7 +6,7 @@ def obs(board):
     return {
         "image_size": [1080, 2220],
         "grid_size": [5, 5],
-        "bounds": [0, 0, 100, 100],
+        "bounds": [1, 1, 99, 99],
         "raw_rgb": board,
     }
 
@@ -44,7 +44,7 @@ class PersistentTransitionTests(unittest.TestCase):
     def test_incompatible_calibration_rejected(self):
         a = board()
         other = obs(a)
-        other["bounds"] = [1, 1, 99, 99]
+        other["bounds"] = [2, 1, 99, 99]
         with self.assertRaises(ValueError):
             persistent_transition(obs(a), obs(a), other)
 
@@ -64,6 +64,27 @@ class PersistentTransitionTests(unittest.TestCase):
                     persistent_transition(
                         obs(a), obs(a), obs(a), threshold=threshold
                     )
+
+    def test_accepts_large_finite_integer_thresholds_without_overflow(self):
+        a = board()
+        huge = 10 ** 10000
+        result = persistent_transition(
+            obs(a), obs(a), obs(a),
+            threshold=huge, stability=huge,
+        )
+        self.assertEqual(result["persistent_changes"], 0)
+
+    def test_rejects_extreme_integer_bounds_without_overflow(self):
+        a = obs(board())
+        a["bounds"] = [1, 1, 10 ** 10000, 99]
+        with self.assertRaisesRegex(ValueError, "inside the screenshot"):
+            persistent_transition(a, a, a)
+
+    def test_rejects_bounds_outside_source_image(self):
+        a = obs(board())
+        a["bounds"] = [1, 1, 1080, 100]
+        with self.assertRaisesRegex(ValueError, "inside the screenshot"):
+            persistent_transition(a, a, a)
 
     def test_rejects_malformed_grid_dimensions(self):
         a = obs(board())
