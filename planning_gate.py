@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -116,7 +117,8 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
     return True
 
 
-def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
+def evaluate_planning(report, candidate_report=None, conveyor_calibration=None,
+                      input_file_sha256=None):
     confidence_audit = report.get("confidence_audit", {})
     board_synced = report.get("same_board_state_confirmed") is True
     freshness = report.get("capture_freshness", {})
@@ -297,6 +299,9 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
         "capture_freshness_verified": capture_freshness_verified,
         "confidence_snapshot_verified": confidence_snapshot_verified,
         "conveyor_timing_calibrated": conveyor_timing_calibrated,
+        "input_file_sha256": (
+            dict(input_file_sha256) if isinstance(input_file_sha256, dict) else None
+        ),
         "counts": counts,
         "results": results,
         "decision": (
@@ -312,22 +317,37 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
     }
 
 
+def _read_json_snapshot(path):
+    """Parse a JSON object and fingerprint the exact bytes that were parsed."""
+    raw = Path(path).read_bytes()
+    value = json.loads(raw)
+    if not isinstance(value, dict):
+        raise ValueError(f"Evidence artifact must contain a JSON object: {path}")
+    return value, hashlib.sha256(raw).hexdigest()
+
+
 def main():
-    report = json.loads(INPUT_FILE.read_text())
+    report, reachability_digest = _read_json_snapshot(INPUT_FILE)
     candidate_path = Path("data/conveyor_identity_candidates.json")
-    candidate_report = (
-        json.loads(candidate_path.read_text()) if candidate_path.is_file()
-        else None
-    )
+    if candidate_path.is_file():
+        candidate_report, candidate_digest = _read_json_snapshot(candidate_path)
+    else:
+        candidate_report, candidate_digest = None, None
     calibration_path = Path("data/conveyor_calibration.json")
-    conveyor_calibration = (
-        json.loads(calibration_path.read_text())
-        if calibration_path.is_file() else None
-    )
+    if calibration_path.is_file():
+        conveyor_calibration, calibration_digest = _read_json_snapshot(calibration_path)
+    else:
+        conveyor_calibration, calibration_digest = None, None
+    input_file_sha256 = {
+        "reachability_confidence_json": reachability_digest,
+        "candidate_json": candidate_digest,
+        "conveyor_calibration_json": calibration_digest,
+    }
     result = evaluate_planning(
         report,
         candidate_report=candidate_report,
         conveyor_calibration=conveyor_calibration,
+        input_file_sha256=input_file_sha256,
     )
     OUTPUT_FILE.write_text(json.dumps(result, indent=2))
 
