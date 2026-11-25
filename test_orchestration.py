@@ -62,6 +62,9 @@ class OrchestrationTests(unittest.TestCase):
             "reachability_audit_json": "a" * 64,
             "vision_level39_json": "b" * 64,
             "edge_confidence_json": "c" * 64,
+            "board_json": "d" * 64,
+            "conveyor_calibration_json": "e" * 64,
+            "conveyor_observations_json": "f" * 64,
         }}
         expected = {
             "reachability_audit_json": "a" * 64,
