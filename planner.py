@@ -68,6 +68,7 @@ def _source_provenance_matches(
         "candidate_json",
         "conveyor_observations_json",
         "shooter_detection_json",
+        "board_observation_json",
     )
     if any(
         not _valid_sha256(current_source_file_sha256.get(name))
@@ -119,26 +120,53 @@ def _source_provenance_matches(
     ):
         return False
 
-    expected_upstream = {
-        "reachability_audit_json": current_source_file_sha256[
-            "reachability_audit_json"
-        ],
-        "vision_level39_json": current_source_file_sha256[
-            "vision_calibration_json"
-        ],
-        "edge_confidence_json": current_source_file_sha256[
-            "edge_confidence_json"
-        ],
-        "board_json": current_source_file_sha256["vision_calibration_json"],
-        "conveyor_calibration_json": current_source_file_sha256[
-            "conveyor_calibration_json"
-        ],
-        "conveyor_observations_json": current_source_file_sha256[
-            "conveyor_observations_json"
-        ],
-    }
+    source_kind = planning.get("upstream_source_kind")
+    if source_kind == "screenshot_observation":
+        expected_confidence = {
+            "reachability_audit_json": current_source_file_sha256[
+                "reachability_audit_json"
+            ],
+            "board_observation_json": current_source_file_sha256[
+                "board_observation_json"
+            ],
+        }
+        expected_upstream = {
+            "board_json": current_source_file_sha256["board_observation_json"],
+            "conveyor_calibration_json": current_source_file_sha256[
+                "conveyor_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    elif source_kind == "baseline_board":
+        expected_confidence = {
+            "reachability_audit_json": current_source_file_sha256[
+                "reachability_audit_json"
+            ],
+            "vision_level39_json": current_source_file_sha256[
+                "vision_calibration_json"
+            ],
+            "edge_confidence_json": current_source_file_sha256[
+                "edge_confidence_json"
+            ],
+        }
+        expected_upstream = {
+            "board_json": current_source_file_sha256["vision_calibration_json"],
+            "conveyor_calibration_json": current_source_file_sha256[
+                "conveyor_calibration_json"
+            ],
+            "conveyor_observations_json": current_source_file_sha256[
+                "conveyor_observations_json"
+            ],
+        }
+    else:
+        return False
+
     if (
-        not isinstance(planning.get("upstream_source_file_sha256"), dict)
+        not isinstance(planning.get("confidence_source_file_sha256"), dict)
+        or planning.get("confidence_source_file_sha256") != expected_confidence
+        or not isinstance(planning.get("upstream_source_file_sha256"), dict)
         or planning.get("upstream_source_file_sha256") != expected_upstream
     ):
         return False
