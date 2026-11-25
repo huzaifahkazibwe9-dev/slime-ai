@@ -80,6 +80,9 @@ The remaining shooter-crop comparison guard from #20 was also carried over: mean
 The non-overlapping geometry foundation from #19 has been copied into #31: strict finite numeric validation for screen centres, image dimensions, board bounds and grid sizes; segment-side and span checks; and contextual error reporting for invalid calibration entries. Geometry adapter and coordinate-separation regression coverage was added to the existing simulator test module. This is a branch-level integration only; the exact combined candidate must pass CI before the geometry foundation is considered validated with the simulator.
 
 ## Bonded-state invariants carried into the simulator branch
+Snapshot/restore audit found that the simulator snapshot preserved group IDs and lifecycle history but did not enforce the PR #21 maximum bonded-component size of three. The simulator constructor now rejects groups larger than three, so snapshot restoration fails closed through the same constructor path; tests cover both direct construction and a tampered snapshot. The simulator snapshot intentionally stores abstract conveyor state, not screen-space geometry: verified coordinates remain in the separate GameState/geometry observation path and must not be inferred from a restored simulator snapshot.
+
+
 
 PR #21's stronger bonded-state checks have now been reconciled into the cumulative simulator branch (#31). The state model validates bond-list shape and member IDs, rejects invalid group IDs, requires reciprocal bond edges for selection, rejects inconsistent group IDs, and audits connected components independently so oversized groups are reported rather than silently treated as singles. Regression tests cover malformed metadata, asymmetric links, conflicting/non-string group IDs, and components larger than three. This is still a candidate-branch integration; combined CI is required before considering the reconciliation validated.
 
