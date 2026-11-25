@@ -80,14 +80,14 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
                 "partially_occluded": 3, "empty": 1,
             },
         )
-        self.assertEqual(coverage["human_visible_colour_support"]["red"], 4)
+        self.assertEqual(coverage["human_visible_colour_support"]["red"], 3)
+        self.assertEqual(coverage["human_visible_colour_support"]["cyan"], 1)
         self.assertEqual(
             coverage["human_legible_ammunition_value_support"],
             [
                 {"value": 11, "count": 1},
                 {"value": 12, "count": 1},
-                {"value": 13, "count": 1},
-                {"value": 14, "count": 1},
+                {"value": 14, "count": 2},
             ],
         )
         self.assertEqual(report["review_follow_up"]["panel_review_targets"], [])
@@ -103,7 +103,7 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
             ],
             [
                 "black", "white", "gray", "brown", "orange", "yellow",
-                "green", "cyan", "blue", "purple", "magenta",
+                "green", "blue", "purple", "magenta",
             ],
         )
         self.assertFalse(coverage["coverage_adequacy_assessed"])
