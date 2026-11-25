@@ -152,6 +152,10 @@ class OrchestrationTests(unittest.TestCase):
             planning_input_file_sha256=expected,
         )["checks"]["planning_report_input_hashes_match"])
 
+    def test_calibration_fingerprint_requires_object_payload(self):
+        self.assertIsNone(_canonical_json_sha256([]))
+        self.assertIsNone(_canonical_json_sha256(None))
+
     def test_board_calibration_must_match_current_pinned_config(self):
         calibration = {"grid_size": [35, 35], "bounds": [201, 431, 881, 1113]}
         matching_digest = _canonical_json_sha256(calibration)
