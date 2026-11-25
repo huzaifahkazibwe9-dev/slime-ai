@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 DATA = Path("data")
@@ -32,6 +33,21 @@ def read_json_snapshot(path):
     if not isinstance(value, dict):
         raise ValueError(f"Evidence file must contain a JSON object: {path}")
     return value, hashlib.sha256(raw).hexdigest()
+
+
+def _timestamps_known(timeline):
+    captured_at = timeline.get("captured_at")
+    if not isinstance(captured_at, str) or not captured_at:
+        return False
+    try:
+        parsed = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return (
+        timeline.get("timestamps_known") is True
+        and parsed.tzinfo is not None
+        and parsed.utcoffset() is not None
+    )
 
 
 def build_consistency_report(timeline, original_data, source_file_sha256=None):
@@ -204,16 +220,18 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
         }
 
     report = {
-        "report_type": "conveyor_consistency_audit",
+        "report_type": "conveyor_position_consistency_audit",
         "sequence": EXPECTED_ORDER,
-        "sequence_confirmed_by_user": timeline.get(
-            "sequence_confirmed_by_user", False
+        "sequence_confirmed_by_user": (
+            timeline.get("sequence_confirmed_by_user") is True
         ),
-        "timestamps_known": timeline.get("timestamps_known") is True,
+        "captured_at": timeline.get("captured_at"),
+        "timestamps_known": _timestamps_known(timeline),
         "identity_verified": False,
-        "gameplay_taps_enabled": False,
+        "gameplay_verified": False,
+        "game_taps_enabled": False,
+        "actions_performed": False,
         "position_series": results,
-        "source_file_sha256": source_file_sha256 or {},
         "source_file_sha256": source_file_sha256 or {},
         "checks": {
             "timeline_has_four_stages": len(snapshots) == 4,
@@ -260,7 +278,7 @@ def main(timeline_path=TIMELINE_FILE, observations_path=OBSERVATIONS_FILE,
         )
     except (OSError, ValueError) as exc:
         report = {
-            "report_type": "conveyor_consistency_audit",
+            "report_type": "conveyor_position_consistency_audit",
             "sequence": EXPECTED_ORDER,
             "sequence_confirmed_by_user": False,
             "timestamps_known": False,
