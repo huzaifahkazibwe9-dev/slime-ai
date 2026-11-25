@@ -134,6 +134,9 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
     )
     evidence_bundle = _read_planning_evidence_bundle(PROJECT_DIR / "data")
     current_source_file_sha256 = dict(evidence_bundle["file_sha256"])
+    board_observation = (
+        pinned_capture["board_data"] if pinned_capture is not None else None
+    )
     if pinned_capture is not None:
         current_source_file_sha256["board_observation_json"] = (
             pinned_capture["board_bytes_sha256"]
@@ -207,6 +210,8 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
             snapshot_report=synchronized_snapshot,
             current_source_file_sha256=current_source_file_sha256,
             current_calibration_sha256=current_calibration_sha256,
+            current_identity_audit=identity_report,
+            current_board_observation=board_observation,
         )
     else:
         move = None
