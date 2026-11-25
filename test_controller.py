@@ -48,6 +48,16 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "game_taps_enabled": False,
     }
     (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
+    # Planning inputs are separate artifacts and are hashed independently.
+    evidence_files = {
+        "planning_gate_latest.json": {"fixture": "planning"},
+        "identity_audit_report.json": {"fixture": "identity"},
+        "snapshot_sync_report.json": {"fixture": "snapshot"},
+        "conveyor_identity_candidates.json": {"fixture": "candidates"},
+        "conveyor_visual_observations.json": {"fixture": "conveyor"},
+    }
+    for name, payload in evidence_files.items():
+        (root / name).write_text(json.dumps(payload))
 
 
 
@@ -65,6 +75,21 @@ def capture_bundle_hashes(directory):
         ).hexdigest(),
     }
 
+
+
+def planning_evidence_hashes(directory):
+    root = Path(directory)
+    names = {
+        "planning_json": "planning_gate_latest.json",
+        "identity_json": "identity_audit_report.json",
+        "snapshot_json": "snapshot_sync_report.json",
+        "candidate_json": "conveyor_identity_candidates.json",
+        "conveyor_observations_json": "conveyor_visual_observations.json",
+    }
+    return {
+        key: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        for key, name in names.items()
+    }
 
 
 class ControllerTests(unittest.TestCase):
@@ -236,6 +261,7 @@ class ControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             write_capture_pair(directory)
             report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
+            report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
             board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
             report["capture_provenance"]["captured_at"] = board["captured_at"]
             report_path = Path(directory) / "orchestration_latest.json"
@@ -390,3 +416,36 @@ class ControllerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+    def test_status_hides_saved_plan_when_planning_evidence_file_changes(self):
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": "PLACEHOLDER",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
+            report["capture_provenance"]["captured_at"] = board["captured_at"]
+            report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
+            report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
+            report_path = Path(directory) / "orchestration_latest.json"
+            report_path.write_text(json.dumps(report))
+
+            # Alter one planning input while leaving capture and all metadata intact.
+            planning_path = Path(directory) / "planning_gate_latest.json"
+            planning_path.write_text(json.dumps({"fixture": "modified"}))
+            status = SlimeController(data_dir=directory).status()
+
+        self.assertTrue(status["capture_evidence_valid"])
+        self.assertFalse(status["planning_evidence_matches_current_files"])
+        self.assertFalse(status["plan_available"])
