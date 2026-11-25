@@ -50,6 +50,12 @@ class Shooter:
                 or self.observation_quality[flag] is not False
             ):
                 raise ValueError("Shooter visual verification requires independent evidence")
+        if (
+            self.observation_quality.get("evidence_source") == "detector_declared"
+            and self.observation_quality.get("ammunition_ocr_status")
+            != "PARSED_EXACT_DIGITS"
+        ):
+            raise ValueError("Detector-declared shooter requires successful ammunition OCR")
 
 
 @dataclass
