@@ -197,6 +197,18 @@ class CombinedVisualReviewTests(unittest.TestCase):
         self.assertEqual(report["board_colour_evaluation"]["sample_count"], 4)
         self.assertEqual(report["shooter_observation_evaluation"]["confirmed_sample_count"], 12)
         self.assertTrue(report["source_verification"]["reviewed_board_rgb_matches_source_observation"])
+        self.assertEqual(
+            report["review_artifacts_sha256"]["manifest_json"],
+            hashlib.sha256(self.manifest_path.read_bytes()).hexdigest(),
+        )
+        self.assertEqual(
+            report["review_artifacts_sha256"]["board_labels_json"],
+            hashlib.sha256(self.board_labels_path.read_bytes()).hexdigest(),
+        )
+        self.assertEqual(
+            report["review_artifacts_sha256"]["shooter_labels_json"],
+            hashlib.sha256(self.shooter_labels_path.read_bytes()).hexdigest(),
+        )
         self.assertFalse(report["gameplay_verified"])
         self.assertFalse(report["label_truth_independently_verified"])
 
