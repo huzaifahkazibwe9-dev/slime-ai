@@ -62,9 +62,11 @@ Each current-frame position must map to a distinct shooter ID present in
 
 Historical frame records may be included to track the same physical shooter
 across different conveyor positions. Each frame must not assign two shooters to
-one position or one shooter to multiple positions. Historical records do not
-replace the current-frame requirement: the frame named by `current_frame_id`
-must cover every calibrated position exactly once.
+one position or one shooter to multiple positions. The frame named by
+`current_frame_id` must include every currently detected shooter exactly once,
+and the combined history must cover all calibrated conveyor positions. The
+audit reports `positions_checked` as the number of current detected shooters
+mapped in that frame.
 
 ## Evidence and safety rules
 
