@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 from prepare_shooter_labels import build_template
-from shooter_batch_evaluation import evaluate_manifest
+from shooter_batch_evaluation import _metric, evaluate_manifest
 from test_prepare_shooter_labels import fixture_artifacts
 
 
@@ -84,6 +84,43 @@ def write_capture(root, index, screenshot_colour, session_id=None, screenshot_by
 
 
 class ShooterBatchEvaluationTests(unittest.TestCase):
+    def test_metric_reports_per_class_precision_recall_and_undefined_values(self):
+        metric = _metric([
+            ("red", "red"),
+            ("red", "blue"),
+            ("blue", "blue"),
+            ("green", "blue"),
+        ])
+
+        self.assertEqual(metric["support"], 4)
+        self.assertEqual(metric["accuracy"], 0.5)
+        self.assertEqual(
+            metric["per_class"]["red"],
+            {
+                "support": 2,
+                "predicted_count": 1,
+                "true_positive_count": 1,
+                "false_positive_count": 0,
+                "false_negative_count": 1,
+                "precision": 1.0,
+                "recall": 0.5,
+                "f1": 0.666667,
+            },
+        )
+        self.assertEqual(
+            metric["per_class"]["blue"]["precision"], 0.333333
+        )
+        self.assertEqual(metric["per_class"]["blue"]["recall"], 1.0)
+        self.assertEqual(metric["per_class"]["green"]["precision"], None)
+        self.assertEqual(metric["per_class"]["green"]["recall"], 0.0)
+        self.assertEqual(metric["per_class"]["green"]["f1"], None)
+
+    def test_empty_metric_has_no_per_class_values(self):
+        metric = _metric([])
+        self.assertEqual(metric["per_class"], {})
+        self.assertIsNone(metric["accuracy"])
+
+
     def test_aggregates_metrics_across_distinct_capture_sessions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
