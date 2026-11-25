@@ -45,6 +45,13 @@ class CapturePipelineConfigTests(unittest.TestCase):
         }))
         return board_path, shooter_path
 
+    def test_rejects_unreadable_utf8_capture_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            path.write_bytes(bytes((255, 254)))
+            with self.assertRaisesRegex(ValueError, "valid UTF-8 JSON"):
+                load_capture_config(path)
+
     def test_accepts_explicit_same_capture_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_config(directory, {
