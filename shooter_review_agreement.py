@@ -25,12 +25,18 @@ def _reviewer_id(value, label):
 
 def _dataset_fingerprint(dataset, raw_bytes, label):
     if raw_bytes is None:
-        payload = json.dumps(
-            dataset,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
+        try:
+            payload = json.dumps(
+                dataset,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{label} cannot be represented as strict JSON"
+            ) from exc
         mode = "canonical_json_content"
     else:
         if not isinstance(raw_bytes, bytes):
@@ -39,7 +45,20 @@ def _dataset_fingerprint(dataset, raw_bytes, label):
             parsed = strict_json_loads(raw_bytes)
         except (UnicodeDecodeError, ValueError) as exc:
             raise ValueError(f"{label} is not strict UTF-8 JSON") from exc
-        if parsed != dataset:
+        try:
+            parsed_canonical = json.dumps(
+                parsed, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False,
+            )
+            dataset_canonical = json.dumps(
+                dataset, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"{label} cannot be represented as strict JSON"
+            ) from exc
+        if parsed_canonical != dataset_canonical:
             raise ValueError(
                 f"{label} bytes do not match the parsed review dataset"
             )
