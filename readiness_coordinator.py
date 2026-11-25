@@ -54,6 +54,15 @@ def learning_summary():
     except sqlite3.Error as error:
         return {"available": False, "error": str(error)}
 
+def _shooter_capture_provenance_verified(audit, pinned_capture):
+    """Only trust shooter metadata after the complete source-pixel preflight."""
+    return (
+        pinned_capture is not None
+        and isinstance(audit, dict)
+        and audit.get("shooter_capture_provenance_verified") is True
+    )
+
+
 def assess(state, audit, calibration, identity, firing,
            capture_preflight_verified=False):
     # Evidence artifacts are external JSON inputs; malformed top-level shapes
@@ -249,8 +258,8 @@ def main(observation_path=None, shooter_path=None):
     )
     gate = evidence_status(
         planning, identity_audit, synchronized_snapshot, candidate_report,
-        shooter_capture_verified=(
-            audit.get("shooter_capture_provenance_verified") is True
+        shooter_capture_verified=_shooter_capture_provenance_verified(
+            audit, pinned_capture
         ),
         planning_input_file_sha256=current_source_file_sha256,
         board_calibration_sha256=(
@@ -260,9 +269,8 @@ def main(observation_path=None, shooter_path=None):
         current_calibration_sha256=current_calibration_sha256,
     )
 
-    shooter_capture_verified = (
-        pinned_capture is not None
-        and audit.get("shooter_capture_provenance_verified") is True
+    shooter_capture_verified = _shooter_capture_provenance_verified(
+        audit, pinned_capture
     )
     manager.set_mode("ANALYSE")
     candidate = None

@@ -112,6 +112,28 @@ class ReadinessAssessTests(unittest.TestCase):
         self.assertTrue(result["checks"]["source_pixel_capture_preflight_verified"])
         self.assertFalse(result["checks"]["shooter_capture_provenance_verified"])
 
+    def test_shooter_capture_provenance_requires_pinned_pixel_audit_bundle(self):
+        audit = {"shooter_capture_provenance_verified": True}
+        self.assertFalse(
+            readiness._shooter_capture_provenance_verified(audit, None)
+        )
+        self.assertTrue(
+            readiness._shooter_capture_provenance_verified(
+                audit, {"pixel_audit_data": {}}
+            )
+        )
+
+    def test_shooter_capture_provenance_rejects_non_object_or_false_metadata(self):
+        pinned = {"pixel_audit_data": {}}
+        self.assertFalse(
+            readiness._shooter_capture_provenance_verified([], pinned)
+        )
+        self.assertFalse(
+            readiness._shooter_capture_provenance_verified(
+                {"shooter_capture_provenance_verified": False}, pinned
+            )
+        )
+
     def test_external_firing_boolean_cannot_self_verify(self):
         result = readiness.assess(
             FakeState(accessible=1), {}, {}, {},
