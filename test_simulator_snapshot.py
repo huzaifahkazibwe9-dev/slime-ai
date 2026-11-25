@@ -36,6 +36,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
             "ammunition_independently_verified": False,
             "slot_mapping_independently_verified": False,
             "evidence_source": "detector_declared",
+            "ammunition_ocr_status": "PARSED_EXACT_DIGITS",
         }
         sim = create_simulator([{
             "id": "a", "ammo": 3, "observation_quality": quality,
@@ -76,6 +77,22 @@ class SimulatorSnapshotTests(unittest.TestCase):
                         "id": "a", "ammo": 3,
                         "observation_quality": {flag: True},
                     }])
+
+    def test_restore_rejects_tampered_detector_declared_ocr_status(self):
+        sim = create_simulator([{
+            "id": "a",
+            "ammo": 3,
+            "observation_quality": {
+                "evidence_source": "detector_declared",
+                "ammunition_ocr_status": "PARSED_EXACT_DIGITS",
+            },
+        }])
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["observation_quality"][
+            "ammunition_ocr_status"
+        ] = "TESSERACT_TIMEOUT"
+        with self.assertRaisesRegex(ValueError, "successful ammunition OCR"):
+            restore_simulator(snapshot)
 
     def test_legacy_snapshot_defaults_observation_quality_to_unverified(self):
         snapshot = snapshot_simulator(
