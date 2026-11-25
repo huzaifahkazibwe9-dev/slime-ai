@@ -183,6 +183,24 @@ class VisualReviewBatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Duplicate source screenshot"):
                 batch.evaluate_batch(self.batch_path)
 
+    def test_rejects_non_hex_screenshot_digest(self):
+        first = _report(1)
+        first["capture_identity"]["source_screenshot_sha256"] = "g" * 64
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "screenshot hash is invalid"):
+                batch.evaluate_batch(self.batch_path)
+
+    def test_rejects_missing_review_artifact_hashes(self):
+        first = _report(1)
+        first.pop("review_artifacts_sha256")
+        with patch.object(
+            batch, "evaluate_visual_review_bundle", side_effect=[first, _report(2)]
+        ):
+            with self.assertRaisesRegex(ValueError, "review artifact hashes are missing"):
+                batch.evaluate_batch(self.batch_path)
+
     def test_rejects_duplicate_capture_session(self):
         first = _report(1)
         second = _report(2)
