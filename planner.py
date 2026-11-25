@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from game_state import GameState
 
 SNAPSHOT_CHECKS = (
@@ -46,6 +48,28 @@ def _valid_sha256(value):
         isinstance(value, str)
         and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _aware_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed
+
+
+def _timestamps_aligned(left, right, maximum_skew_seconds=120):
+    first = _aware_timestamp(left)
+    second = _aware_timestamp(right)
+    return (
+        first is not None
+        and second is not None
+        and abs((first - second).total_seconds()) <= maximum_skew_seconds
     )
 
 
@@ -252,6 +276,7 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
 
     if (
         identity.get("identity_verified") is not True
+        or identity.get("verified_by_user") is not True
         or identity.get("timestamps_known") is not True
         or identity.get("errors") != []
         or identity.get("blockers") != []
@@ -295,6 +320,15 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
         or state_snapshot_id != snapshot_id
         or snapshot.get("board_snapshot_id") != snapshot_id
         or snapshot.get("observation_board_snapshot_id") != snapshot_id
+        or identity.get("board_snapshot_id") != snapshot_id
+        or candidates.get("board_snapshot_id") != snapshot_id
+        or not isinstance(identity.get("capture_session_id"), str)
+        or not identity.get("capture_session_id")
+        or candidates.get("capture_session_id") != identity.get("capture_session_id")
+        or candidates.get("timestamp_identified") is not True
+        or not _timestamps_aligned(
+            candidates.get("captured_at"), identity.get("captured_at")
+        )
     ):
         return None
 
@@ -337,6 +371,22 @@ def _verified_identity_mapping(state, identity, candidates, snapshot):
             or shooter_id not in known
             or not isinstance(position_id, str)
             or not isinstance(observations, list)
+            or track.get("board_snapshot_id") != snapshot_id
+            or track.get("capture_session_id") != identity.get("capture_session_id")
+            or track.get("timestamp_identified") is not True
+            or not _timestamps_aligned(
+                track.get("captured_at"), candidates.get("captured_at")
+            )
+            or not all(
+                isinstance(record, dict)
+                and record.get("board_snapshot_id") == snapshot_id
+                and record.get("capture_session_id") == identity.get("capture_session_id")
+                and record.get("timestamp_identified") is True
+                and _timestamps_aligned(
+                    record.get("captured_at"), candidates.get("captured_at")
+                )
+                for record in observations
+            )
             or any(
                 track.get(k) is not True
                 for k in (
