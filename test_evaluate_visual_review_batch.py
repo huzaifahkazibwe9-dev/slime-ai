@@ -577,6 +577,19 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown visibility label"):
             batch.verify_batch_report(report)
 
+    def test_rejects_visibility_coverage_mismatch_with_confusion_rows_even_when_resealed(self):
+        report = self._valid_report()
+        matrix = report["shooter_observation_evaluation"]["metrics"]["visibility"][
+            "confusion_matrix"
+        ]
+        matrix["visible"]["partially_occluded"] = 0
+        matrix["partially_occluded"]["visible"] = 1
+        _reseal_report(report)
+        with self.assertRaisesRegex(
+            ValueError, "visibility coverage counts disagree with visibility confusion-matrix row totals"
+        ):
+            batch.verify_batch_report(report)
+
     def test_rejects_unknown_sample_quality_bucket_even_when_resealed(self):
         report = self._valid_report()
         report["shooter_observation_evaluation"]["review_coverage"][
