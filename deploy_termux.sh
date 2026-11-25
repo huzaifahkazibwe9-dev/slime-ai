@@ -35,14 +35,19 @@ if [[ ! -f "data/shooter_capture_config.json" \
     echo "ERROR: Need data/shooter_capture_config.json, shooter_panel.jpg, or data/shooter_detection.json." >&2
     exit 2
 fi
-if [[ -f "screenshots/shooter_panel.jpg" || -f "data/shooter_capture_config.json" ]] && ! command -v tesseract >/dev/null 2>&1; then
-    echo "ERROR: Tesseract is required for shooter-panel detection." >&2
-    echo "Install it in Termux with: pkg install tesseract" >&2
-    exit 2
+NEED_TESSERACT=0
+if [[ -f "data/shooter_capture_config.json" ]] \
+   || { [[ ! -f "data/shooter_detection.json" ]] \
+        && [[ -f "screenshots/shooter_panel.jpg" ]]; }; then
+    NEED_TESSERACT=1
 fi
 
 echo
-echo "[3/5] Checking the Termux Python environment"
+echo "[3/6] Checking the Termux Python environment"
+if ! command -v pkg >/dev/null 2>&1; then
+    echo "ERROR: Termux package manager (pkg) is unavailable." >&2
+    exit 2
+fi
 if ! command -v python >/dev/null 2>&1; then
     echo "ERROR: Python is not available in this Termux environment." >&2
     echo "Install it with: pkg install python" >&2
@@ -57,11 +62,32 @@ fi
 python --version
 
 echo
-echo "[4/5] Installing declared Python dependencies"
-python -m pip install -r requirements.txt
+echo "[4/6] Installing Termux-native Python dependencies"
+# NumPy and Pillow contain native extensions; use Termux's packaged builds.
+pkg install -y python-numpy python-pillow
+if [[ "$NEED_TESSERACT" -eq 1 ]]; then
+    pkg install -y tesseract
+fi
 
 echo
-echo "[5/5] Running the validated build pipeline"
+echo "[5/6] Verifying installed libraries and OCR data"
+python -c 'import numpy; from PIL import Image; print("NumPy:", numpy.__version__); print("Pillow:", Image.__version__ if hasattr(Image, "__version__") else "available")'
+if [[ "$NEED_TESSERACT" -eq 1 ]]; then
+    if ! command -v tesseract >/dev/null 2>&1; then
+        echo "ERROR: Tesseract installation did not provide the tesseract command." >&2
+        exit 2
+    fi
+    if ! tesseract --list-langs 2>/dev/null | grep -Fxq "eng"; then
+        echo "ERROR: Tesseract English language data (eng) is unavailable." >&2
+        exit 2
+    fi
+fi
+# Dependencies are already supplied by Termux packages. Do not let pip
+# replace native Android builds with incompatible PyPI wheels.
+python -m pip install --no-deps -r requirements.txt
+
+echo
+echo "[6/6] Running the validated build pipeline"
 bash build_pipeline.sh
 
 echo
