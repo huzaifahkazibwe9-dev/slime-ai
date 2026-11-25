@@ -68,6 +68,31 @@ class OrchestrationTests(unittest.TestCase):
             )
             self.assertEqual(source, "missing")
 
+    def test_planning_report_input_hashes_must_match_pinned_files(self):
+        planning = {"input_file_sha256": {
+            "reachability_confidence_json": "a" * 64,
+            "candidate_json": "b" * 64,
+            "conveyor_calibration_json": "c" * 64,
+        }}
+        expected = {
+            "reachability_confidence_json": "a" * 64,
+            "candidate_json": "b" * 64,
+            "conveyor_calibration_json": "c" * 64,
+        }
+        self.assertTrue(evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+        expected["reachability_confidence_json"] = "d" * 64
+        self.assertFalse(evidence_status(
+            planning, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+        self.assertFalse(evidence_status(
+            {"input_file_sha256": {}}, None, None, None,
+            planning_input_file_sha256=expected,
+        )["checks"]["planning_report_input_hashes_match"])
+
     def test_missing_evidence_blocks(self):
         result = evidence_status(None, None, None, None)
         self.assertFalse(result["evidence_gate_passed"])
