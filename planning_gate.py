@@ -343,7 +343,7 @@ def main():
         "candidate_json": candidate_digest,
         "conveyor_calibration_json": calibration_digest,
     }
-    upstream_source_file_sha256 = report.get("source_file_sha256")
+    upstream_source_file_sha256 = report.get("upstream_source_file_sha256")
     if not isinstance(upstream_source_file_sha256, dict):
         raise ValueError(
             "Reachability confidence report is missing upstream source hashes"
