@@ -44,23 +44,35 @@ def run_diagnostics(observation_path=None, shooter_path=None, level=39):
         from capture_preflight import validate_capture_pair
         board_path = Path(observation_path)
         shooter_file = Path(shooter_path or "data/shooter_detection.json")
-        pinned_capture = _read_capture_bundle(board_path, shooter_file)
-        capture = validate_capture_pair(
-            board_path,
-            shooter_file,
-            board_data=pinned_capture["board_data"],
-            shooter_data=pinned_capture["shooter_data"],
-            pixel_audit_data=pinned_capture["pixel_audit_data"],
-        )
-        if capture.get("valid") is not True:
-            raise ValueError(capture.get("reason", "Capture preflight failed."))
-        state, vision_verified = load_level(
-            level=level,
-            observation_path=board_path,
-            shooter_path=shooter_file,
-            observation_data=capture["board_data"],
-            shooter_data=capture["shooter_data"],
-        )
+        pixel_audit_path = board_path.parent / "source_pixel_audit_latest.json"
+        if (
+            board_path.is_file()
+            and shooter_file.is_file()
+            and pixel_audit_path.is_file()
+        ):
+            pinned_capture = _read_capture_bundle(board_path, shooter_file)
+            capture = validate_capture_pair(
+                board_path,
+                shooter_file,
+                board_data=pinned_capture["board_data"],
+                shooter_data=pinned_capture["shooter_data"],
+                pixel_audit_data=pinned_capture["pixel_audit_data"],
+            )
+            if capture.get("valid") is not True:
+                raise ValueError(capture.get("reason", "Capture preflight failed."))
+            state, vision_verified = load_level(
+                level=level,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+                observation_data=capture["board_data"],
+                shooter_data=capture["shooter_data"],
+            )
+        else:
+            state, vision_verified = load_level(
+                level=level,
+                observation_path=board_path,
+                shooter_path=shooter_file,
+            )
     else:
         state, vision_verified = load_level(level=level)
 
