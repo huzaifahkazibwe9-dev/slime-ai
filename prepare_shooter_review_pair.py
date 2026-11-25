@@ -67,6 +67,10 @@ def prepare_review_pair(
     dataset_b_path = output_dir / f"{reviewer_b_id}.json"
     manifest_path = output_dir / "review_manifest.json"
     targets = (dataset_a_path, dataset_b_path, manifest_path)
+    if len({path.name.casefold() for path in targets}) != len(targets):
+        raise ValueError(
+            "Reviewer IDs collide with the reserved review_manifest filename"
+        )
     source_paths = {detection_path, screenshot_path}
     collisions = [
         path.name for path in targets
