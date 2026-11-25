@@ -428,6 +428,14 @@ def _verify_shooter_summary(shooter):
             raise ValueError(
                 "Shooter ammunition MAE must be zero when all detector readings match"
             )
+        implied_error_total = mae * detected
+        if not math.isfinite(implied_error_total):
+            raise ValueError("Shooter ammunition MAE implies an invalid total error")
+        nearest_error_total = round(implied_error_total)
+        if round(nearest_error_total / detected, 6) != mae:
+            raise ValueError(
+                "Shooter ammunition MAE is incompatible with an integer total error"
+            )
 
     coverage = shooter["review_coverage"]
     _require_exact_keys(

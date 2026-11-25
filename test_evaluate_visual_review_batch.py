@@ -512,6 +512,20 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         ):
             batch.verify_batch_report(report)
 
+    def test_rejects_mae_not_representable_as_rounded_integer_error_average(self):
+        report = self._valid_report()
+        ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
+        self.assertEqual(ammo["detector_reading_count"], 2)
+        self.assertEqual(ammo["exact_match_count"], 1)
+        # The lower bound is 0.5, but integer errors over two readings
+        # can only yield 0.5, 1.0, 1.5, ... after six-decimal rounding.
+        ammo["mean_absolute_error_on_detected_readings"] = 0.75
+        _reseal_report(report)
+        with self.assertRaisesRegex(
+            ValueError, "MAE is incompatible with an integer total error"
+        ):
+            batch.verify_batch_report(report)
+
     def test_rejects_ammunition_exact_matches_exceeding_detector_readings(self):
         report = self._valid_report()
         ammo = report["shooter_observation_evaluation"]["metrics"]["ammunition"]
