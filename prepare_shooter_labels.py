@@ -19,6 +19,22 @@ DETECTOR_COLOURS = (
     "black", "white", "gray", "red", "brown", "orange",
     "yellow", "green", "cyan", "blue", "purple", "magenta",
 )
+AMMUNITION_OBSERVATION_STATUSES = (
+    "PARSED_EXACT_DIGITS",
+    "TESSERACT_UNAVAILABLE",
+    "TESSERACT_TIMEOUT",
+    "TESSERACT_PROCESS_ERROR",
+    "TESSERACT_EXECUTION_ERROR",
+    "TESSERACT_NONZERO_EXIT",
+    "INVALID_PROCESS_RESULT",
+    "INVALID_TESSERACT_OUTPUT",
+    "AMBIGUOUS_OR_NON_INTEGER_OUTPUT",
+    "NUMBER_TOO_LONG",
+    "NUMBER_CONVERSION_FAILED",
+    "NOT_ATTEMPTED_UNVERIFIED_SLOT",
+    "NOT_REPORTED",
+)
+
 DETECTOR_STATUS_TO_VISIBILITY = {
     "readable_candidate": "visible",
     "unrevealed_candidate": "unrevealed",
@@ -170,6 +186,19 @@ def _validate_detector_layout(detection, panel_size):
         ammo = observation.get("ammunition_observation")
         if ammo is not None and (type(ammo) is not int or ammo < 0):
             raise ValueError(f"Observation {slot_id} has invalid detected ammunition")
+        ammo_status = observation.get(
+            "ammunition_observation_status", "NOT_REPORTED"
+        )
+        if ammo_status not in AMMUNITION_OBSERVATION_STATUSES:
+            raise ValueError(f"Observation {slot_id} has invalid ammunition observation status")
+        if ammo is not None and ammo_status != "PARSED_EXACT_DIGITS":
+            raise ValueError(f"Observation {slot_id} has a value with a non-success OCR status")
+        if ammo is None and ammo_status == "PARSED_EXACT_DIGITS":
+            raise ValueError(f"Observation {slot_id} has a success OCR status without a value")
+        if row > 1 and ammo_status not in {
+            "NOT_ATTEMPTED_UNVERIFIED_SLOT", "NOT_REPORTED"
+        }:
+            raise ValueError(f"Observation {slot_id} attempted OCR on an unverified slot")
 
         center = observation.get("screen_center")
         sample = observation.get("screen_sample")
@@ -207,6 +236,7 @@ def _validate_detector_layout(detection, panel_size):
                 "visibility": DETECTOR_STATUS_TO_VISIBILITY[status],
                 "colour": colour_record["name"],
                 "ammunition": ammo,
+                "ammunition_observation_status": ammo_status,
                 "sample_quality_status": quality_status,
                 "screen_center": center[:],
                 "screen_box": box[:],
