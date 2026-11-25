@@ -166,6 +166,7 @@ def audit_identity(board, visual, identity_data, calibration, detection):
     frame_ids = set()
     seen_positions = set()
     seen_shooters = set()
+    position_to_shooter = {}
     for index, item in enumerate(observations):
         if not isinstance(item, dict):
             errors.append(f"Identity record {index} must be an object")
@@ -189,6 +190,8 @@ def audit_identity(board, visual, identity_data, calibration, detection):
             errors.append(f"One shooter is assigned to multiple positions in the identity frame: {shooter_id}")
         else:
             seen_shooters.add(shooter_id)
+            if isinstance(position_id, str):
+                position_to_shooter[position_id] = shooter_id
         if item.get("verified") is not True:
             errors.append(f"Identity record {index} is not individually user-confirmed")
 
@@ -223,6 +226,8 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         "identity_verified": not errors,
         "positions_checked": len(seen_positions),
         "known_shooters": sorted(known_shooters),
+        "position_to_shooter": position_to_shooter,
+        "identity_frame_id": next(iter(frame_ids)) if len(frame_ids) == 1 else None,
         "board_snapshot_id": board_id,
         "capture_session_id": board_session,
         "captured_at": board_time.isoformat() if board_time else None,
