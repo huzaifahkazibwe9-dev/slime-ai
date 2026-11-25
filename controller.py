@@ -204,6 +204,12 @@ class SlimeController:
                 "accepted": True,
                 "mode": "PLAN_ONLY",
                 "plan_available": verified_plan,
+                "plan_is_simulation_candidate": verified_plan,
+                "plan_is_gameplay_verified": False,
+                "plan_verification_status": report.get(
+                    "plan_verification_status",
+                    "NOT_GAMEPLAY_VERIFIED",
+                ),
                 "recommended_group": group if verified_plan else None,
                 "decision": report.get("decision"),
                 "evidence_gate_passed": evidence_gate_passed,
