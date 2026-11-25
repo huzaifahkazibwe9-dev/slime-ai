@@ -100,6 +100,20 @@ class PrepareShooterReviewPairTests(unittest.TestCase):
                     "../outside", "reviewer-b",
                 )
 
+    def test_refuses_output_paths_that_collide_with_source_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            detection, screenshot, _, _ = self._sources(root)
+            with self.assertRaisesRegex(ValueError, "must not overwrite source artifacts"):
+                prepare_review_pair(
+                    detection,
+                    screenshot,
+                    root,
+                    "detection",
+                    "reviewer-b",
+                    overwrite=True,
+                )
+
     def test_rejects_screenshot_not_bound_to_detector(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
