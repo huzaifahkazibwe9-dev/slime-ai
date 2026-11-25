@@ -155,10 +155,46 @@ def _capture_metadata_matches(planning, identity, snapshot, candidates):
             return False
     return True
 
+REQUIRED_PLANNING_SOURCE_HASH_KEYS = frozenset({
+    "vision_calibration_json",
+    "edge_confidence_json",
+    "reachability_audit_json",
+    "reachability_confidence_json",
+    "conveyor_calibration_json",
+    "planning_json",
+    "identity_json",
+    "identity_observations_json",
+    "snapshot_json",
+    "candidate_json",
+    "conveyor_observations_json",
+    "shooter_detection_json",
+    "bonded_groups_config_json",
+    "board_observation_json",
+})
+
+
+def _valid_planning_source_hash_bundle(value):
+    """Require every current mutable planning input to have a SHA-256 digest."""
+    return (
+        isinstance(value, dict)
+        and set(value) == REQUIRED_PLANNING_SOURCE_HASH_KEYS
+        and all(
+            isinstance(digest, str)
+            and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+            for digest in value.values()
+        )
+    )
+
+
 def evidence_status(planning, identity, snapshot, candidates, shooter_capture_verified=False,
                     planning_input_file_sha256=None, board_calibration_sha256=None,
                     current_calibration_sha256=None):
     checks = {
+        "current_source_hash_bundle_complete": (
+            _valid_planning_source_hash_bundle(
+                planning_input_file_sha256
+            )
+        ),
         "shooter_capture_provenance_verified": shooter_capture_verified is True,
         "planning_report_present": isinstance(planning, dict),
         "identity_report_present": isinstance(identity, dict),
