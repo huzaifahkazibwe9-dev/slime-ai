@@ -70,7 +70,7 @@ def _report(bundle_index):
         ]
         total, confirmed, ambiguous = 2, 1, 1
         visibility_counts = {"visible": 1}
-        quality_counts = {"LOW_CONTRAST": 1}
+        quality_counts = {"LOW_CONFIDENCE_SAMPLE": 1}
         ammo_status_counts = {"PARSED_EXACT_DIGITS": 1}
 
     return {
