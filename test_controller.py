@@ -2,9 +2,51 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from controller import SlimeController
+
+
+def write_capture_pair(directory, captured_at=None, shooter_hash=None):
+    captured_at = captured_at or datetime.now(timezone.utc).isoformat()
+    source_hash = "a" * 64
+    board = {
+        "source_sha256": source_hash,
+        "snapshot_id": "sha256:" + source_hash,
+        "board_snapshot_id": "sha256:" + source_hash,
+        "capture_session_id": "session-abc",
+        "captured_at": captured_at,
+        "image_size": [1080, 2220],
+        "grid_size": [35, 35],
+    }
+    shooter = {
+        "capture_provenance": {
+            "verified": True,
+            "source_sha256": shooter_hash or source_hash,
+            "capture_session_id": "session-abc",
+            "captured_at": captured_at,
+        }
+    }
+    root = Path(directory)
+    (root / "board_observation_latest.json").write_text(json.dumps(board))
+    (root / "shooter_detection.json").write_text(json.dumps(shooter))
+    audit = {
+        "source_sha256": source_hash,
+        "image_size": [1080, 2220],
+        "grid_size": [35, 35],
+        "capture_session_id": "session-abc",
+        "captured_at": captured_at,
+        "snapshot_id": "sha256:" + source_hash,
+        "board_snapshot_id": "sha256:" + source_hash,
+        "pixel_samples_reproduced": True,
+        "extraction_fingerprint_match": True,
+        "label_mismatch_count": 0,
+        "colour_counts_match": True,
+        "gameplay_verified": False,
+        "game_taps_enabled": False,
+    }
+    (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
 
 
 class ControllerTests(unittest.TestCase):
@@ -46,6 +88,7 @@ class ControllerTests(unittest.TestCase):
             "actions_performed": False,
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -61,6 +104,48 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         run.assert_called_once()
 
+    def test_plan_blocks_when_capture_files_are_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("fresh screenshot capture is required", result["reason"])
+        run.assert_not_called()
+
+
+    def test_plan_blocks_when_source_pixel_audit_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            (Path(directory) / "source_pixel_audit_latest.json").unlink()
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("pixel audit is missing", result["reason"])
+        run.assert_not_called()
+
+    def test_plan_blocks_stale_capture_before_orchestration(self):
+        stale = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory, captured_at=stale)
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("stale", result["reason"])
+        run.assert_not_called()
+
+    def test_plan_blocks_board_shooter_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory, shooter_hash="b" * 64)
+            controller = SlimeController(data_dir=directory)
+            with patch("orchestration.run_orchestration") as run:
+                result = controller.execute("PLAN")
+        self.assertFalse(result["accepted"])
+        self.assertIn("screenshot hash", result["reason"])
+        run.assert_not_called()
+
     def test_controller_hides_candidate_when_evidence_gate_fails(self):
         fake_report = {
             "planner": {"recommended_group": ["A"]},
@@ -68,6 +153,7 @@ class ControllerTests(unittest.TestCase):
             "evidence": {"evidence_gate_passed": False},
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -85,6 +171,7 @@ class ControllerTests(unittest.TestCase):
             "evidence": {"evidence_gate_passed": False},
         }
         with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -111,7 +198,129 @@ class ControllerTests(unittest.TestCase):
         self.assertFalse(status["gameplay_ready"])
         self.assertFalse(status["tap_enabled"])
         self.assertFalse(status["touch_injection"])
+        self.assertFalse(status["plan_available"])
+        self.assertFalse(status["capture_evidence_valid"])
+        self.assertFalse(status["capture_report_matches_current_capture"])
+
+    def test_status_requires_current_capture_before_showing_saved_plan(self):
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": "PLACEHOLDER",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
+            report["capture_provenance"]["captured_at"] = board["captured_at"]
+            report_path = Path(directory) / "orchestration_latest.json"
+            report_path.write_text(json.dumps(report))
+            status = SlimeController(data_dir=directory).status()
+        self.assertTrue(status["capture_evidence_valid"])
+        self.assertTrue(status["capture_report_matches_current_capture"])
         self.assertTrue(status["plan_available"])
+        self.assertFalse(status["gameplay_ready"])
+        self.assertFalse(status["tap_enabled"])
+
+    def test_status_uses_same_capture_object_after_source_file_replacement(self):
+        from orchestration import _read_capture_bundle as read_bundle
+
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": "PLACEHOLDER",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            board_path = Path(directory) / "board_observation_latest.json"
+            shooter_path = Path(directory) / "shooter_detection.json"
+            board = json.loads(board_path.read_text())
+            report["capture_provenance"]["captured_at"] = board["captured_at"]
+            (Path(directory) / "orchestration_latest.json").write_text(
+                json.dumps(report)
+            )
+
+            def read_then_replace(observation, shooters, pixel_audit_path=None):
+                pinned = read_bundle(observation, shooters, pixel_audit_path)
+                board_path.write_text(json.dumps({
+                    "source_sha256": "b" * 64,
+                    "capture_session_id": "replaced-session",
+                }))
+                return pinned
+
+            controller = SlimeController(data_dir=directory)
+            with patch(
+                "orchestration._read_capture_bundle",
+                side_effect=read_then_replace,
+            ) as read_once:
+                status = controller.status()
+
+            self.assertEqual(read_once.call_count, 1)
+            self.assertNotEqual(
+                json.loads(board_path.read_text())["source_sha256"],
+                report["capture_provenance"]["source_sha256"],
+            )
+            self.assertTrue(status["capture_evidence_valid"])
+            self.assertTrue(status["capture_report_matches_current_capture"])
+            self.assertTrue(status["plan_available"])
+
+    def test_status_hides_saved_plan_when_capture_is_stale(self):
+        stale = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": stale,
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory, captured_at=stale)
+            report_path = Path(directory) / "orchestration_latest.json"
+            report_path.write_text(json.dumps(report))
+            status = SlimeController(data_dir=directory).status()
+        self.assertFalse(status["capture_evidence_valid"])
+        self.assertFalse(status["capture_report_matches_current_capture"])
+        self.assertFalse(status["plan_available"])
+
+    def test_status_hides_plan_when_saved_report_belongs_to_previous_capture(self):
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "b" * 64,
+                "capture_session_id": "old-session",
+                "captured_at": "2026-11-24T10:00:00+00:00",
+                "snapshot_id": "sha256:" + "b" * 64,
+                "board_snapshot_id": "sha256:" + "b" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            report_path = Path(directory) / "orchestration_latest.json"
+            report_path.write_text(json.dumps(report))
+            status = SlimeController(data_dir=directory).status()
+        self.assertTrue(status["capture_evidence_valid"])
+        self.assertFalse(status["capture_report_matches_current_capture"])
+        self.assertFalse(status["plan_available"])
 
     def test_unknown_command_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
