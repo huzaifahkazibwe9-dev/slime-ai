@@ -423,6 +423,21 @@ class SnapshotSyncTests(unittest.TestCase):
                         max_age_seconds=value,
                     )
 
+    def test_capture_freshness_accepts_arbitrarily_large_finite_integer_limits(self):
+        from snapshot_sync import validate_capture_freshness
+        now = datetime(2026, 11, 23, 10, 0, tzinfo=timezone.utc)
+        huge = 10 ** 10000
+        result = validate_capture_freshness(
+            "2026-11-23T09:59:00+00:00",
+            "2026-11-23T09:59:30+00:00",
+            now=now,
+            max_age_seconds=huge,
+            max_skew_seconds=huge,
+        )
+        self.assertTrue(result["fresh"])
+        self.assertEqual(result["max_age_seconds"], huge)
+        self.assertEqual(result["max_skew_seconds"], huge)
+
     def test_capture_freshness_rejects_invalid_now(self):
         from snapshot_sync import validate_capture_freshness
         with self.assertRaisesRegex(ValueError, "timezone-aware datetime"):
