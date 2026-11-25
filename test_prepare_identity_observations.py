@@ -26,6 +26,14 @@ def valid_inputs():
         "captured_at": "2026-11-25T10:00:00+00:00",
         "timestamp_identified": True,
     }
+    visual = {
+        "board_snapshot_id": "sha256:" + "a" * 64,
+        "capture_session_id": "session-001",
+        "captured_at": "2026-11-25T10:00:30+00:00",
+        "timestamp_identified": True,
+        "same_board_state_confirmed": True,
+        "observations": [],
+    }
     calibration = {
         "shooters": [
             {
@@ -42,16 +50,17 @@ def valid_inputs():
             for index in range(4)
         ]
     }
-    return board, calibration, detection
+    return board, visual, calibration, detection
 
 
 class PrepareIdentityObservationsTests(unittest.TestCase):
     def test_template_contains_only_unverified_current_and_history_records(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         template = build_template(
-            board, calibration, detection,
+            board, visual, calibration, detection,
             {
                 "board_observation_json": "1" * 64,
+                "conveyor_visual_observations_json": "4" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             },
@@ -78,11 +87,12 @@ class PrepareIdentityObservationsTests(unittest.TestCase):
         self.assertFalse(template["game_taps_enabled"])
 
     def test_template_rejects_missing_or_unidentified_board_timestamp(self):
-        board, calibration, detection = valid_inputs()
+        board, visual, calibration, detection = valid_inputs()
         board["timestamp_identified"] = False
         with self.assertRaisesRegex(ValueError, "timestamp"):
-            build_template(board, calibration, detection, {
+            build_template(board, visual, calibration, detection, {
                 "board_observation_json": "1" * 64,
+                "conveyor_visual_observations_json": "4" * 64,
                 "conveyor_calibration_json": "2" * 64,
                 "shooter_detection_json": "3" * 64,
             })
