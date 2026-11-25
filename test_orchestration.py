@@ -10,11 +10,47 @@ from orchestration import (
     resolve_candidate_report_path,
     run_multi_batch_diagnostic,
     run_orchestration,
+    _read_planning_evidence_bundle,
 )
 import multi_batch_candidate_planner
 
 
 class OrchestrationTests(unittest.TestCase):
+    def test_planning_bundle_returns_pinned_conveyor_calibration(self):
+        import hashlib
+        import json
+
+        names = (
+            "vision_level39.json",
+            "edge_confidence_latest.json",
+            "reachability_audit.json",
+            "reachability_confidence_latest.json",
+            "conveyor_calibration.json",
+            "planning_gate_latest.json",
+            "identity_audit_report.json",
+            "shooter_identity_observations.json",
+            "snapshot_sync_report.json",
+            "conveyor_identity_candidates.json",
+            "conveyor_visual_observations.json",
+            "shooter_detection.json",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            calibration = {"shooters": [{"id": "slot-1"}], "revision": 7}
+            expected_raw = None
+            for name in names:
+                value = calibration if name == "conveyor_calibration.json" else {}
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                (root / name).write_bytes(raw)
+                if name == "conveyor_calibration.json":
+                    expected_raw = raw
+            bundle = _read_planning_evidence_bundle(root)
+            self.assertEqual(bundle["conveyor_calibration"], calibration)
+            self.assertEqual(
+                bundle["file_sha256"]["conveyor_calibration_json"],
+                hashlib.sha256(expected_raw).hexdigest(),
+            )
+
     def test_run_orchestration_requires_explicit_capture_paths(self):
         with self.assertRaisesRegex(ValueError, "Explicit board observation"):
             run_orchestration()
