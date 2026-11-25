@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -54,6 +55,20 @@ def analyze_board(board):
     }
 
 
+def analyze_snapshot(source_bytes, source_path):
+    """Build edge-confidence metadata from the exact parsed board bytes."""
+    data = json.loads(source_bytes)
+    if not isinstance(data, dict):
+        raise ValueError("Board source must be a JSON object")
+    report = analyze_board(data.get("board"))
+    report["source"] = str(source_path)
+    report["source_grid_size"] = data.get("grid_size")
+    report["source_file_sha256"] = {
+        "vision_level39_json": hashlib.sha256(source_bytes).hexdigest()
+    }
+    return report
+
+
 def main():
     source = Path("data/vision_level39.json")
     destination = Path("data/edge_confidence_latest.json")
@@ -61,12 +76,8 @@ def main():
     if not source.exists():
         raise FileNotFoundError(f"Missing input: {source}")
 
-    data = json.loads(source.read_text())
-    board = data.get("board")
-
-    report = analyze_board(board)
-    report["source"] = str(source)
-    report["source_grid_size"] = data.get("grid_size")
+    source_bytes = source.read_bytes()
+    report = analyze_snapshot(source_bytes, source)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, indent=2))
