@@ -27,15 +27,21 @@ def validate_capture_pair(
     max_age_seconds=300,
     max_skew_seconds=120,
     pixel_audit_path=None,
+    board_data=None,
+    shooter_data=None,
+    pixel_audit_data=None,
 ):
     """Validate paired capture provenance and recency without inferring truth."""
     observation_path = Path(observation_path)
     shooter_path = Path(shooter_path)
     try:
-        board = json.loads(observation_path.read_text(encoding="utf-8"))
-        shooter_data = json.loads(shooter_path.read_text(encoding="utf-8"))
+        if board_data is None:
+            board_data = json.loads(observation_path.read_text(encoding="utf-8"))
+        if shooter_data is None:
+            shooter_data = json.loads(shooter_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"valid": False, "reason": f"Capture files are missing or invalid: {exc}"}
+    board = board_data
 
     if not isinstance(board, dict) or not isinstance(shooter_data, dict):
         return {"valid": False, "reason": "Capture files must contain JSON objects."}
@@ -98,13 +104,15 @@ def validate_capture_pair(
         else observation_path.parent / "source_pixel_audit_latest.json"
     )
     try:
-        pixel_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        if pixel_audit_data is None:
+            pixel_audit_data = json.loads(audit_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {
             "valid": False,
             "reason": "Independent source-pixel audit is missing or invalid; rerun the capture pipeline.",
             "freshness": freshness,
         }
+    pixel_audit = pixel_audit_data
     if not isinstance(pixel_audit, dict):
         return {
             "valid": False,
@@ -147,4 +155,7 @@ def validate_capture_pair(
         "reason": None,
         "freshness": freshness,
         "source_pixel_audit_verified": True,
+        "board_data": board,
+        "shooter_data": shooter_data,
+        "pixel_audit_data": pixel_audit,
     }
