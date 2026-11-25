@@ -254,8 +254,17 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         errors.append("Conveyor visual positions do not exactly match calibrated positions")
 
     errors = sorted(set(errors))
+    timestamps_known = (
+        board_time is not None
+        and board.get("timestamp_identified") is True
+        and visual_time is not None
+        and visual.get("timestamp_identified") is True
+        and identity_time is not None
+        and identity_data.get("timestamp_identified") is True
+    )
     return {
         "identity_verified": not errors,
+        "timestamps_known": timestamps_known,
         "positions_checked": len(seen_positions),
         "known_shooters": sorted(known_shooters),
         "position_to_shooters": {
