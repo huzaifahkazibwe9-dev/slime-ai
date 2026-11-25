@@ -59,7 +59,9 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
     if timeline.get("sequence") != EXPECTED_ORDER:
         errors.append("Timeline stage order does not match expected order.")
 
-    snapshots = timeline.get("snapshots", [])
+    snapshots = timeline.get("snapshots")
+    if not isinstance(snapshots, list):
+        raise ValueError("Timeline snapshots must be a list")
 
     if len(snapshots) != 4:
         errors.append(
@@ -82,6 +84,11 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
                 break
 
             expected_side = EXPECTED_ORDER[index]
+            if not isinstance(step, dict):
+                errors.append(
+                    f"{track_name}: timeline step {index + 1} is not an object."
+                )
+                continue
 
             if step.get("side") != expected_side:
                 errors.append(
@@ -123,7 +130,7 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
 
             ammo = item.get("ammo")
 
-            if not isinstance(ammo, int) or ammo < 0:
+            if type(ammo) is not int or ammo < 0:
                 errors.append(
                     f"{track_name}: invalid ammunition at {position_id}."
                 )
@@ -176,8 +183,6 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
             depletion = "zero_ammunition_not_observed"
 
         results[track_name] = {
-            "candidate_shooter": None,
-            "identity_status": "UNRESOLVED_POSITION_SERIES_ONLY",
             "positions": positions,
             "ammunition": ammo_values,
             "ammunition_changes": deltas,
@@ -195,7 +200,7 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
                 len(preservation_checks) == len(positions)
                 and all(preservation_checks)
             ),
-            "identity_status": "candidate_only_unverified",
+            "identity_status": "UNRESOLVED_POSITION_SERIES_ONLY",
         }
 
     report = {
@@ -204,10 +209,11 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
         "sequence_confirmed_by_user": timeline.get(
             "sequence_confirmed_by_user", False
         ),
-        "timestamps_known": timeline.get("timestamps_known", False),
+        "timestamps_known": timeline.get("timestamps_known") is True,
         "identity_verified": False,
         "gameplay_taps_enabled": False,
-        "candidate_tracks": results,
+        "position_series": results,
+        "source_file_sha256": source_file_sha256 or {},
         "source_file_sha256": source_file_sha256 or {},
         "checks": {
             "timeline_has_four_stages": len(snapshots) == 4,
@@ -224,12 +230,12 @@ def build_consistency_report(timeline, original_data, source_file_sha256=None):
         "errors": errors,
         "warnings": warnings,
         "overall_status": (
-            "CONSISTENT_CANDIDATE_DATA"
+            "CONSISTENT_POSITION_DATA"
             if not errors
             else "INCONSISTENCIES_FOUND"
         ),
         "limitations": [
-            "Screenshot timestamps are unknown.",
+            "Timestamps are not independently verified by this consistency check.",
             "This report contains position-based ammunition trends only; no physical shooter identity is assigned.",
             "Ammunition consistency alone cannot prove physical identity.",
             "No live gameplay or firing behaviour was tested.",
@@ -261,7 +267,7 @@ def main(timeline_path=TIMELINE_FILE, observations_path=OBSERVATIONS_FILE,
             "identity_verified": False,
             "gameplay_taps_enabled": False,
             "game_taps_enabled": False,
-            "candidate_tracks": {},
+            "position_series": {},
             "source_file_sha256": {},
             "checks": {},
             "errors": [f"{type(exc).__name__}: {exc}"],
@@ -283,7 +289,7 @@ def main(timeline_path=TIMELINE_FILE, observations_path=OBSERVATIONS_FILE,
     print("SLIME AI — CONVEYOR CONSISTENCY AUDITOR")
     print("=" * 52)
 
-    for name, result in results.items():
+    for name, result in report["position_series"].items():
         print(f"\n{name.upper()} — POSITION SERIES ONLY")
         print("Positions:", result["positions"])
         print("Ammunition:", result["ammunition"])
@@ -302,10 +308,10 @@ def main(timeline_path=TIMELINE_FILE, observations_path=OBSERVATIONS_FILE,
     for name, passed in report["checks"].items():
         print(f"[{'PASS' if passed else 'FAIL'}] {name}")
 
-    for warning in warnings:
+    for warning in report["warnings"]:
         print("[WARNING]", warning)
 
-    for error in errors:
+    for error in report["errors"]:
         print("[ERROR]", error)
 
     print("\nOverall:", report["overall_status"])
