@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 from collections import deque, Counter
 from pathlib import Path
 
@@ -146,7 +147,7 @@ def build_region_graph(board):
 
 
 def audit_file():
-    source = json.loads(Path("data/vision_level39.json").read_text())
+    source = strict_json_loads(Path("data/vision_level39.json").read_text())
     report = build_region_graph(source["board"])
 
     report["checks"]["source_colour_counts_match"] = (
