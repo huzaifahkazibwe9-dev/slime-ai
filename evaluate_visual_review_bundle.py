@@ -16,6 +16,7 @@ from io import BytesIO
 
 from screenshot_ingestor import classify_rgb
 from source_pixel_audit import audit_source_pixels, validate_source_pixel_audit_status
+from strict_json import strict_json_loads
 from vision_calibration import evaluate_dataset as evaluate_colour_dataset
 from vision_calibration import validate_dataset as validate_colour_dataset
 from vision_calibration import verify_source_image
@@ -45,8 +46,8 @@ def _read_bytes(path, description):
 def _read_json_object(path, description):
     raw = _read_bytes(path, description)
     try:
-        data = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        data = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"{description} is not valid UTF-8 JSON") from exc
     if not isinstance(data, dict):
         raise ValueError(f"{description} must be a JSON object")
