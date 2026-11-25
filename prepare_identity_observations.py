@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 from conveyor_identity_matcher import (
@@ -18,6 +19,7 @@ DATA = Path("data")
 BOARD_FILE = DATA / "board_observation_latest.json"
 CALIBRATION_FILE = DATA / "conveyor_calibration.json"
 DETECTION_FILE = DATA / "shooter_detection.json"
+VISUAL_FILE = DATA / "conveyor_visual_observations.json"
 OUTPUT_FILE = DATA / "shooter_identity_observations.json"
 
 
@@ -38,7 +40,7 @@ def _sha256(value):
     ) is not None
 
 
-def build_template(board, calibration, detection, source_hashes):
+def build_template(board, visual, calibration, detection, source_hashes):
     """Create a blank, non-authoritative identity observation template."""
     errors = []
     source_sha256 = board.get("source_sha256")
@@ -59,6 +61,34 @@ def build_template(board, calibration, detection, source_hashes):
         errors.append("Board captured_at timestamp is missing")
     if board.get("timestamp_identified") is not True:
         errors.append("Board timestamp is not explicitly identified")
+
+    if not isinstance(visual, dict):
+        errors.append("Conveyor visual observations must be a JSON object")
+        visual = {}
+    if visual.get("board_snapshot_id") != snapshot_id:
+        errors.append("Conveyor observations do not match the current board snapshot")
+    if visual.get("capture_session_id") != board.get("capture_session_id"):
+        errors.append("Conveyor observations do not match the current capture session")
+    if visual.get("timestamp_identified") is not True:
+        errors.append("Conveyor observation timestamp is not explicitly identified")
+    if visual.get("same_board_state_confirmed") is not True:
+        errors.append("Conveyor observations lack same-board confirmation")
+    try:
+        board_time = datetime.fromisoformat(
+            board["captured_at"].replace("Z", "+00:00")
+        )
+        visual_time = datetime.fromisoformat(
+            visual.get("captured_at", "").replace("Z", "+00:00")
+        )
+        if (
+            board_time.tzinfo is None or board_time.utcoffset() is None
+            or visual_time.tzinfo is None or visual_time.utcoffset() is None
+        ):
+            raise ValueError("timestamp missing UTC offset")
+        if abs((visual_time - board_time).total_seconds()) > 120:
+            errors.append("Conveyor observation timestamp differs from board by more than 120 seconds")
+    except (AttributeError, TypeError, ValueError, KeyError):
+        errors.append("Board and conveyor timestamps must be timezone-aware")
 
     raw_positions = calibration.get("shooters")
     positions = {
@@ -86,6 +116,7 @@ def build_template(board, calibration, detection, source_hashes):
     required_sources = (
         "board_observation_json",
         "conveyor_calibration_json",
+        "conveyor_observations_json",
         "shooter_detection_json",
     )
     if any(not _sha256(source_hashes.get(name)) for name in required_sources):
@@ -136,7 +167,8 @@ def build_template(board, calibration, detection, source_hashes):
 
 
 def prepare_template(board_path=BOARD_FILE, calibration_path=CALIBRATION_FILE,
-                     detection_path=DETECTION_FILE, output_path=OUTPUT_FILE):
+                     detection_path=DETECTION_FILE, visual_path=VISUAL_FILE,
+                     output_path=OUTPUT_FILE):
     output_path = Path(output_path)
     if output_path.exists():
         return {
@@ -147,14 +179,18 @@ def prepare_template(board_path=BOARD_FILE, calibration_path=CALIBRATION_FILE,
         }
 
     board, board_digest = read_json_snapshot(board_path)
+    visual, visual_digest = read_json_snapshot(visual_path)
     calibration, calibration_digest = read_json_snapshot(calibration_path)
     detection, detection_digest = read_json_snapshot(detection_path)
     source_hashes = {
         "board_observation_json": board_digest,
+        "conveyor_visual_observations_json": visual_digest,
         "conveyor_calibration_json": calibration_digest,
         "shooter_detection_json": detection_digest,
     }
-    template = build_template(board, calibration, detection, source_hashes)
+    template = build_template(
+        board, visual, calibration, detection, source_hashes
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_suffix(output_path.suffix + ".tmp")
@@ -180,9 +216,10 @@ def prepare_template(board_path=BOARD_FILE, calibration_path=CALIBRATION_FILE,
 
 
 def main(board_path=BOARD_FILE, calibration_path=CALIBRATION_FILE,
-         detection_path=DETECTION_FILE, output_path=OUTPUT_FILE):
+         detection_path=DETECTION_FILE, visual_path=VISUAL_FILE,
+         output_path=OUTPUT_FILE):
     result = prepare_template(
-        board_path, calibration_path, detection_path, output_path
+        board_path, calibration_path, detection_path, visual_path, output_path
     )
     print("SLIME AI — IDENTITY TEMPLATE PREPARATION")
     print("=" * 48)
@@ -205,6 +242,10 @@ if __name__ == "__main__":
     parser.add_argument("--board", default=str(BOARD_FILE))
     parser.add_argument("--calibration", default=str(CALIBRATION_FILE))
     parser.add_argument("--detection", default=str(DETECTION_FILE))
+    parser.add_argument("--visual", default=str(VISUAL_FILE))
     parser.add_argument("--output", default=str(OUTPUT_FILE))
     args = parser.parse_args()
-    main(args.board, args.calibration, args.detection, args.output)
+    main(
+        args.board, args.calibration, args.detection,
+        args.visual, args.output,
+    )
