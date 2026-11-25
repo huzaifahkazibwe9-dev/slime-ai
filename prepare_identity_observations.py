@@ -115,8 +115,8 @@ def build_template(board, visual, calibration, detection, source_hashes):
 
     required_sources = (
         "board_observation_json",
+        "conveyor_visual_observations_json",
         "conveyor_calibration_json",
-        "conveyor_observations_json",
         "shooter_detection_json",
     )
     if any(not _sha256(source_hashes.get(name)) for name in required_sources):
