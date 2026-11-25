@@ -164,9 +164,10 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         errors.append("Identity observations must be a list")
 
     frame_ids = set()
+    frame_positions = {}
+    frame_shooters = {}
     seen_positions = set()
-    seen_shooters = set()
-    position_to_shooter = {}
+    position_to_shooters = {}
     for index, item in enumerate(observations):
         if not isinstance(item, dict):
             errors.append(f"Identity record {index} must be an object")
@@ -176,41 +177,43 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         shooter_id = item.get("shooter_id")
         if not isinstance(frame_id, str) or not frame_id.strip():
             errors.append(f"Identity record {index} has an invalid frame_id")
-        else:
-            frame_ids.add(frame_id)
+            continue
+        frame_ids.add(frame_id)
         if not isinstance(position_id, str) or position_id not in positions:
             errors.append(f"Identity record {index} has an unknown calibrated position")
-        elif position_id in seen_positions:
-            errors.append(f"Duplicate position in identity frame: {position_id}")
-        else:
-            seen_positions.add(position_id)
+            continue
         if not isinstance(shooter_id, str) or shooter_id not in known_shooters:
             errors.append(f"Identity record {index} references an unknown shooter")
-        elif shooter_id in seen_shooters:
-            errors.append(f"One shooter is assigned to multiple positions in the identity frame: {shooter_id}")
+            continue
+        positions_in_frame = frame_positions.setdefault(frame_id, set())
+        shooters_in_frame = frame_shooters.setdefault(frame_id, set())
+        if position_id in positions_in_frame:
+            errors.append(
+                f"Frame {frame_id}: duplicate position {position_id}"
+            )
         else:
-            seen_shooters.add(shooter_id)
-            if isinstance(position_id, str):
-                position_to_shooter[position_id] = shooter_id
+            positions_in_frame.add(position_id)
+        if shooter_id in shooters_in_frame:
+            errors.append(
+                f"Frame {frame_id}: duplicate shooter {shooter_id}"
+            )
+        else:
+            shooters_in_frame.add(shooter_id)
+        seen_positions.add(position_id)
+        position_to_shooters.setdefault(position_id, set()).add(shooter_id)
         if item.get("verified") is not True:
             errors.append(f"Identity record {index} is not individually user-confirmed")
 
     expected_positions = set(positions)
     if expected_positions - seen_positions:
         errors.append(
-            "Identity frame is missing calibrated positions: "
+            "Identity observations are missing calibrated positions: "
             + ", ".join(sorted(expected_positions - seen_positions))
         )
-    if seen_positions - expected_positions:
-        errors.append("Identity frame contains uncalibrated positions")
-    if len(frame_ids) != 1:
-        errors.append("Identity records must belong to exactly one capture frame")
-    if len(observations) != len(expected_positions):
-        errors.append(
-            f"Expected exactly {len(expected_positions)} identity records; got {len(observations)}"
-        )
-    if len(seen_shooters) != len(observations):
-        errors.append("Identity frame does not map each position to a distinct shooter")
+    if not frame_ids:
+        errors.append("Identity observations contain no capture frame IDs")
+    if not observations:
+        errors.append("Identity observations contain no records")
 
     visual_observations = visual.get("observations")
     visual_positions = {
@@ -226,8 +229,18 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         "identity_verified": not errors,
         "positions_checked": len(seen_positions),
         "known_shooters": sorted(known_shooters),
-        "position_to_shooter": position_to_shooter,
-        "identity_frame_id": next(iter(frame_ids)) if len(frame_ids) == 1 else None,
+        "position_to_shooters": {
+            position: sorted(shooter_ids)
+            for position, shooter_ids in sorted(position_to_shooters.items())
+        },
+        "shooter_positions": {
+            shooter_id: sorted(
+                position for position, shooter_ids in position_to_shooters.items()
+                if shooter_id in shooter_ids
+            )
+            for shooter_id in sorted(known_shooters)
+        },
+        "identity_frame_ids": sorted(frame_ids),
         "board_snapshot_id": board_id,
         "capture_session_id": board_session,
         "captured_at": board_time.isoformat() if board_time else None,
