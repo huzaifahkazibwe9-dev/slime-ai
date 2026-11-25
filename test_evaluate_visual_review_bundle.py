@@ -295,6 +295,34 @@ class CombinedVisualReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "capture_session_id is invalid"):
             self._evaluate()
 
+    def test_rejects_null_manifest_capture_session_id_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"capture_session_id": None})
+        )
+        with self.assertRaisesRegex(ValueError, "capture_session_id is invalid"):
+            self._evaluate()
+
+    def test_rejects_empty_manifest_capture_session_id_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"capture_session_id": ""})
+        )
+        with self.assertRaisesRegex(ValueError, "capture_session_id is invalid"):
+            self._evaluate()
+
+    def test_rejects_null_manifest_timestamp_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"captured_at": None})
+        )
+        with self.assertRaisesRegex(ValueError, "captured_at is invalid"):
+            self._evaluate()
+
+    def test_rejects_empty_manifest_timestamp_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"captured_at": ""})
+        )
+        with self.assertRaisesRegex(ValueError, "captured_at is invalid"):
+            self._evaluate()
+
     def test_rejects_timezone_naive_manifest_timestamp_even_when_resealed(self):
         self._reseal_manifest(
             lambda manifest: manifest.update({"captured_at": "2026-11-25T12:00:00"})
