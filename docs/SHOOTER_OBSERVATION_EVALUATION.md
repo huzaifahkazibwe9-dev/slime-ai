@@ -191,3 +191,22 @@ A detector-declared state is rejected if its status is missing or is not
 `PARSED_EXACT_DIGITS`; the level audit reports counts by OCR status. This keeps
 a failed OCR state from becoming valid merely by passing through a simulation
 snapshot/restore cycle.
+
+
+## Per-class diagnostic metrics
+
+The multi-capture batch evaluator adds one-vs-rest precision, recall, and F1
+for each label in the visibility, slot-position, and colour confusion matrices.
+Each class entry also reports its reviewed support, predicted count, true
+positives, false positives, and false negatives. These values are available
+inside the aggregate and per-capture metric objects.
+
+A `null` precision means the detector never predicted that class, so
+precision is undefined; a recall of zero means reviewed examples of that class
+were all missed. F1 remains null when precision is undefined. Empty metric
+sets expose an empty `per_class` object rather than a fabricated score.
+
+Per-class values are diagnostic summaries of agreement with supplied human
+labels. They do not establish independent label truth, representative
+sampling, statistical adequacy, or gameplay performance. No class threshold
+changes detector calibration or enables game actions.
