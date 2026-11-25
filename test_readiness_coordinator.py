@@ -319,6 +319,18 @@ class LearningSummaryTests(unittest.TestCase):
             with patch.object(readiness, "DATA", root):
                 self.assertEqual(readiness.read_json("invalid.json", {}), {})
 
+    def test_read_json_rejects_duplicate_json_object_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "duplicate.json").write_text(
+                '{"readiness":false,"readiness":true}'
+            )
+            with patch.object(readiness, "DATA", root):
+                self.assertEqual(
+                    readiness.read_json("duplicate.json", {"fallback": True}),
+                    {"fallback": True},
+                )
+
     def test_read_json_rejects_non_object_top_level_payloads(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
