@@ -122,6 +122,38 @@ class ShooterDetectorCalibrationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_panel_slot_inventory(*dimensions)
 
+    def test_panel_image_size_rejects_invalid_aspect_tolerance(self):
+        for tolerance in (0, -0.1, 1.1, float("nan"), float("inf"), True, "0.02"):
+            with self.subTest(tolerance=tolerance):
+                with self.assertRaises(ValueError):
+                    validate_panel_image_size(REF_W, REF_H, tolerance)
+
+    def test_colour_sample_rejects_invalid_quality_thresholds(self):
+        image = Image.new("RGB", (40, 40), (120, 120, 120))
+        invalid_values = (
+            (float("nan"), 32),
+            (float("inf"), 32),
+            (-1, 32),
+            (442, 32),
+            (24, float("nan")),
+            (24, float("inf")),
+            (24, -1),
+            (24, 256),
+            (True, 32),
+            (24, "32"),
+        )
+        for minimum_contrast, maximum_mad in invalid_values:
+            with self.subTest(
+                minimum_contrast=minimum_contrast,
+                maximum_mad=maximum_mad,
+            ):
+                with self.assertRaises(ValueError):
+                    assess_color_sample(
+                        image, 20, 20,
+                        minimum_contrast=minimum_contrast,
+                        maximum_mad=maximum_mad,
+                    )
+
     def test_scaled_panel_sample_coordinates(self):
         sx = 830 / REF_W
         sy = 540 / REF_H
