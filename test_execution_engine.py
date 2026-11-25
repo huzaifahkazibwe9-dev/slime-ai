@@ -119,6 +119,18 @@ class ExecutionEngineTests(unittest.TestCase):
         ))
         self.assertFalse(state.can_select_group("A"))
 
+    def test_non_string_group_id_fails_closed(self):
+        shooter = Shooter(
+            "A", "red", 2, "right", -1, 0,
+            accessible=True, group_id=["not", "a", "string"],
+        )
+        state = self.make_state([["red"]], [shooter])
+        self.assertFalse(shooter.valid())
+        self.assertFalse(state.can_select_group("A"))
+        self.assertTrue(any(
+            "Invalid shooter: A" in error for error in state.validate()
+        ))
+
     def test_conveyor_dry_run_uses_canonical_explicit_group_id(self):
         a = Shooter(
             "A", "red", 2, "right", -1, 0,
