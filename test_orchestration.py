@@ -57,6 +57,33 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(selected, legacy)
             self.assertEqual(source, "legacy_fallback")
 
+    def test_candidate_source_hashes_must_match_current_inputs(self):
+        candidate = {"source_file_sha256": {
+            "conveyor_calibration_json": "a" * 64,
+            "conveyor_visual_observations_json": "b" * 64,
+            "shooter_detection_json": "c" * 64,
+        }}
+        expected = {
+            "conveyor_calibration_json": "a" * 64,
+            "conveyor_observations_json": "b" * 64,
+            "shooter_detection_json": "c" * 64,
+        }
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertTrue(checks["candidate_source_hashes_match"])
+        expected["shooter_detection_json"] = "d" * 64
+        checks = evidence_status(
+            {}, None, None, candidate,
+            planning_input_file_sha256=expected,
+        )["checks"]
+        self.assertFalse(checks["candidate_source_hashes_match"])
+        self.assertFalse(evidence_status(
+            {}, None, None, {"source_file_sha256": {}},
+            planning_input_file_sha256=expected,
+        )["checks"]["candidate_source_hashes_match"])
+
     def test_reachability_upstream_hashes_must_match_current_inputs(self):
         planning = {"upstream_source_file_sha256": {
             "reachability_audit_json": "a" * 64,
