@@ -22,14 +22,15 @@ from capture_pipeline import (
 from prepare_colour_labels import build_template as build_colour_template
 from prepare_shooter_labels import build_template as build_shooter_template
 from source_pixel_audit import validate_source_pixel_audit_status
+from strict_json import strict_json_loads
 
 
 def _read_json_object(path, description):
     path = Path(path)
     try:
         raw = path.read_bytes()
-        data = json.loads(raw)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        data = strict_json_loads(raw)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"{description} is missing or invalid JSON") from exc
     if not isinstance(data, dict):
         raise ValueError(f"{description} must be a JSON object")
