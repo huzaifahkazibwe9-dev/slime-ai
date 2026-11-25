@@ -186,6 +186,31 @@ kept diagnostic-only and the evidence gate blocks planning.
 10. Run all unit tests:
     `python -m unittest discover -v`
 
+## Human-confirmed shooter identity
+
+The build pipeline now validates physical shooter-to-conveyor-position identity
+from an explicit, local user-confirmed observation file. It does not infer
+physical identity from fixed panel positions or colour similarity.
+
+Create `data/shooter_identity_observations.json` only after checking the
+current capture. The required JSON schema, field meanings, current-frame
+coverage rules, source matching and limitations are documented in
+[`docs/USER_CONFIRMED_IDENTITY.md`](docs/USER_CONFIRMED_IDENTITY.md).
+The file lives under the ignored `data/` directory and is not committed.
+
+During the normal build pipeline, `identity_auditor.py` writes
+`data/identity_audit_report.json`, then
+`conveyor_identity_matcher.py` writes
+`data/conveyor_identity_candidates.json`. Both bind their reports to the
+exact board, calibration, visual observation, identity observation and shooter
+detection inputs. Missing, stale or unconfirmed records keep candidate
+matching blocked.
+
+A passing identity audit confirms only the user-checked physical
+shooter-to-position mapping for one capture. It does not verify panel colour
+classification, ammunition OCR, firing behaviour, colour equivalence with
+board tiles, or gameplay. Live game taps and purchases remain disabled.
+
 ## Validation scope
 
 The screenshot-mode level loader validates:
