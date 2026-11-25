@@ -305,3 +305,100 @@ class ExecutionEngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ConveyorGeometryIntegrationTests(unittest.TestCase):
+    def calculate(self, **overrides):
+        from conveyor_geometry import calculate_firing_geometry
+        values = {
+            "screen_center": (540, 1200),
+            "segment": "bottom",
+            "image_size": (1080, 2220),
+            "position_verified": True,
+        }
+        values.update(overrides)
+        return calculate_firing_geometry(**values)
+
+    def test_valid_geometry_maps_without_enabling_live_taps(self):
+        result = self.calculate()
+        self.assertEqual(result["direction"], "up")
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_rejects_malformed_numeric_geometry_inputs(self):
+        cases = (
+            {"screen_center": None},
+            {"screen_center": (540, float("nan"))},
+            {"screen_center": (540, float("inf"))},
+            {"screen_center": (True, 1200)},
+            {"image_size": (1080, True)},
+            {"image_size": (1080, 0)},
+            {"board_bounds": (1, 2, 1, 4)},
+            {"board_bounds": (1, 2, 3, float("nan"))},
+            {"grid_size": (35, True)},
+            {"grid_size": (35.0, 35)},
+        )
+        for overrides in cases:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.calculate(**overrides)
+
+    def test_rejects_centres_outside_declared_conveyor_segment(self):
+        cases = (
+            ("bottom", (200, 1200)),
+            ("top", (200, 400)),
+            ("right", (850, 700)),
+            ("left", (250, 700)),
+        )
+        for segment, center in cases:
+            with self.subTest(segment=segment, center=center):
+                with self.assertRaises(ValueError):
+                    self.calculate(segment=segment, screen_center=center)
+
+    def test_accepts_all_four_declared_conveyor_segments(self):
+        cases = (
+            ("bottom", (540, 1200)),
+            ("top", (540, 400)),
+            ("right", (900, 700)),
+            ("left", (180, 700)),
+        )
+        for segment, center in cases:
+            with self.subTest(segment=segment):
+                result = self.calculate(segment=segment, screen_center=center)
+                self.assertTrue(result["verified_screen_position"])
+                self.assertFalse(result["game_taps_enabled"])
+
+    def test_geometry_adapter_requires_explicit_position_confirmation(self):
+        from geometry_adapter import apply_geometry
+        shooter = Shooter("S1", "cyan", 20, accessible=True)
+        before = (shooter.x, shooter.y, shooter.direction, shooter.accessible)
+        with self.assertRaisesRegex(ValueError, "explicitly verified"):
+            apply_geometry(
+                shooter, (540, 1200), "bottom", (1080, 2220),
+                position_verified=False,
+            )
+        self.assertEqual(
+            (shooter.x, shooter.y, shooter.direction, shooter.accessible),
+            before,
+        )
+
+    def test_geometry_adapter_rejects_invalid_geometry_without_mutation(self):
+        from geometry_adapter import apply_geometry
+        shooter = Shooter("S1", "cyan", 20, accessible=True)
+        before = (
+            shooter.x, shooter.y, shooter.direction,
+            shooter.screen_center, shooter.screen_center_verified,
+            shooter.accessible,
+        )
+        with self.assertRaises(ValueError):
+            apply_geometry(
+                shooter, (540, 1200), "diagonal", (1080, 2220),
+                position_verified=True,
+            )
+        self.assertEqual(
+            (
+                shooter.x, shooter.y, shooter.direction,
+                shooter.screen_center, shooter.screen_center_verified,
+                shooter.accessible,
+            ),
+            before,
+        )
