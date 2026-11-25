@@ -288,6 +288,27 @@ class CombinedVisualReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "board_colour template fields"):
             self._evaluate()
 
+    def test_rejects_invalid_capture_session_id_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"capture_session_id": "../invalid"})
+        )
+        with self.assertRaisesRegex(ValueError, "capture_session_id is invalid"):
+            self._evaluate()
+
+    def test_rejects_timezone_naive_manifest_timestamp_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"captured_at": "2026-11-25T12:00:00"})
+        )
+        with self.assertRaisesRegex(ValueError, "canonical ISO-8601 with a UTC offset"):
+            self._evaluate()
+
+    def test_rejects_noncanonical_manifest_timestamp_even_when_resealed(self):
+        self._reseal_manifest(
+            lambda manifest: manifest.update({"captured_at": "2026-11-25T12:00:00Z"})
+        )
+        with self.assertRaisesRegex(ValueError, "canonical ISO-8601 with a UTC offset"):
+            self._evaluate()
+
     def test_rejects_invalid_manifest_limitations_even_when_resealed(self):
         self._reseal_manifest(
             lambda manifest: manifest.update({"limitations": ["", 12]})
