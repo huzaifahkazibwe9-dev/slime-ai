@@ -129,6 +129,59 @@ def read_optional_snapshot(name):
         return {}, None
 
 
+def validate_bond_config_provenance(detection, config, config_digest):
+    """Compare detector bond declarations with the current exact config bytes."""
+    if not isinstance(detection, dict):
+        return False, ["Shooter detection must be an object"]
+    source = detection.get("bonding_source")
+    detector_digest = detection.get("bonding_config_sha256")
+    detector_groups = detection.get("bonded_groups", [])
+    if source == "not_configured":
+        if config_digest is not None or detector_digest is not None:
+            return False, [
+                "Unconfigured bonded-group source unexpectedly has config bytes or digest"
+            ]
+        if detector_groups:
+            return False, [
+                "Shooter detection declares bonded groups without a configured source"
+            ]
+        return False, []
+
+    if source not in {"user_confirmed", "not_user_confirmed"}:
+        return False, ["Shooter detection has an invalid bonded-group source"]
+    if not isinstance(config, dict) or not isinstance(config_digest, str):
+        return False, ["Bonded-group config file is missing or unreadable"]
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", config_digest) is None
+        or detector_digest != config_digest
+    ):
+        return False, [
+            "Bonded-group detector digest does not match the current config bytes"
+        ]
+    configured_groups = config.get("bonded_groups")
+    if not isinstance(configured_groups, list):
+        return False, ["Bonded-group config does not contain a group list"]
+    if source == "user_confirmed":
+        if config.get("verified_by_user") is not True:
+            return False, [
+                "Detector labels bond source user_confirmed but config is not user-confirmed"
+            ]
+        if configured_groups != detector_groups:
+            return False, [
+                "Detector bonded groups differ from the current user-confirmed config"
+            ]
+        return True, []
+    if config.get("verified_by_user") is True:
+        return False, [
+            "Detector labels bond source not_user_confirmed but config is user-confirmed"
+        ]
+    if detector_groups:
+        return False, [
+            "Unconfirmed bonded-group config must not create detector bond edges"
+        ]
+    return False, []
+
+
 def user_confirmed_bond_source(detection):
     """Require the exact, configured user-confirmed bond source."""
     if not isinstance(detection, dict):
@@ -486,6 +539,15 @@ def main():
     _, identity_observations_digest = read_required(
         "shooter_identity_observations.json"
     )
+    try:
+        bond_config, bond_config_digest = read_optional_snapshot(
+            "bonded_groups_confirmed.json"
+        )
+    except (OSError, ValueError) as exc:
+        input_errors.append(
+            f"bonded_groups_confirmed.json: {type(exc).__name__}: {exc}"
+        )
+        bond_config, bond_config_digest = {}, None
     source_file_sha256 = {
         "conveyor_calibration_json": calibration_digest,
         "conveyor_visual_observations_json": visual_digest,
@@ -493,7 +555,15 @@ def main():
         "identity_audit_json": identity_digest,
         "board_observation_json": board_digest,
         "shooter_identity_observations_json": identity_observations_digest,
+        "bonded_groups_config_json": bond_config_digest,
     }
+
+    bond_source_user_confirmed, bond_config_errors = (
+        validate_bond_config_provenance(
+            detection, bond_config, bond_config_digest
+        )
+    )
+    input_errors.extend(bond_config_errors)
 
     observations = visual.get("observations", [])
     raw_positions = calibration.get("shooters", [])
@@ -646,10 +716,13 @@ def main():
         and all(isinstance(value, str) and value in shooters for value in candidate_pair)
         and len(set(candidate_pair)) == 2
     )
-    bond_source_user_confirmed = user_confirmed_bond_source(detection)
+    bond_source_user_confirmed = (
+        bond_source_user_confirmed
+        and user_confirmed_bond_source(detection)
+    )
     bonded_pair_confirmed = is_user_confirmed_bond_pair(
         detection, shooters, candidate_pair
-    ) if candidate_pair_valid else False
+    ) if candidate_pair_valid and bond_source_user_confirmed else False
 
     observed_order = [
         by_position[f"{side}_1"]["position_id"].split("_")[0]
