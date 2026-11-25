@@ -210,6 +210,15 @@ class SlimeController:
                     "plan_verification_status",
                     "NOT_GAMEPLAY_VERIFIED",
                 ),
+                "shooter_observation_quality": report.get(
+                    "shooter_observation_quality",
+                    {
+                        "colour_independently_verified": False,
+                        "ammunition_independently_verified": False,
+                        "slot_mapping_independently_verified": False,
+                        "interpretation": "Shooter visual quality metadata is unavailable.",
+                    },
+                ),
                 "recommended_group": group if verified_plan else None,
                 "decision": report.get("decision"),
                 "evidence_gate_passed": evidence_gate_passed,
