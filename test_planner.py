@@ -3,6 +3,26 @@ from game_state import GameState, Shooter
 from planner import plan_next_move
 
 
+def current_source_hashes():
+    return {
+        "vision_calibration_json": "1" * 64,
+        "edge_confidence_json": "2" * 64,
+        "reachability_audit_json": "3" * 64,
+        "reachability_confidence_json": "4" * 64,
+        "conveyor_calibration_json": "5" * 64,
+        "planning_json": "6" * 64,
+        "identity_json": "7" * 64,
+        "snapshot_json": "8" * 64,
+        "candidate_json": "9" * 64,
+        "conveyor_observations_json": "a" * 64,
+        "shooter_detection_json": "b" * 64,
+    }
+
+
+def current_calibration_sha256():
+    return "c" * 64
+
+
 def make_state():
     state = GameState(
         board=[["red", "blue"], ["green", "red"]],
@@ -14,12 +34,27 @@ def make_state():
         },
     )
     state.snapshot_id = "snap-39"
+    state.calibration_sha256 = current_calibration_sha256()
     state.shooter_capture_provenance_verified = True
     return state
 
 
 def make_evidence():
+    source_hashes = current_source_hashes()
     planning = {
+        "input_file_sha256": {
+            "reachability_confidence_json": source_hashes["reachability_confidence_json"],
+            "candidate_json": source_hashes["candidate_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+        },
+        "upstream_source_file_sha256": {
+            "reachability_audit_json": source_hashes["reachability_audit_json"],
+            "vision_level39_json": source_hashes["vision_calibration_json"],
+            "edge_confidence_json": source_hashes["edge_confidence_json"],
+            "board_json": source_hashes["vision_calibration_json"],
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "conveyor_observations_json": source_hashes["conveyor_observations_json"],
+        },
         "level": 39,
         "planning_evidence_verified": True,
         "gameplay_verified": False,
@@ -85,6 +120,11 @@ def make_evidence():
         }
 
     candidates = {
+        "source_file_sha256": {
+            "conveyor_calibration_json": source_hashes["conveyor_calibration_json"],
+            "conveyor_visual_observations_json": source_hashes["conveyor_observations_json"],
+            "shooter_detection_json": source_hashes["shooter_detection_json"],
+        },
         "identity_verified": True,
         "current_snapshot_id": "snap-39",
         "checks": candidate_checks,
@@ -106,6 +146,10 @@ def make_evidence():
     }
 
     snapshot = {
+        "source_file_sha256": {
+            "vision_level39_json": source_hashes["vision_calibration_json"],
+            "conveyor_observations_json": source_hashes["conveyor_observations_json"],
+        },
         "synchronised": True,
         "planning_allowed_by_sync": True,
         "board_snapshot_id": "snap-39",
@@ -116,23 +160,52 @@ def make_evidence():
     return planning, identity, candidates, snapshot
 
 
-def run_plan(evidence):
-    return plan_next_move(make_state(), *evidence)
+def run_plan(evidence, state=None, source_hashes=None, calibration_sha256=None):
+    return plan_next_move(
+        make_state() if state is None else state,
+        *evidence,
+        current_source_file_sha256=(
+            current_source_hashes() if source_hashes is None else source_hashes
+        ),
+        current_calibration_sha256=(
+            current_calibration_sha256()
+            if calibration_sha256 is None else calibration_sha256
+        ),
+    )
 
 
 class PlannerEvidenceTests(unittest.TestCase):
+    def test_missing_current_source_hashes_fail_closed(self):
+        self.assertIsNone(plan_next_move(make_state(), *make_evidence()))
+
+    def test_stale_snapshot_source_hash_fails_closed(self):
+        evidence = list(make_evidence())
+        evidence[3]["source_file_sha256"]["conveyor_observations_json"] = "d" * 64
+        self.assertIsNone(run_plan(evidence))
+
+    def test_malformed_current_source_hash_fails_closed(self):
+        hashes = current_source_hashes()
+        hashes["edge_confidence_json"] = "not-a-sha256"
+        self.assertIsNone(run_plan(make_evidence(), source_hashes=hashes))
+
+    def test_stale_board_calibration_hash_fails_closed(self):
+        self.assertIsNone(run_plan(
+            make_evidence(),
+            calibration_sha256="d" * 64,
+        ))
+
     def test_complete_verified_evidence_accepts_group(self):
         self.assertEqual(run_plan(make_evidence()), ("A", "B"))
 
     def test_unbound_shooter_capture_rejected_even_with_other_verified_evidence(self):
         state = make_state()
         state.shooter_capture_provenance_verified = False
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_missing_shooter_capture_provenance_rejected(self):
         state = make_state()
         del state.shooter_capture_provenance_verified
-        self.assertIsNone(plan_next_move(state, *make_evidence()))
+        self.assertIsNone(run_plan(make_evidence(), state=state))
 
     def test_missing_identity_audit_rejected(self):
         e = list(make_evidence())
