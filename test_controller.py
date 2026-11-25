@@ -297,6 +297,18 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(status["capture_evidence_valid"])
         self.assertTrue(status["capture_report_matches_current_capture"])
         self.assertTrue(status["plan_available"])
+        self.assertTrue(status["plan_is_simulation_candidate"])
+        self.assertIs(status["plan_is_gameplay_verified"], False)
+        self.assertEqual(
+            status["plan_verification_status"],
+            "SIMULATION_CANDIDATE_ONLY_NOT_GAMEPLAY_VERIFIED",
+        )
+        self.assertIs(
+            status["shooter_observation_quality"][
+                "colour_independently_verified"
+            ],
+            False,
+        )
         self.assertFalse(status["gameplay_ready"])
         self.assertFalse(status["tap_enabled"])
 
