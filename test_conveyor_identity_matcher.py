@@ -54,6 +54,43 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
                     conveyor_identity_matcher.user_confirmed_bond_source(invalid)
                 )
 
+    def test_reciprocal_bond_lists_do_not_pass_without_user_confirmed_source(self):
+        shooters = {
+            "A": {"bonded_ids": ["B"]},
+            "B": {"bonded_ids": ["A"]},
+        }
+        pair = ["A", "B"]
+        unconfirmed = {
+            "bonding_source": "not_user_confirmed",
+            "bonding_config_sha256": "a" * 64,
+        }
+        self.assertFalse(
+            conveyor_identity_matcher.is_user_confirmed_bond_pair(
+                unconfirmed, shooters, pair
+            )
+        )
+
+    def test_user_confirmed_bond_pair_requires_reciprocal_membership(self):
+        detection = {
+            "bonding_source": "user_confirmed",
+            "bonding_config_sha256": "a" * 64,
+        }
+        shooters = {
+            "A": {"bonded_ids": ["B"]},
+            "B": {"bonded_ids": ["A"]},
+        }
+        self.assertTrue(
+            conveyor_identity_matcher.is_user_confirmed_bond_pair(
+                detection, shooters, ["A", "B"]
+            )
+        )
+        shooters["B"]["bonded_ids"] = []
+        self.assertFalse(
+            conveyor_identity_matcher.is_user_confirmed_bond_pair(
+                detection, shooters, ["A", "B"]
+            )
+        )
+
     def test_read_snapshot_rejects_unreadable_utf8_payload(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
