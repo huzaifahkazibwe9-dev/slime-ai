@@ -151,6 +151,11 @@ class ControllerTests(unittest.TestCase):
 
         self.assertTrue(result["accepted"])
         self.assertFalse(result["plan_available"])
+        self.assertFalse(result["plan_is_simulation_candidate"])
+        self.assertIs(result["plan_is_gameplay_verified"], False)
+        self.assertEqual(
+            result["plan_verification_status"], "NOT_GAMEPLAY_VERIFIED"
+        )
         self.assertIsNone(result["recommended_group"])
         self.assertFalse(result["evidence_gate_passed"])
         self.assertFalse(result["touch_events_sent"])
