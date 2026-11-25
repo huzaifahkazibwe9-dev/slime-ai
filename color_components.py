@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from strict_json import strict_json_loads
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -20,7 +21,7 @@ def load_board():
     if not SOURCE.exists():
         raise FileNotFoundError(SOURCE)
 
-    data = json.loads(SOURCE.read_text())
+    data = strict_json_loads(SOURCE.read_text())
     board = data.get("board")
 
     if not isinstance(board, list) or len(board) != 35:

@@ -3,6 +3,7 @@ from collections import Counter
 from pathlib import Path
 import colorsys
 import json
+from strict_json import strict_json_loads
 import statistics
 
 IMAGE = Path("screenshots/level39.jpg")
@@ -129,7 +130,7 @@ def analyse():
 
     if PALETTE_FILE.exists():
         with open(PALETTE_FILE) as f:
-            palette = json.load(f)
+            palette = strict_json_loads(f.read())
 
     output = {
         "image_size": [width, height],

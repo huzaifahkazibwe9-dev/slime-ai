@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from shooter_observation_evaluation import (
@@ -82,7 +83,7 @@ def evaluate_manifest(manifest, base_dir="."):
             paths[field] = path if path.is_absolute() else root / path
 
         try:
-            dataset = json.loads(paths["dataset"].read_text(encoding="utf-8"))
+            dataset = strict_json_loads(paths["dataset"].read_text(encoding="utf-8"))
             detection_bytes = paths["detection"].read_bytes()
             screenshot_bytes = paths["screenshot"].read_bytes()
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -228,7 +229,7 @@ def main():
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest).expanduser().resolve()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = strict_json_loads(manifest_path.read_text(encoding="utf-8"))
     report = evaluate_manifest(manifest, base_dir=manifest_path.parent)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

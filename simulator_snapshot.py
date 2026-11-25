@@ -5,7 +5,7 @@ observations from the live game and never enable gameplay actions.
 """
 import copy
 import json
-
+from strict_json import strict_json_loads
 from conveyor_simulator import (
     ConveyorSimulator, SimulatorConfig, create_simulator,
 )
@@ -35,7 +35,7 @@ def _require_json_compatible(value):
     """Reject values that JSON cannot preserve without changing their shape."""
     try:
         encoded = json.dumps(value, allow_nan=False)
-        decoded = json.loads(encoded)
+        decoded = strict_json_loads(encoded)
     except (TypeError, ValueError) as exc:
         raise ValueError("snapshot contains non-JSON-compatible data") from exc
     if decoded != value:

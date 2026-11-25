@@ -5,6 +5,7 @@ Writes only its diagnostic JSON report.
 """
 import argparse
 import json
+from strict_json import strict_json_loads
 import sqlite3
 from pathlib import Path
 
@@ -21,7 +22,7 @@ def read_json(name, default=None):
     if not path.exists():
         return default
     try:
-        value = json.loads(path.read_text())
+        value = strict_json_loads(path.read_text())
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return default
     return value if isinstance(value, dict) else default

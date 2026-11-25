@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+from strict_json import strict_json_loads
 import math
 from pathlib import Path
 
@@ -99,7 +100,7 @@ def main():
     if args.threshold < 0:
         raise ValueError("Threshold cannot be negative")
 
-    calibration = json.loads(BASELINE.read_text())
+    calibration = strict_json_loads(BASELINE.read_text())
 
     previous = extract_board(args.previous, calibration)
     current = extract_board(args.current, calibration)

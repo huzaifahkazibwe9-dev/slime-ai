@@ -1,4 +1,5 @@
 import json
+from strict_json import strict_json_loads
 import numpy as np
 from pathlib import Path
 
@@ -16,10 +17,10 @@ def rgb_distance(a, b):
 
 def main():
     with open(BOARD_FILE) as f:
-        board_data = json.load(f)
+        board_data = strict_json_loads(f.read())
 
     with open(SHOOTER_FILE) as f:
-        shooter_data = json.load(f)
+        shooter_data = strict_json_loads(f.read())
 
     rgb_grid = np.array(board_data["raw_rgb"], dtype=np.float32)
     rows, cols, _ = rgb_grid.shape

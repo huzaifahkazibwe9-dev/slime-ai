@@ -1,5 +1,6 @@
 import hashlib
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 def analyze_board(board):
@@ -57,7 +58,7 @@ def analyze_board(board):
 
 def analyze_snapshot(source_bytes, source_path):
     """Build edge-confidence metadata from the exact parsed board bytes."""
-    data = json.loads(source_bytes)
+    data = strict_json_loads(source_bytes)
     if not isinstance(data, dict):
         raise ValueError("Board source must be a JSON object")
     report = analyze_board(data.get("board"))

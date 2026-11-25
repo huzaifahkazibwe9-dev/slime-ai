@@ -6,6 +6,7 @@ records verified, or authorizes planning.
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 import re
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +27,7 @@ OUTPUT_FILE = DATA / "shooter_identity_observations.json"
 def read_json_snapshot(path):
     raw = Path(path).read_bytes()
     try:
-        value = json.loads(raw)
+        value = strict_json_loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"{path}: invalid UTF-8 JSON") from exc
     if not isinstance(value, dict):

@@ -249,5 +249,16 @@ class CapturePreflightTests(unittest.TestCase):
         self.assertIn("pixel audit is incomplete", result["reason"])
 
 
+    def test_rejects_duplicate_keys_in_capture_source_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board = Path(directory) / "board.json"
+            shooters = Path(directory) / "shooters.json"
+            board.write_text('{"source_sha256":"first","source_sha256":"second"}')
+            shooters.write_text('{"capture_provenance":{}}')
+            result = validate_capture_pair(board, shooters)
+        self.assertFalse(result["valid"])
+        self.assertIn("Duplicate JSON object key", result["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

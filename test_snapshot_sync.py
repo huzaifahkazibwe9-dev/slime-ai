@@ -435,5 +435,15 @@ class SnapshotSyncTests(unittest.TestCase):
                     synchronise_audit(board, observations)
 
 
+    def test_rejects_duplicate_keys_in_snapshot_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board_path = Path(directory) / "board.json"
+            observations_path = Path(directory) / "observations.json"
+            board_path.write_text('{"grid_size":[35,35],"grid_size":[1,1]}')
+            observations_path.write_text('{"observations":[]}')
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                read_input_snapshots(board_path, observations_path)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

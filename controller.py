@@ -5,6 +5,7 @@ to the evidence-gated orchestration pipeline and reports whether a candidate
 exists without treating a dry-run result as gameplay authorization.
 """
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 
@@ -23,7 +24,7 @@ class SlimeController:
 
     def readiness(self):
         try:
-            value = json.loads(self.report_path.read_text(encoding="utf-8"))
+            value = strict_json_loads(self.report_path.read_text(encoding="utf-8"))
             return value if isinstance(value, dict) else {}
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             return {}

@@ -1,5 +1,6 @@
 import inspect
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from conveyor_simulator import ConveyorSimulator

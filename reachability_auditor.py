@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 from collections import Counter
 
@@ -322,13 +323,13 @@ def main():
 
     board_path = Path(args.board)
     board_bytes = board_path.read_bytes()
-    board_data = json.loads(board_bytes)
+    board_data = strict_json_loads(board_bytes)
     calibration_path = Path(args.calibration)
     calibration_bytes = calibration_path.read_bytes()
-    calibration = json.loads(calibration_bytes)
+    calibration = strict_json_loads(calibration_bytes)
     observations_path = Path(args.observations)
     observations_bytes = observations_path.read_bytes()
-    observations = json.loads(observations_bytes)
+    observations = strict_json_loads(observations_bytes)
     if "raw_rgb" in board_data:
         # Validate screenshot schema and RGB/label consistency before tracing.
         from screenshot_observation_loader import _require_grid

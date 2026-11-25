@@ -1,5 +1,6 @@
 import hashlib
 import json
+from strict_json import strict_json_loads
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -321,8 +322,8 @@ def _read_json_snapshot(path):
     """Parse a JSON object and fingerprint the exact bytes that were parsed."""
     raw = Path(path).read_bytes()
     try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        value = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"Evidence artifact is not valid UTF-8 JSON: {path}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"Evidence artifact must contain a JSON object: {path}")

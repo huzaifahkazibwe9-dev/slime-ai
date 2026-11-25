@@ -7,6 +7,7 @@ never claims gameplay verification or authorizes device actions.
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 import re
 from datetime import datetime
 from pathlib import Path
@@ -44,7 +45,7 @@ def _timestamp(value):
 def read_json_snapshot(path):
     """Parse one JSON object and hash the exact bytes used to parse it."""
     raw = Path(path).read_bytes()
-    value = json.loads(raw)
+    value = strict_json_loads(raw)
     if not isinstance(value, dict):
         raise ValueError(f"Expected a JSON object: {path}")
     return value, hashlib.sha256(raw).hexdigest()

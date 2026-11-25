@@ -2,6 +2,7 @@
 """Independent validation of calibrated shooter-to-board geometry."""
 
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from conveyor_geometry import calculate_firing_geometry
@@ -166,7 +167,7 @@ def run_tests(report):
 
 
 def main():
-    data = json.loads(CALIBRATION.read_text())
+    data = strict_json_loads(CALIBRATION.read_text())
     report = validate_calibration(data)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

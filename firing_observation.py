@@ -2,6 +2,7 @@
 """Passively compare manually observed firing behaviour with calibrated geometry."""
 
 import json
+from strict_json import strict_json_loads
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -97,7 +98,7 @@ def ask_int(prompt):
 
 
 def main():
-    calibration = json.loads(CALIBRATION.read_text())
+    calibration = strict_json_loads(CALIBRATION.read_text())
     if calibration.get("verified_by_user") is not True:
         raise ValueError("User-confirmed calibration is required.")
 
@@ -140,7 +141,7 @@ def main():
 
     data = {"version": 1, "observations": []}
     if OUTPUT.exists():
-        data = json.loads(OUTPUT.read_text())
+        data = strict_json_loads(OUTPUT.read_text())
 
     record = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

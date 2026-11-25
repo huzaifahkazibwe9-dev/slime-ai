@@ -2,6 +2,7 @@
 """Build a provisional colour-region graph from the latest screenshot observation."""
 import argparse
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 from color_topology import analyze_board
@@ -54,7 +55,7 @@ def main():
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     args = parser.parse_args()
 
-    data = json.loads(Path(args.input).read_text())
+    data = strict_json_loads(Path(args.input).read_text())
     report = audit_observation(data)
 
     output = Path(args.output)

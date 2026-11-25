@@ -176,6 +176,14 @@ class ConveyorIdentityMatcherTests(unittest.TestCase):
             )
             self.assertEqual(saved, report)
 
+    def test_read_snapshot_rejects_duplicate_json_object_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "duplicate.json"
+            path.write_text('{"snapshot_id":"first","snapshot_id":"second"}')
+            with patch.object(conveyor_identity_matcher, "DATA", Path(directory)):
+                with self.assertRaisesRegex(ValueError, "unreadable JSON"):
+                    read_snapshot("duplicate.json")
+
     def test_read_snapshot_hashes_exact_json_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             raw = b'{ "value": 9 }'

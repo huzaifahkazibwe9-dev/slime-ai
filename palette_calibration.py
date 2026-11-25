@@ -1,12 +1,13 @@
 import json
+from strict_json import strict_json_loads
 import numpy as np
 from collections import defaultdict
 
 with open("data/vision_level39.json") as f:
-    vision = json.load(f)
+    vision = strict_json_loads(f.read())
 
 with open("data/shooter_detection.json") as f:
-    shooters = json.load(f)["visible_shooters"]
+    shooters = strict_json_loads(f.read())["visible_shooters"]
 
 board = vision["board"]
 rgb = np.array(vision["raw_rgb"], dtype=float)

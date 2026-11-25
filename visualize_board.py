@@ -1,8 +1,9 @@
 import json
+from strict_json import strict_json_loads
 from PIL import Image, ImageDraw
 
 with open("data/vision_level39.json") as f:
-    data = json.load(f)
+    data = strict_json_loads(f.read())
 
 board = data["board"]
 

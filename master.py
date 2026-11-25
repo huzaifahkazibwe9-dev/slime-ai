@@ -1,6 +1,7 @@
 from pathlib import Path
 import ast
 import json
+from strict_json import strict_json_loads
 import sqlite3
 import time
 
@@ -60,7 +61,7 @@ log("3. JSON DATA CHECK")
 json_files = sorted((ROOT / "data").glob("*.json"))
 for path in json_files:
     try:
-        json.loads(path.read_text(encoding="utf-8"))
+        strict_json_loads(path.read_text(encoding="utf-8"))
         log("[PASS] " + path.name)
     except Exception as exc:
         log(f"[FAIL] {path.name}: {exc}")

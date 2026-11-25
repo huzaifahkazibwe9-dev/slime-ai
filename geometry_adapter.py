@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import json
-
+from strict_json import strict_json_loads
 from conveyor_geometry import calculate_firing_geometry
 
 CALIBRATION_FILE = Path("data/conveyor_calibration.json")
@@ -39,7 +39,7 @@ def apply_geometry(
 def run_tests():
     from game_state import Shooter
 
-    data = json.loads(CALIBRATION_FILE.read_text())
+    data = strict_json_loads(CALIBRATION_FILE.read_text())
     image_size = tuple(data["image_size"])
 
     assert data.get("verified_by_user") is True

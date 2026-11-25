@@ -1,6 +1,7 @@
 """Read-only, frame-specific shooter identity observations."""
 
 import json
+from strict_json import strict_json_loads
 from pathlib import Path
 
 DETECTION_FILE = Path("data/shooter_detection.json")
@@ -9,8 +10,8 @@ IDENTITY_FILE = Path("data/shooter_identity_observations.json")
 
 
 def load_reference_data():
-    detection = json.loads(DETECTION_FILE.read_text())
-    calibration = json.loads(CALIBRATION_FILE.read_text())
+    detection = strict_json_loads(DETECTION_FILE.read_text())
+    calibration = strict_json_loads(CALIBRATION_FILE.read_text())
 
     shooters = {
         item["id"]: item
@@ -154,14 +155,14 @@ def report():
     shooters, positions = load_reference_data()
 
     if IDENTITY_FILE.exists():
-        data = json.loads(IDENTITY_FILE.read_text())
+        data = strict_json_loads(IDENTITY_FILE.read_text())
         observations = data.get("observations", [])
     else:
         observations = []
 
     visual_file = Path("data/conveyor_visual_observations.json")
     visual = (
-        json.loads(visual_file.read_text())
+        strict_json_loads(visual_file.read_text())
         if visual_file.exists() else {"observations": []}
     )
     visual_observations = visual.get("observations", [])

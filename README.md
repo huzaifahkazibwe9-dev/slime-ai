@@ -266,6 +266,8 @@ updated to match the altered file.
 
 Strict UTF-8 JSON parsing is also enforced by the runtime board and confidence loaders, shooter and panel-slot loaders, screenshot-observation loader, conveyor identity snapshot reader, snapshot synchroniser, and legacy level loader. This prevents the planner from bypassing the duplicate-key and non-standard-number protections applied to capture/review artifacts. This is a parsing-integrity control only; it does not authenticate evidence or establish visual/gameplay correctness.
 
+The same parser contract is applied at the wider evidence and planning boundaries: capture preflight, planning-gate snapshots, reachability audits and confidence reports, conveyor consistency/geometry/timeline and identity reports, firing observations/simulations, visual transition auditors, calibration and identity trackers, and the remaining board/shooter diagnostic readers. Duplicate names are rejected at every object depth, and `NaN`/infinities are not accepted as JSON numbers. Readers that fingerprint evidence continue hashing the exact original bytes separately from parsing.
+
 The capture and review workflows use strict UTF-8 JSON parsing for calibration,
 board and shooter observations, pixel audits, human-review datasets, review
 manifests, and batch manifests. Duplicate object keys (including nested keys)

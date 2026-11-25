@@ -1,6 +1,7 @@
 
 import argparse
 import json
+from strict_json import strict_json_loads
 from collections import Counter
 from pathlib import Path
 
@@ -198,11 +199,11 @@ def audit_observation(board_data, calibration, observations):
 
 def audit_files(board_path=None, calibration_path=CALIBRATION_FILE,
                 observations_path=OBSERVATIONS_FILE):
-    calibration = json.loads(Path(calibration_path).read_text())
-    observations = json.loads(Path(observations_path).read_text())
+    calibration = strict_json_loads(Path(calibration_path).read_text())
+    observations = strict_json_loads(Path(observations_path).read_text())
 
     if board_path is not None:
-        source = json.loads(Path(board_path).read_text())
+        source = strict_json_loads(Path(board_path).read_text())
         report = audit_observation(source, calibration, observations)
     else:
         loaded = load_board()

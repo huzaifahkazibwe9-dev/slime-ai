@@ -1,5 +1,6 @@
 """Fail-closed validation for a fresh board/shooter screenshot pair."""
 import json
+from strict_json import strict_json_loads
 import re
 from datetime import datetime
 from pathlib import Path
@@ -36,10 +37,10 @@ def validate_capture_pair(
     shooter_path = Path(shooter_path)
     try:
         if board_data is None:
-            board_data = json.loads(observation_path.read_text(encoding="utf-8"))
+            board_data = strict_json_loads(observation_path.read_bytes())
         if shooter_data is None:
-            shooter_data = json.loads(shooter_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+            shooter_data = strict_json_loads(shooter_path.read_bytes())
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         return {"valid": False, "reason": f"Capture files are missing or invalid: {exc}"}
     board = board_data
 
@@ -105,8 +106,8 @@ def validate_capture_pair(
     )
     try:
         if pixel_audit_data is None:
-            pixel_audit_data = json.loads(audit_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+            pixel_audit_data = strict_json_loads(audit_path.read_bytes())
+    except (OSError, UnicodeDecodeError, ValueError):
         return {
             "valid": False,
             "reason": "Independent source-pixel audit is missing or invalid; rerun the capture pipeline.",
