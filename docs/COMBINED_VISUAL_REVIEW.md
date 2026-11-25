@@ -18,3 +18,5 @@ The evaluator verifies manifest integrity, exact source-artifact hashes, capture
 The evaluator then runs the board-colour and shooter-observation metrics and emits one combined report. It does not combine the two metrics into one accuracy number because they measure different tasks.
 
 Review labels remain user-supplied evidence. Agreement metrics do not independently prove that human labels are correct, that calibration aligns to game tiles, or that shooter colour, ammunition, or slot mapping is correct. Gameplay remains unverified and live taps remain disabled.
+
+The resulting evaluation report also records SHA-256 digests for the exact manifest, completed board-label JSON and completed shooter-label JSON bytes it evaluated. Preserve the report together with those input files when an evaluation needs to be independently reproduced later. These digests identify the reviewed inputs; they do not certify who supplied the human labels or whether those labels are true.
