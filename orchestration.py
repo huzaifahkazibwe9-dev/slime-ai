@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+from strict_json import strict_json_loads
 import re
 import time
 from pathlib import Path
@@ -47,9 +48,9 @@ def _valid_aware_capture_timestamp(value):
 
 def read_report(path):
     try:
-        data = json.loads(Path(path).read_text())
+        data = strict_json_loads(Path(path).read_bytes())
         return data if isinstance(data, dict) else None
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, ValueError):
         return None
 
 
@@ -62,8 +63,8 @@ def _read_json_artifact(path):
         return None, None
     digest = hashlib.sha256(raw).hexdigest()
     try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        value = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError):
         value = None
     return (value if isinstance(value, dict) else None), digest
 
@@ -632,10 +633,10 @@ def _read_capture_bundle(observation_path, shooter_path, pixel_audit_path=None):
         board_bytes = observation_path.read_bytes()
         shooter_bytes = shooter_path.read_bytes()
         audit_bytes = audit_path.read_bytes()
-        board = json.loads(board_bytes)
-        shooters = json.loads(shooter_bytes)
-        pixel_audit = json.loads(audit_bytes)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        board = strict_json_loads(board_bytes)
+        shooters = strict_json_loads(shooter_bytes)
+        pixel_audit = strict_json_loads(audit_bytes)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"Capture bundle is missing or invalid: {exc}") from exc
     if not all(isinstance(item, dict) for item in (board, shooters, pixel_audit)):
         raise ValueError("Capture bundle files must each contain a JSON object.")
