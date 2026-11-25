@@ -10,6 +10,13 @@ OBS_FILE = Path("data/conveyor_visual_observations.json")
 OUTPUT = Path("data/snapshot_sync_report.json")
 
 
+def _is_finite_number(value):
+    """Treat exact integers as finite without float-conversion overflow."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
 def _parse_aware_timestamp(value):
     if not isinstance(value, str) or not value.strip():
         return None
@@ -34,8 +41,7 @@ def validate_capture_freshness(board_timestamp, observation_timestamp,
         ("max_skew_seconds", max_skew_seconds),
     ):
         if (
-            type(value) not in (int, float)
-            or not math.isfinite(value)
+            not _is_finite_number(value)
             or value < 0
         ):
             raise ValueError(f"{name} must be a finite non-negative number")
