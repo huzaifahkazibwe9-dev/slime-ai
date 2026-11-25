@@ -31,6 +31,11 @@ def _finite_float(value):
         raise ValueError(
             f"JSON floating-point number is outside the finite range: {value}"
         )
+    mantissa = value.lower().split("e", 1)[0]
+    if number == 0.0 and any(digit in mantissa for digit in "123456789"):
+        raise ValueError(
+            f"JSON floating-point number underflows to zero: {value}"
+        )
     return number
 
 
