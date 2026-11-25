@@ -1,4 +1,5 @@
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -49,6 +50,23 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     (root / "source_pixel_audit_latest.json").write_text(json.dumps(audit))
 
 
+
+def capture_bundle_hashes(directory):
+    root = Path(directory)
+    return {
+        "board_json": hashlib.sha256(
+            (root / "board_observation_latest.json").read_bytes()
+        ).hexdigest(),
+        "shooter_json": hashlib.sha256(
+            (root / "shooter_detection.json").read_bytes()
+        ).hexdigest(),
+        "pixel_audit_json": hashlib.sha256(
+            (root / "source_pixel_audit_latest.json").read_bytes()
+        ).hexdigest(),
+    }
+
+
+
 class ControllerTests(unittest.TestCase):
     def test_initial_status_is_plan_only_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -89,6 +107,7 @@ class ControllerTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             write_capture_pair(directory)
+            report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
             controller = SlimeController(data_dir=directory)
             with patch(
                 "orchestration.run_orchestration",
@@ -328,6 +347,44 @@ class ControllerTests(unittest.TestCase):
 
         self.assertFalse(result["accepted"])
         self.assertFalse(result["touch_events_sent"])
+
+
+
+    def test_status_hides_saved_plan_when_capture_artifact_changes_without_identity_change(self):
+        report = {
+            "decision": "VERIFIED_PLAN_AVAILABLE_BUT_LIVE_ACTIONS_DISABLED",
+            "evidence": {"evidence_gate_passed": True},
+            "planner": {"recommended_group": ["A"]},
+            "capture_provenance": {
+                "source_sha256": "a" * 64,
+                "capture_session_id": "session-abc",
+                "captured_at": "PLACEHOLDER",
+                "snapshot_id": "sha256:" + "a" * 64,
+                "board_snapshot_id": "sha256:" + "a" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            write_capture_pair(directory)
+            board = json.loads((Path(directory) / "board_observation_latest.json").read_text())
+            report["capture_provenance"]["captured_at"] = board["captured_at"]
+            report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
+            report_path = Path(directory) / "orchestration_latest.json"
+            report_path.write_text(json.dumps(report))
+
+            # Preserve capture identity/provenance but alter shooter payload.
+            shooter_path = Path(directory) / "shooter_detection.json"
+            shooter = json.loads(shooter_path.read_text())
+            shooter["visible_shooters"] = [
+                {"id": "changed", "color": "red", "ammo": 99}
+            ]
+            shooter_path.write_text(json.dumps(shooter))
+
+            status = SlimeController(data_dir=directory).status()
+
+        self.assertTrue(status["capture_evidence_valid"])
+        self.assertFalse(status["capture_report_matches_current_capture"])
+        self.assertFalse(status["plan_available"])
+
 
 
 if __name__ == "__main__":
