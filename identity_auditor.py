@@ -193,7 +193,7 @@ def audit_identity(board, visual, identity_data, calibration, detection):
         shooters_in_frame = frame_shooters.setdefault(frame_id, set())
         if position_id in positions_in_frame:
             errors.append(
-                f"Frame {frame_id}: duplicate position {position_id}"
+                f"Duplicate position in frame {frame_id}: {position_id}"
             )
         else:
             positions_in_frame.add(position_id)
