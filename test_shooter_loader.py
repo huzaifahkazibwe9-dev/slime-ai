@@ -287,6 +287,18 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         self.assertIs(quality["slot_mapping_independently_verified"], False)
         self.assertEqual(quality["sample_quality_status"], "DISTINCT_SAMPLE")
 
+    def test_rejects_unsubstantiated_true_verification_claim(self):
+        with self.assertRaisesRegex(ValueError, "without independent validation"):
+            self.load_payload({
+                "observation_quality": {
+                    "colour_independently_verified": True
+                },
+                "visible_shooters": [
+                    {"id": "A", "color": {"name": "red"}, "ammo": 5}
+                ],
+                "bonded_groups": [],
+            })
+
     def test_legacy_shooter_quality_defaults_to_unverified(self):
         shooters = self.load_payload({
             "visible_shooters": [
