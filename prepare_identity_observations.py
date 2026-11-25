@@ -96,7 +96,7 @@ def build_template(board, visual, calibration, detection, source_hashes):
         for item in raw_positions
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     } if isinstance(raw_positions, list) else {}
-    errors.extend(validate_calibration_positions(raw_positions))
+    errors.extend(validate_calibration_positions(positions))
     errors.extend(validate_required_position_layout(positions))
 
     raw_shooters = detection.get("visible_shooters")
