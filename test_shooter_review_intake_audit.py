@@ -156,6 +156,17 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                     manifest, base, "reviewer-a", "reviewer-b"
                 )
 
+    def test_rejects_non_string_review_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, manifest, path_a, _, dataset_a, _ = self._pair(root)
+            dataset_a["samples"][0]["review_status"] = ["confirmed"]
+            self._write(path_a, dataset_a)
+            with self.assertRaisesRegex(ValueError, "invalid review_status"):
+                audit_review_intake(
+                    manifest, base, "reviewer-a", "reviewer-b"
+                )
+
     def test_rejects_changed_detector_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
