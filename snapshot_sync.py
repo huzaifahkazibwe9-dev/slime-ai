@@ -5,6 +5,8 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+from strict_json import strict_json_loads
+
 BOARD_FILE = Path("data/vision_level39.json")
 OBS_FILE = Path("data/conveyor_visual_observations.json")
 OUTPUT = Path("data/snapshot_sync_report.json")
@@ -345,8 +347,8 @@ def read_input_snapshots(board_path=BOARD_FILE, observations_path=OBS_FILE):
     """Parse each input from the exact bytes whose SHA-256 is recorded."""
     board_bytes = Path(board_path).read_bytes()
     observation_bytes = Path(observations_path).read_bytes()
-    board = json.loads(board_bytes)
-    observations = json.loads(observation_bytes)
+    board = strict_json_loads(board_bytes)
+    observations = strict_json_loads(observation_bytes)
     if not isinstance(board, dict) or not isinstance(observations, dict):
         raise ValueError("Snapshot-sync inputs must each contain a JSON object")
     board_source_kind = (

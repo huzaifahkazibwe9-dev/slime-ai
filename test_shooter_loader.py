@@ -480,5 +480,17 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         self.assertEqual(set(shooters), {"A"})
         self.assertEqual(shooters["A"].ammo, 5)
 
+    def test_shooter_loader_rejects_duplicate_visible_shooters_key(self):
+        payload = (
+            '{"visible_shooters":[{"id":"A","color":{"name":"red"},"ammo":5}],'
+            '"visible_shooters":[],"bonded_groups":[]}'
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "shooters.json"
+            path.write_text(payload)
+            with self.assertRaisesRegex(ValueError, "Duplicate JSON object key"):
+                load_shooters(path)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

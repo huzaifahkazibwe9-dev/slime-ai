@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from collections import Counter
 
+from strict_json import strict_json_loads
+
 VISION_FILE = Path("data/vision_level39.json")
 CONFIDENCE_FILE = Path("data/edge_confidence_latest.json")
 
@@ -9,7 +11,7 @@ CONFIDENCE_FILE = Path("data/edge_confidence_latest.json")
 def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE,
                data=None, confidence_data=None):
     if data is None:
-        data = json.loads(Path(path).read_text())
+        data = strict_json_loads(Path(path).read_bytes())
 
     grid_size = data.get("grid_size")
     if (not isinstance(grid_size, list) or len(grid_size) != 2
@@ -69,8 +71,8 @@ def load_board(path=VISION_FILE, confidence_path=CONFIDENCE_FILE,
 
     # Load and validate confidence separately.
     if confidence_data is None:
-        confidence_data = json.loads(
-            Path(confidence_path).read_text()
+        confidence_data = strict_json_loads(
+            Path(confidence_path).read_bytes()
         )
     if not isinstance(confidence_data, dict):
         raise ValueError("Invalid confidence report")

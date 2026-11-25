@@ -262,7 +262,9 @@ and game taps remain explicitly unverified. Missing, null, or contradictory
 status fields invalidate the review evidence, even if the artifact digest is
 updated to match the altered file.
 
-## Strict JSON inputs for capture and review evidence
+## Strict JSON inputs for capture, planning and review evidence
+
+Strict UTF-8 JSON parsing is also enforced by the runtime board and confidence loaders, shooter and panel-slot loaders, screenshot-observation loader, conveyor identity snapshot reader, snapshot synchroniser, and legacy level loader. This prevents the planner from bypassing the duplicate-key and non-standard-number protections applied to capture/review artifacts. This is a parsing-integrity control only; it does not authenticate evidence or establish visual/gameplay correctness.
 
 The capture and review workflows use strict UTF-8 JSON parsing for calibration,
 board and shooter observations, pixel audits, human-review datasets, review

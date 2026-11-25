@@ -4,6 +4,7 @@ from pathlib import Path
 from game_state import GameState
 from shooter_loader import load_shooters
 from board_loader import load_board
+from strict_json import strict_json_loads
 
 
 def load_level(level=39, observation_path=None, shooter_path=None,
@@ -25,10 +26,10 @@ def load_level(level=39, observation_path=None, shooter_path=None,
     mapping_path = Path("data/color_matches.json")
 
     with vision_path.open() as f:
-        vision = json.load(f)
+        vision = strict_json_loads(f.read())
 
     with mapping_path.open() as f:
-        colour_data = json.load(f)
+        colour_data = strict_json_loads(f.read())
 
     board_data = load_board(vision_path)
     board = board_data["board"]

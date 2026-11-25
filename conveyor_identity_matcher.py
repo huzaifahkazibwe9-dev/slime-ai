@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from capture_provenance import validate_capture_session_id
+from strict_json import strict_json_loads
 
 DATA = Path("data")
 ORDER = ["bottom", "right", "top", "left"]
@@ -14,8 +15,8 @@ def read_snapshot(name):
     """Parse one JSON object and hash the exact bytes that were parsed."""
     raw = (DATA / name).read_bytes()
     try:
-        value = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        value = strict_json_loads(raw)
+    except (UnicodeDecodeError, ValueError) as exc:
         raise ValueError(f"{name}: unreadable JSON payload") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{name}: top-level JSON value must be an object")
