@@ -10,9 +10,13 @@ from collections import Counter
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 from evaluate_visual_review_bundle import evaluate_visual_review_bundle
+from screenshot_ingestor import COLOUR_LABELS
+from prepare_shooter_labels import DETECTOR_COLOURS
+from shooter_observation_evaluation import HUMAN_VISIBILITY_LABELS
 from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
@@ -205,6 +209,32 @@ def _classification_summary(summary, context):
     }
 
 
+def _verify_per_class_metrics(actual, expected, context):
+    _require_exact_keys(actual, expected, context)
+    for label, expected_metrics in expected.items():
+        metrics = actual[label]
+        metric_context = f"{context}.{label}"
+        _require_exact_keys(
+            metrics,
+            {"support", "predicted_count", "precision", "recall", "f1"},
+            metric_context,
+        )
+        for count_field in ("support", "predicted_count"):
+            actual_count = _nonnegative_count(
+                metrics[count_field], f"{metric_context}.{count_field}"
+            )
+            if actual_count != expected_metrics[count_field]:
+                raise ValueError(
+                    f"{metric_context}.{count_field} disagrees with confusion matrix"
+                )
+        for score_field in ("precision", "recall", "f1"):
+            _require_finite_number(
+                metrics[score_field],
+                expected_metrics[score_field],
+                f"{metric_context}.{score_field}",
+            )
+
+
 def _verify_board_summary(board):
     _require_exact_keys(
         board,
@@ -236,6 +266,8 @@ def _verify_board_summary(board):
     )
     if board["labels"] != classification["labels"]:
         raise ValueError("Board-colour evaluation labels disagree with confusion matrix")
+    if not set(classification["labels"]).issubset(set(COLOUR_LABELS)):
+        raise ValueError("Board-colour evaluation contains a noncanonical colour label")
 
     expected_per_class = {}
     recalls = []
@@ -258,8 +290,9 @@ def _verify_board_summary(board):
         }
         if support:
             recalls.append(recall)
-    if board["per_class"] != expected_per_class:
-        raise ValueError("Board-colour per_class metrics disagree with confusion matrix")
+    _verify_per_class_metrics(
+        board["per_class"], expected_per_class, "Board-colour per_class"
+    )
     expected_macro_recall = (
         round(sum(recalls) / len(recalls), 6) if recalls else 0.0
     )
@@ -323,6 +356,15 @@ def _verify_shooter_summary(shooter):
         raise ValueError("Shooter visibility support does not equal confirmed sample count")
     if position["support"] > confirmed or colour["support"] > confirmed:
         raise ValueError("Shooter metric support exceeds confirmed sample count")
+    if not set(visibility["labels"]).issubset(set(HUMAN_VISIBILITY_LABELS)):
+        raise ValueError("Shooter visibility metrics contain an unknown visibility label")
+    if any(
+        re.fullmatch(r"r[0-9]+c[0-9]+", label) is None
+        for label in position["labels"]
+    ):
+        raise ValueError("Shooter position metrics contain an invalid coordinate label")
+    if not set(colour["labels"]).issubset(set(DETECTOR_COLOURS)):
+        raise ValueError("Shooter colour metrics contain a noncanonical colour label")
 
     ammo = metrics["ammunition"]
     _require_exact_keys(

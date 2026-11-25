@@ -468,7 +468,7 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         report = self._valid_report()
         report["board_colour_evaluation"]["per_class"]["cyan"]["precision"] = 0.0
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "per_class metrics disagree"):
+        with self.assertRaisesRegex(ValueError, "precision is inconsistent with its sample counts"):
             batch.verify_batch_report(report)
 
     def test_rejects_shooter_ammunition_accuracy_inconsistent_with_counts(self):
@@ -497,11 +497,63 @@ class VisualReviewBatchSavedReportVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "counts are internally inconsistent"):
             batch.verify_batch_report(report)
 
-    def test_rejects_non_numeric_boolean_accuracy_even_when_resealed(self):
+    def test_rejects_boolean_per_class_precision_even_when_resealed(self):
         report = self._valid_report()
-        report["board_colour_evaluation"]["accuracy"] = True
+        report["board_colour_evaluation"]["per_class"]["cyan"]["precision"] = True
         _reseal_report(report)
-        with self.assertRaisesRegex(ValueError, "accuracy is inconsistent"):
+        with self.assertRaisesRegex(ValueError, "precision is inconsistent with its sample counts"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_noncanonical_board_colour_label_even_when_resealed(self):
+        report = self._valid_report()
+        board = report["board_colour_evaluation"]
+        matrix = board["confusion_matrix"]
+        matrix["turquoise"] = matrix.pop("orange")
+        for row in matrix.values():
+            row["turquoise"] = row.pop("orange")
+        board["labels"] = sorted(
+            "turquoise" if label == "orange" else label
+            for label in board["labels"]
+        )
+        board["per_class"]["turquoise"] = board["per_class"].pop("orange")
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "noncanonical colour label"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_noncanonical_shooter_colour_label_even_when_resealed(self):
+        report = self._valid_report()
+        matrix = report["shooter_observation_evaluation"]["metrics"]["colour"][
+            "confusion_matrix"
+        ]
+        matrix["turquoise"] = matrix.pop("blue")
+        for row in matrix.values():
+            row["turquoise"] = row.pop("blue")
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "noncanonical colour label"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_unknown_shooter_visibility_label_even_when_resealed(self):
+        report = self._valid_report()
+        matrix = report["shooter_observation_evaluation"]["metrics"]["visibility"][
+            "confusion_matrix"
+        ]
+        matrix["unknown"] = matrix.pop("partially_occluded")
+        for row in matrix.values():
+            row["unknown"] = row.pop("partially_occluded")
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "unknown visibility label"):
+            batch.verify_batch_report(report)
+
+    def test_rejects_invalid_shooter_coordinate_label_even_when_resealed(self):
+        report = self._valid_report()
+        matrix = report["shooter_observation_evaluation"]["metrics"][
+            "slot_position_alignment"
+        ]["confusion_matrix"]
+        matrix["invalid"] = matrix.pop("r1c3")
+        for row in matrix.values():
+            row["invalid"] = row.pop("r1c3")
+        _reseal_report(report)
+        with self.assertRaisesRegex(ValueError, "invalid coordinate label"):
             batch.verify_batch_report(report)
 
 
