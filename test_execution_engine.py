@@ -67,6 +67,11 @@ class ExecutionEngineTests(unittest.TestCase):
             },
         )
         self.assertFalse(shooter.valid())
+        shooter.observation_quality = {
+            "evidence_source": "detector_declared",
+            "ammunition_ocr_status": "TESSERACT_TIMEOUT",
+        }
+        self.assertFalse(shooter.valid())
 
     def test_malformed_bond_metadata_fails_closed_without_raising(self):
         for malformed in (None, "B", [["B"]], [None], [1]):
