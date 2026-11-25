@@ -590,6 +590,10 @@ def run_orchestration(data_dir="data", candidate_report_path=None,
                 identity_audit=identity,
                 candidate_report=candidates,
                 snapshot_report=snapshot,
+                current_source_file_sha256=evidence_bundle["file_sha256"],
+                current_calibration_sha256=_canonical_json_sha256(
+                    evidence_bundle["vision_calibration"]
+                ),
             )
         except Exception as exc:
             planner_error = f"{type(exc).__name__}: {exc}"
