@@ -230,9 +230,9 @@ class PrepareShooterLabelsTests(unittest.TestCase):
 
     def test_template_rejects_duplicate_keys_in_exact_detection_bytes(self):
         detection, detection_bytes, screenshot_bytes = fixture_artifacts()
-        duplicate = detection_bytes.replace(
-            b'"capture_session_id": "session-abc"',
-            b'"capture_session_id": "first", "capture_session_id": "session-abc"',
+        duplicate = (
+            b'{"capture_provenance":{"capture_session_id":"first",'
+            b'"capture_session_id":"session-abc"}}'
         )
         with self.assertRaisesRegex(ValueError, "not valid JSON"):
             build_template(detection, duplicate, screenshot_bytes)
