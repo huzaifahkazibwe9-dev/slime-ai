@@ -27,12 +27,24 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "image_size": [1080, 2220],
         "grid_size": [35, 35],
     }
+    capture_config = {
+        "panel_bounds": [100, 200, 300, 400],
+        "capture_session_id": "session-abc",
+        "captured_at": captured_at,
+    }
+    capture_config_path = root / "shooter_capture_config.json"
+    capture_config_path.write_text(json.dumps(capture_config))
+    capture_config_sha256 = hashlib.sha256(
+        capture_config_path.read_bytes()
+    ).hexdigest()
     shooter = {
         "capture_provenance": {
             "verified": True,
             "source_sha256": shooter_hash or source_hash,
             "capture_session_id": "session-abc",
             "captured_at": captured_at,
+            "capture_config_sha256": capture_config_sha256,
+            "panel_bounds": [100, 200, 300, 400],
         }
     }
     root = Path(directory)
@@ -68,6 +80,7 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
             "verified_by_user": False,
             "bonded_groups": [],
         },
+        "shooter_capture_config.json": capture_config,
         "snapshot_sync_report.json": {"fixture": "snapshot"},
         "conveyor_identity_candidates.json": {"fixture": "candidates"},
         "conveyor_visual_observations.json": {"fixture": "conveyor"},
@@ -135,6 +148,7 @@ def planning_evidence_hashes(directory):
         "shooter_detection_json": "shooter_detection.json",
         "identity_observations_json": "shooter_identity_observations.json",
         "bonded_groups_config_json": "bonded_groups_confirmed.json",
+        "shooter_capture_config_json": "shooter_capture_config.json",
         "board_observation_json": "board_observation_latest.json",
     }
     return {
