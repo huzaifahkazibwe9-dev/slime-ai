@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 
 def _canonical_json_sha256(value):
     """Match screenshot_ingestor's canonical calibration payload fingerprint."""
+    if not isinstance(value, dict):
+        return None
     try:
         encoded = json.dumps(
             value, sort_keys=True, separators=(",", ":"), allow_nan=False
