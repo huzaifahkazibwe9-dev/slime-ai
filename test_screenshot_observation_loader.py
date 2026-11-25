@@ -120,6 +120,10 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         self.assertEqual(quality["sample_quality_counts"], {
             "NOT_RECORDED": 2
         })
+        self.assertEqual(
+            quality["ammunition_ocr_status_counts"],
+            {"PARSED_EXACT_DIGITS": 2},
+        )
         self.assertIs(state.shooters["top_1"].observation_quality[
             "ammunition_independently_verified"
         ], False)
