@@ -100,7 +100,9 @@ def _dataset_progress(dataset, expected_template, label):
             raise ValueError(f"{label} detector snapshot changed for sample {slot_id}")
 
         status = sample.get("review_status")
-        if status not in {"not_reviewed", "confirmed", "ambiguous"}:
+        if not isinstance(status, str) or status not in {
+            "not_reviewed", "confirmed", "ambiguous"
+        }:
             raise ValueError(f"{label} sample {slot_id} has an invalid review_status")
         human = sample.get("human")
         if not isinstance(human, dict) or set(human) != set(expected["human"]):
@@ -352,9 +354,27 @@ def main():
             args.reviewer_a_id,
             args.reviewer_b_id,
         )
-        output = Path(args.output).expanduser()
-        output.parent.mkdir(parents=True, exist_ok=True)
+        output = Path(args.output).expanduser().resolve()
+        protected_inputs = {manifest_path}
+        for entry in manifest.get("captures", []):
+            if not isinstance(entry, dict):
+                continue
+            for field in (
+                "reviewer_a_dataset", "reviewer_b_dataset",
+                "detection", "screenshot",
+            ):
+                value = entry.get(field)
+                if isinstance(value, str) and value.strip():
+                    candidate = Path(value).expanduser()
+                    if not candidate.is_absolute():
+                        candidate = manifest_path.parent / candidate
+                    protected_inputs.add(candidate.resolve())
         temporary = output.with_suffix(output.suffix + ".tmp")
+        if output in protected_inputs or temporary in protected_inputs:
+            raise ValueError(
+                "Output and temporary output paths must not overwrite input artifacts"
+            )
+        output.parent.mkdir(parents=True, exist_ok=True)
         temporary.write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8"
         )
