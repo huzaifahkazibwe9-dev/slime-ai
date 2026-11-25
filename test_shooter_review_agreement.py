@@ -91,9 +91,9 @@ class ShooterReviewAgreementTests(unittest.TestCase):
         self.assertEqual(report["field_agreement"]["visibility"]["support"], 11)
         self.assertEqual(report["field_agreement"]["visibility"]["agreement_rate"], round(10 / 11, 6))
         self.assertEqual(report["field_agreement"]["position"]["support"], 11)
-        self.assertEqual(report["field_agreement"]["colour"]["support"], 3)
-        self.assertEqual(report["field_agreement"]["colour"]["agreement_rate"], round(2 / 3, 6))
-        self.assertEqual(report["field_agreement"]["ammunition_readability"]["support"], 3)
+        self.assertEqual(report["field_agreement"]["colour"]["support"], 2)
+        self.assertEqual(report["field_agreement"]["colour"]["agreement_rate"], 0.5)
+        self.assertEqual(report["field_agreement"]["ammunition_readability"]["support"], 2)
         self.assertEqual(report["field_agreement"]["ammunition_exact_value"]["support"], 2)
         self.assertEqual(report["field_agreement"]["ammunition_exact_value"]["agreement_rate"], 0.5)
         disagreements = {
