@@ -117,6 +117,10 @@ This is an offline evaluation path only. It does not perform device actions,
 purchase power-ups, select shooters, or modify the game.
 
 
+Reviewer-agreement reports preserve SHA-256 fingerprints for both label
+datasets. CLI workflows record exact input-file byte hashes; programmatic
+calls that omit the raw-byte inputs use a canonical JSON content hash.
+
 ## Multi-capture aggregation
 
 For a more representative evaluation, review multiple different captures and
