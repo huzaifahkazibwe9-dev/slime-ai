@@ -1,10 +1,20 @@
 import json
+import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
 from PIL import Image
 
-from screenshot_ingestor import classify_rgb, extract_board, ingest
+from screenshot_ingestor import (
+    _read_screenshot_snapshot,
+    classify_rgb,
+    extract_board,
+    ingest,
+)
 
 
 class ScreenshotIngestorTests(unittest.TestCase):
@@ -146,41 +156,70 @@ class ScreenshotIngestorTests(unittest.TestCase):
             self.assertEqual(len(repaired["raw_rgb"]), 3)
 
     def test_ingest_uses_one_immutable_screenshot_byte_snapshot(self):
-        from unittest.mock import patch
         import hashlib
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             image_path = root / "capture.png"
+            replacement_path = root / "replacement.png"
             baseline_path = root / "baseline.json"
             output_path = root / "observation.json"
             Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            os.utime(image_path, ns=(1_000_000_000_000_000_000,) * 2)
             original_bytes = image_path.read_bytes()
+            original_file_time = datetime.fromtimestamp(
+                image_path.stat().st_mtime, timezone.utc
+            ).isoformat()
             baseline_path.write_text(json.dumps({
                 "grid_size": [3, 3], "bounds": [3, 3, 27, 27]
             }))
-            real_read_bytes = Path.read_bytes
-            image_reads = []
+            real_open = Path.open
+            image_opens = []
 
-            def replace_image_after_read():
-                data = real_read_bytes(image_path)
-                image_reads.append(image_path)
-                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
-                return data
+            def replace_image_after_open(path, *args, **kwargs):
+                handle = real_open(path, *args, **kwargs)
+                if path.resolve() == image_path.resolve() and args and args[0] == "rb":
+                    image_opens.append(path)
+                    Image.new("RGB", (30, 30), (230, 30, 30)).save(replacement_path)
+                    replacement_path.replace(image_path)
+                    os.utime(image_path, ns=(1_500_000_000_000_000_000,) * 2)
+                return handle
 
-            with patch("pathlib.Path.read_bytes", side_effect=replace_image_after_read):
+            with patch.object(Path, "open", new=replace_image_after_open):
                 ingest(image_path, baseline_path, output_path)
 
             result = json.loads(output_path.read_text())
-            self.assertEqual(image_reads, [image_path])
+            self.assertEqual(image_opens, [image_path])
             self.assertEqual(
                 result["source_sha256"], hashlib.sha256(original_bytes).hexdigest()
             )
+            self.assertEqual(result["file_modified_at"], original_file_time)
             self.assertEqual(result["board"][0][0], "white")
             self.assertEqual(result["raw_rgb"][0][0], [245, 245, 245])
             self.assertEqual(set(result["counts"]), {"white"})
+            self.assertNotEqual(image_path.read_bytes(), original_bytes)
             self.assertFalse(result["gameplay_verified"])
             self.assertFalse(result["game_taps_enabled"])
+
+    def test_snapshot_reader_rejects_in_place_changes_during_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            image_path = Path(directory) / "capture.bin"
+            image_path.write_bytes(b"snapshot")
+
+            before = SimpleNamespace(
+                st_dev=1, st_ino=2, st_size=8,
+                st_mtime_ns=10, st_ctime_ns=20, st_mtime=1.0,
+            )
+            after = SimpleNamespace(
+                st_dev=1, st_ino=2, st_size=8,
+                st_mtime_ns=11, st_ctime_ns=21, st_mtime=1.0,
+            )
+            with patch(
+                "screenshot_ingestor.os.fstat",
+                side_effect=[before, after],
+            ):
+                with self.assertRaisesRegex(RuntimeError, "changed while it was being read"):
+                    _read_screenshot_snapshot(image_path)
 
     def test_cached_pixel_edit_forces_fresh_full_analysis(self):
         with tempfile.TemporaryDirectory() as directory:

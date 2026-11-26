@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import statistics
 import time
 
@@ -302,6 +303,27 @@ def _cached_board_is_valid(cached, digest, calibration_digest, image_size, calib
         return False
 
 
+def _read_screenshot_snapshot(image_path):
+    """Read screenshot bytes and file metadata from one stable open descriptor."""
+    with image_path.open("rb") as image_file:
+        before = os.fstat(image_file.fileno())
+        image_bytes = image_file.read()
+        after = os.fstat(image_file.fileno())
+
+    stable_fields = (
+        "st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"
+    )
+    if (
+        any(getattr(before, field) != getattr(after, field)
+            for field in stable_fields)
+        or len(image_bytes) != after.st_size
+    ):
+        raise RuntimeError(
+            "Screenshot changed while it was being read; capture a stable file and retry"
+        )
+    return image_bytes, before
+
+
 def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_session_id=None, captured_at=None):
     started = time.perf_counter()
     image_path = Path(image_path).expanduser().resolve()
@@ -312,9 +334,9 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
 
     # Hash exact bytes, not a perceptual approximation. Calibration is
     # fingerprinted separately so any edit invalidates cached extraction.
-    # Read the screenshot exactly once. Hashing, dimensions, extraction and
-    # EXIF metadata must all describe this immutable in-memory byte snapshot.
-    image_bytes = image_path.read_bytes()
+    # Read once through one file descriptor. The descriptor's metadata remains
+    # attached to these bytes even if the pathname is replaced afterwards.
+    image_bytes, snapshot_stat = _read_screenshot_snapshot(image_path)
     digest = hashlib.sha256(image_bytes).hexdigest()
     calibration_bytes = json.dumps(
         baseline, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -351,9 +373,10 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
             )
         cache_status = "FULL_ANALYSIS"
 
-    stat = image_path.stat()
+    # Use metadata captured from the descriptor that supplied image_bytes;
+    # path.stat() here could describe a newer file at the same pathname.
     file_time = datetime.fromtimestamp(
-        stat.st_mtime, timezone.utc
+        snapshot_stat.st_mtime, timezone.utc
     ).isoformat()
 
     from capture_provenance import (
