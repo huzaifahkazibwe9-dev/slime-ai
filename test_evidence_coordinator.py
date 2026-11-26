@@ -89,6 +89,30 @@ class EvidenceCoordinatorTests(unittest.TestCase):
                 [["a", "b"], ["c", "d"]],
             )
 
+    def test_non_uniform_edge_changes_require_review(self):
+        before = [["white"] * 5 for _ in range(5)]
+        after = [row[:] for row in before]
+        after[0][0] = "green"
+        after[0][1] = "blue"
+        after[0][2] = "red"
+
+        result = audit_transition(before, after)
+        self.assertEqual(result["status"], "EDGE_CHANGE_REQUIRES_REVIEW")
+        self.assertFalse(result["uniform_edge_replacement"])
+        self.assertEqual(result["edge_changes"], 3)
+        self.assertEqual(result["interior_changes"], 0)
+
+    def test_too_small_board_for_edge_width_rejected(self):
+        # EDGE_WIDTH = 2, so boards smaller than 5x5 cannot use the edge classifier
+        before = [["a"] * 4 for _ in range(4)]
+        after = [row[:] for row in before]
+        after[0][0] = "b"  # force an edge check
+        with self.assertRaises(ValueError):
+            audit_transition(before, after)
+
+    def test_empty_board_rejected(self):
+        with self.assertRaises(ValueError):
+            audit_transition([], [])
 
 if __name__ == "__main__":
     unittest.main()

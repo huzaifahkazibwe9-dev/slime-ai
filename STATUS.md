@@ -46,7 +46,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
-- Latest public unit-test run (this environment, 2026-11-26): **589 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Latest public unit-test run (this environment, 2026-11-26): **592 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -72,6 +73,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~60%**
+Approximate offline-completable progress: **~61%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
