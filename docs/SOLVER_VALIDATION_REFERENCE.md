@@ -38,11 +38,11 @@ reviewed gameplay evidence. Live game actions remain disabled.
 
 ## Table-driven reference corpus
 
-`data/solver_reference_cases.json` contains seven hand-checkable simulator
-cases: passing through an empty cell to a matching pixel, blocking at the first
-different colour, an empty ray, zero ammunition, unknown ammunition,
-successive removal of newly exposed matching pixels, and a shooter starting
-outside the board boundary. `test_solver_reference_cases.py` compares every
+`data/solver_reference_cases.json` contains eleven hand-checkable simulator
+cases. The corpus includes upward, downward, leftward and rightward rays,
+passing through empty cells, blocking at the first different colour, an empty
+ray, zero ammunition, unknown ammunition, successive removal of newly exposed
+matching pixels, and a shooter starting outside the board boundary. `test_solver_reference_cases.py` compares every
 shot result, reason, position, remaining-ammunition value and resulting board
 against the fixture.
 
