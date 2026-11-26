@@ -102,14 +102,22 @@ def _require_grid(data):
                 )
             counts[label] += 1
 
-    if data.get("counts") != dict(counts):
+    saved_counts = data.get("counts")
+    if (
+        not isinstance(saved_counts, dict)
+        or any(
+            not isinstance(label, str) or type(count) is not int or count < 1
+            for label, count in saved_counts.items()
+        )
+        or saved_counts != dict(counts)
+    ):
         raise ValueError("Saved colour counts do not match board labels")
 
     digest = data.get("source_sha256")
     snapshot_id = data.get("snapshot_id")
     board_snapshot_id = data.get("board_snapshot_id")
     if (not isinstance(digest, str) or len(digest) != 64
-            or any(c not in "0123456789abcdef" for c in digest.lower())
+            or any(c not in "0123456789abcdef" for c in digest)
             or snapshot_id != "sha256:" + digest
             or board_snapshot_id != snapshot_id):
         raise ValueError(
