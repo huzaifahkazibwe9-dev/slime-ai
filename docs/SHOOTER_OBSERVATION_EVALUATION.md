@@ -244,3 +244,23 @@ correct count are zero, `accuracy` and `macro_f1` are `null`, and
 "not measurable from this review set", not zero-percent detector performance.
 When a class is present in the scored pairs but has no true positives, its
 class-level precision, recall, or F1 remains a numeric zero as appropriate.
+
+
+## Accuracy uncertainty intervals
+
+Single-capture and aggregate reports include a 95% Wilson score interval beside
+each categorical accuracy estimate and ammunition exact-match accuracy. The
+interval is returned as `accuracy_interval_95` (or
+`exact_match_accuracy_interval_95`) with its method, confidence level, lower
+bound, and upper bound. When support is zero, the interval is `null`, because
+there is no eligible observation from which to estimate accuracy.
+
+Wilson intervals are more informative than presenting a point estimate alone
+on small samples, but they do not correct sampling bias or establish detector
+truth. Their usual binomial interpretation assumes independent observations.
+Multiple panel slots from the same screenshot can be correlated, so intervals
+from one capture should be treated as descriptive uncertainty ranges, not as
+formal population guarantees. Multi-capture evaluation reduces repeated-image
+bias by requiring distinct source captures, but slots within each capture may
+still be correlated. Independent captures and independently reviewed labels
+remain necessary for stronger claims.

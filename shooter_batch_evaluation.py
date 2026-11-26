@@ -8,6 +8,7 @@ from pathlib import Path
 
 from shooter_observation_evaluation import (
     evaluate_dataset,
+    wilson_interval_95,
     validate_dataset,
     verify_source_artifacts,
 )
@@ -24,6 +25,7 @@ def _metric(pairs):
             "support": 0,
             "correct_count": 0,
             "accuracy": None,
+            "accuracy_interval_95": None,
             "confusion_matrix": {},
         }
     labels = sorted(
@@ -45,6 +47,7 @@ def _metric(pairs):
         "support": len(pairs),
         "correct_count": correct,
         "accuracy": round(correct / len(pairs), 6),
+        "accuracy_interval_95": wilson_interval_95(correct, len(pairs)),
         "confusion_matrix": matrix,
     }
 
@@ -191,6 +194,9 @@ def evaluate_manifest(manifest, base_dir="."):
                 "exact_match_accuracy": (
                     round(correct_ammunition / len(ammunition_reviewed), 6)
                     if ammunition_reviewed else None
+                ),
+                "exact_match_accuracy_interval_95": wilson_interval_95(
+                    correct_ammunition, len(ammunition_reviewed)
                 ),
                 "detector_reading_count": len(detected_ammunition),
                 "detector_missing_count": (
