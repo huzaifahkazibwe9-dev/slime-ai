@@ -48,3 +48,20 @@ This preflight does not authenticate reviewer IDs, prove that two people
 worked independently, establish label truth, calculate agreement, verify
 detector accuracy, or verify gameplay. Its readiness flag only means the
 paired files are complete and source-bound. game_taps_enabled remains false.
+
+To make completeness a hard gate for an automated pipeline, add
+`--require-ready`:
+
+```text
+python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
+  --reviewer-a-id reviewer-a \
+  --reviewer-b-id reviewer-b \
+  --output data/shooter_review_intake_audit.json \
+  --require-ready
+```
+
+The command always saves the report first. It exits with status `0` when all
+reviewers have completed all captures, and status `1` when any slot remains
+unreviewed. Without `--require-ready`, an incomplete but valid intake remains
+a successful audit and returns status `0`, so progress can be checked
+repeatedly without treating work-in-progress as corrupt evidence.
