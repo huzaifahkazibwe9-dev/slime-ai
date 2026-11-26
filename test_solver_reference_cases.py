@@ -28,6 +28,21 @@ class ShotSimulatorReferenceCaseTests(unittest.TestCase):
         self.assertTrue(all(isinstance(value, str) and value for value in ids))
         self.assertEqual(len(ids), len(set(ids)))
 
+    def test_reference_corpus_covers_all_four_cardinal_directions(self):
+        cases = {case["id"]: case for case in self.reference["cases"]}
+        expected = {
+            "up": "upward_ray_crosses_empty_cell",
+            "down": "downward_ray_crosses_empty_cell",
+            "left": "leftward_ray_crosses_empty_cell",
+            "right": "rightward_ray_crosses_empty_cell",
+        }
+        for direction, case_id in expected.items():
+            with self.subTest(direction=direction):
+                self.assertIn(case_id, cases)
+                self.assertEqual(
+                    cases[case_id]["shooter"]["direction"], direction
+                )
+
     def test_shot_outputs_match_hand_checkable_reference_cases(self):
         for case in self.reference["cases"]:
             with self.subTest(case=case["id"]):
