@@ -453,3 +453,12 @@ and transition evaluation. The checks run even when an observation omits its
 optional `sample_centres` metadata. The independent source-sample verifier
 also rejects overlapping or out-of-image windows before indexing source pixels,
 so callers cannot bypass the geometry gate by skipping orchestration preflight.
+
+
+### Standalone loader's unverified-state requirement
+
+The direct screenshot-to-GameState loader requires
+`same_board_state_confirmed` to be explicitly false, alongside its existing
+gameplay, colour-classification and game-tap restrictions. Missing or true
+values are rejected; the loader cannot silently accept an observation that
+claims the board state has already been confirmed.

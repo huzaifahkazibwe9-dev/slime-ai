@@ -42,6 +42,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             "snapshot_id": "sha256:" + "a" * 64,
             "board_snapshot_id": "sha256:" + "a" * 64,
             "board_snapshot_id": "sha256:" + "a" * 64,
+            "same_board_state_confirmed": False,
             "gameplay_verified": False,
             "vision_classification_verified": False,
             "game_taps_enabled": False,
@@ -124,6 +125,24 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "overlapping 3x3"):
             verify_source_samples(invalid, source_bytes)
+
+    def test_direct_loader_requires_same_board_state_to_remain_unverified(self):
+        for replacement in (True, None):
+            with self.subTest(replacement=replacement):
+                invalid = dict(self.observation)
+                if replacement is None:
+                    del invalid["same_board_state_confirmed"]
+                else:
+                    invalid["same_board_state_confirmed"] = replacement
+                with self.assertRaisesRegex(
+                    ValueError, "same_board_state_confirmed"
+                ):
+                    load_observed_level(
+                        self.observation_path,
+                        self.shooter_path,
+                        observation_data=invalid,
+                        shooter_data=self.shooters,
+                    )
 
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
