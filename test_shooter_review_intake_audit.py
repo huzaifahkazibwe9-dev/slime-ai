@@ -4,12 +4,13 @@ import io
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from PIL import Image
 
 from prepare_shooter_review_pair import prepare_review_pair
-from shooter_review_intake_audit import audit_review_intake
+from shooter_review_intake_audit import audit_review_intake, main
 from test_prepare_shooter_labels import fixture_artifacts
 
 
@@ -215,6 +216,50 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 audit_review_intake(
                     manifest, root, "reviewer-a", "reviewer-b"
                 )
+
+    def test_cli_refuses_to_overwrite_any_review_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, _, _, _ = self._pair(root)
+            manifest_path = base / "review_manifest.json"
+            original = path_a.read_bytes()
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(manifest_path),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(path_a),
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 2)
+            self.assertEqual(path_a.read_bytes(), original)
+
+    def test_cli_writes_report_to_new_output_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                main()
+
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(report["agreement_audit_ready"])
+            self.assertEqual(report["capture_count"], 1)
+            self.assertFalse(report["game_taps_enabled"])
 
     def test_blank_pair_reports_zero_completion_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
