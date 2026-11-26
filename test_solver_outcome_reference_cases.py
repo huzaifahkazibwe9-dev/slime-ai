@@ -85,6 +85,14 @@ class SolverOutcomeReferenceCaseTests(unittest.TestCase):
 
                 expected = case["expected"]
                 self.assertEqual(set(expected), expected_fields)
+                row_widths = {len(row) for row in board}
+                if expected["raises"] is None:
+                    self.assertEqual(len(row_widths), 1)
+                else:
+                    self.assertGreater(
+                        len(row_widths), 1,
+                        "the invalid-state example must exercise a ragged board",
+                    )
                 self.assertTrue(
                     expected["status"] is None
                     or isinstance(expected["status"], str)
