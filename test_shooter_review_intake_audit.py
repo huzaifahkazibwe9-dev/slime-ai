@@ -546,6 +546,39 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertEqual(report["capture_count"], 1)
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX symbolic links are required")
+    def test_cli_rejects_symlink_output_without_replacing_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            output.parent.mkdir(parents=True)
+            target = root / "preserve-this-file.json"
+            original = b'{"preserve": true}\n'
+            target.write_bytes(original)
+            output.symlink_to(target)
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 2)
+            self.assertTrue(output.is_symlink())
+            self.assertEqual(target.read_bytes(), original)
+            self.assertEqual(
+                list(output.parent.glob(f".{output.name}.*.tmp")),
+                [],
+            )
+
     def test_cli_writes_report_to_new_output_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
