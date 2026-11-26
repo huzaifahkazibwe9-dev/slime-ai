@@ -16,6 +16,9 @@ def simulate_shot(state, shooter_id):
     if not isinstance(getattr(state, "shooters", None), dict):
         return ShotResult(False, False, reason="Invalid shooter mapping")
 
+    if not isinstance(shooter_id, str) or not shooter_id:
+        return ShotResult(False, False, reason="Invalid shooter ID")
+
     shooter = state.shooters.get(shooter_id)
     if shooter is None:
         return ShotResult(False, False, reason="Unknown shooter")
