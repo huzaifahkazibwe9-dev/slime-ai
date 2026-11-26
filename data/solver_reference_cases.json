@@ -250,6 +250,234 @@
           ]
         }
       ]
+    },
+    {
+      "id": "upward_ray_crosses_empty_cell",
+      "board": [
+        [
+          null,
+          "red",
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "UP",
+        "color": "red",
+        "ammo": 2,
+        "direction": "up",
+        "x": 1,
+        "y": 2
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            1,
+            0
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 1,
+          "board": [
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "downward_ray_crosses_empty_cell",
+      "board": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          "red",
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "DOWN",
+        "color": "red",
+        "ammo": 2,
+        "direction": "down",
+        "x": 1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            1,
+            2
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 1,
+          "board": [
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leftward_ray_crosses_empty_cell",
+      "board": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          "red",
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "LEFT",
+        "color": "red",
+        "ammo": 2,
+        "direction": "left",
+        "x": 2,
+        "y": 1
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            0,
+            1
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 1,
+          "board": [
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rightward_ray_crosses_empty_cell",
+      "board": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          "red"
+        ],
+        [
+          null,
+          null,
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "RIGHT",
+        "color": "red",
+        "ammo": 2,
+        "direction": "right",
+        "x": 0,
+        "y": 1
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            2,
+            1
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 1,
+          "board": [
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ],
+            [
+              null,
+              null,
+              null
+            ]
+          ]
+        }
+      ]
     }
   ]
 }
