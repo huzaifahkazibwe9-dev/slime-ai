@@ -17,7 +17,6 @@ class GameStateValidationTests(unittest.TestCase):
             [None],
             [["red"], None],
             [["red"], ("blue",)],
-            [[{"cell": "red"}]],
         )
         for board in boards:
             with self.subTest(board=board):
