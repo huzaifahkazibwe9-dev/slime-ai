@@ -443,3 +443,13 @@ their board, shooter and pixel-audit outputs. The lock is released on normal
 completion or error, and the operating system releases it if the process exits.
 This protects the shared-file workflow from competing capture runs; it does not
 replace the per-capture screenshot hash, session, timestamp or payload checks.
+
+
+### Standalone screenshot-loader geometry validation
+
+The direct screenshot-to-GameState loader now applies the same rounded sample
+centre and non-overlapping 3x3 sampling-window checks as screenshot ingestion
+and transition evaluation. The checks run even when an observation omits its
+optional `sample_centres` metadata. The independent source-sample verifier
+also rejects overlapping or out-of-image windows before indexing source pixels,
+so callers cannot bypass the geometry gate by skipping orchestration preflight.
