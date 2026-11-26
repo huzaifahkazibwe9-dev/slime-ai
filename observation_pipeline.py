@@ -5,7 +5,7 @@ import json
 from strict_json import strict_json_loads
 from pathlib import Path
 
-from screenshot_ingestor import extract_board
+from screenshot_ingestor import extract_board_bytes
 from edge_change_guard import inspect_edge_changes
 
 BASELINE = Path("data/vision_level39.json")
@@ -80,8 +80,14 @@ def evaluate_observations(previous, current):
 
 def load_observation(path, calibration):
     path = Path(path).expanduser().resolve()
-    extracted = extract_board(path, calibration)
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+
+    # Bind both pixel extraction and provenance to exactly the same bytes.
+    # Reopening the path after extraction could hash a replacement screenshot.
+    image_bytes = path.read_bytes()
+    digest = hashlib.sha256(image_bytes).hexdigest()
+    extracted = extract_board_bytes(image_bytes, calibration)
     return {
         **extracted,
         "source": str(path),
