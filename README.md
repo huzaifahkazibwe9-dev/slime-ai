@@ -471,3 +471,13 @@ values are rejected even when Python's numeric equality would make them compare
 equal to integer totals. Screenshot SHA-256 values must use canonical lowercase
 hexadecimal notation, matching the digests produced by the capture and audit
 pipelines.
+
+
+## Completion status and evidence
+
+See the [final completion checklist](docs/FINAL_COMPLETION_CHECKLIST.md) and
+[final completion audit](docs/FINAL_COMPLETION_AUDIT.md) for measurable
+subsystem statuses, acceptance criteria and remaining external blockers.
+Verified CI runs and the required device/human-review artifact layout are
+indexed in [the final evidence pack](evidence/final/README.md). Passing CI is
+not Android-device validation or proof of visual/gameplay correctness.
