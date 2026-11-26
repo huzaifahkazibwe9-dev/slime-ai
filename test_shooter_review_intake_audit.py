@@ -5,6 +5,7 @@ import json
 import tempfile
 import unittest
 from unittest.mock import patch
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from PIL import Image
@@ -223,6 +224,7 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             root = Path(directory)
             base, _, _, _, _, _ = self._pair(root)
             output = root / "reports" / "intake.json"
+            captured = io.StringIO()
             with patch(
                 "sys.argv",
                 [
@@ -234,14 +236,18 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                     "--require-ready",
                 ],
             ):
-                with self.assertRaises(SystemExit) as error:
-                    main()
+                with redirect_stdout(captured):
+                    with self.assertRaises(SystemExit) as error:
+                        main()
 
             self.assertEqual(error.exception.code, 1)
             self.assertTrue(output.is_file())
             report = json.loads(output.read_text(encoding="utf-8"))
             self.assertFalse(report["agreement_audit_ready"])
             self.assertEqual(report["reviewer_a"]["not_reviewed_count"], 12)
+            self.assertIn("Readiness blockers:", captured.getvalue())
+            self.assertIn("Reviewer A has unreviewed slots.", captured.getvalue())
+            self.assertIn("Reviewer B has unreviewed slots.", captured.getvalue())
 
     def test_require_ready_exits_successfully_for_complete_pair(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -279,6 +285,7 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 self._write(path, dataset)
 
             output = root / "reports" / "intake.json"
+            captured = io.StringIO()
             with patch(
                 "sys.argv",
                 [
@@ -290,8 +297,9 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                     "--require-ready",
                 ],
             ):
-                with self.assertRaises(SystemExit) as error:
-                    main()
+                with redirect_stdout(captured):
+                    with self.assertRaises(SystemExit) as error:
+                        main()
 
             self.assertEqual(error.exception.code, 1)
             self.assertTrue(output.is_file())
@@ -309,6 +317,14 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 ],
             )
             self.assertFalse(report["game_taps_enabled"])
+            self.assertIn(
+                "Reviewer A needs at least one confirmed sample.",
+                captured.getvalue(),
+            )
+            self.assertIn(
+                "Reviewer B needs at least one confirmed sample.",
+                captured.getvalue(),
+            )
 
     def test_cli_refuses_to_overwrite_any_review_input(self):
         with tempfile.TemporaryDirectory() as directory:
