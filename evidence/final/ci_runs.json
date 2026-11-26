@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-11-26T18:59:53Z",
+  "repository": "huzaifahkazibwe9-dev/slime-ai",
+  "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification.",
+  "python_versions": [
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.14"
+  ],
+  "checks_per_run": {
+    "termux_build_script_syntax": "passed",
+    "python_compilation": "passed",
+    "unit_tests": "passed",
+    "note": "The Termux check validates shell syntax in CI; it does not execute the script on an Android/Termux device."
+  },
+  "runs": [
+    {
+      "run_number": 1162,
+      "run_id": 45878179722,
+      "pull_request": 137,
+      "branch": "require-complete-pixel-audit-coverage",
+      "commit_sha": "16a031ed633222a08e92cfabae77d7132fe19c24",
+      "unit_tests_per_python_version": 1193,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45878179722"
+    },
+    {
+      "run_number": 1164,
+      "run_id": 45878726599,
+      "pull_request": 138,
+      "branch": "bind-pixel-audit-to-board-payload",
+      "commit_sha": "13976e4e5910331aa921d1210ee79affffde07e2",
+      "unit_tests_per_python_version": 1196,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45878726599"
+    },
+    {
+      "run_number": 1165,
+      "run_id": 45879090561,
+      "pull_request": 139,
+      "branch": "serialize-concurrent-capture-runs",
+      "commit_sha": "b0d622dcd212dedccb54bf3cdd4232553368e549",
+      "unit_tests_per_python_version": 1198,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45879090561"
+    },
+    {
+      "run_number": 1167,
+      "run_id": 45879615162,
+      "pull_request": 140,
+      "branch": "enforce-sampling-geometry-in-state-loader",
+      "commit_sha": "27dfc076b46b60ca5ba628f50b6ed675fe529cce",
+      "unit_tests_per_python_version": 1201,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45879615162"
+    },
+    {
+      "run_number": 1169,
+      "run_id": 45879937289,
+      "pull_request": 141,
+      "branch": "require-explicit-unverified-board-state",
+      "commit_sha": "1d080e17d24a29d470937f196f4633f736bc126e",
+      "unit_tests_per_python_version": 1202,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45879937289"
+    },
+    {
+      "run_number": 1170,
+      "run_id": 45880159833,
+      "pull_request": 142,
+      "branch": "strict-loader-counts-and-hashes",
+      "commit_sha": "bdfb1013dc4298b00bfe03cb4c61f503dfb610bc",
+      "unit_tests_per_python_version": 1204,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880159833"
+    }
+  ]
+}
