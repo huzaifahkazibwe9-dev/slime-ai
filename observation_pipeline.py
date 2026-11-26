@@ -6,7 +6,11 @@ import math
 from strict_json import strict_json_loads
 from pathlib import Path
 
-from screenshot_ingestor import COLOUR_LABELS, extract_board_bytes
+from screenshot_ingestor import (
+    COLOUR_LABELS,
+    extract_board_bytes,
+    sample_centres_for_grid,
+)
 from edge_change_guard import inspect_edge_changes
 
 BASELINE = Path("data/vision_level39.json")
@@ -55,6 +59,35 @@ def _observation_metadata_error(observation, name):
         or right > width - 1 or bottom > height - 1
     ):
         return f"{name} bounds must be ordered and inside image_size"
+
+    # Match the screenshot ingestor's exact rounded sample-centre geometry.
+    # Bounds can fit inside the image yet still produce overlapping 3x3
+    # sampling windows, or place a rounded centre against the image edge.
+    try:
+        sample_centres = sample_centres_for_grid(
+            (cols, rows), bounds
+        )
+    except (OverflowError, TypeError, ValueError):
+        return f"{name} bounds and grid_size do not form valid sample centres"
+
+    x_centres = sample_centres["x"]
+    y_centres = sample_centres["y"]
+    if (
+        any(b - a < 3 for a, b in zip(x_centres, x_centres[1:]))
+        or any(b - a < 3 for a, b in zip(y_centres, y_centres[1:]))
+    ):
+        return (
+            f"{name} bounds and grid_size create overlapping "
+            "3x3 sample windows"
+        )
+    if (
+        any(x - 1 < 0 or x + 1 >= width for x in x_centres)
+        or any(y - 1 < 0 or y + 1 >= height for y in y_centres)
+    ):
+        return (
+            f"{name} bounds and grid_size place a 3x3 sample window "
+            "outside image_size"
+        )
     return None
 
 
