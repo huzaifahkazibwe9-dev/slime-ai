@@ -312,6 +312,16 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                     with self.assertRaises(SystemExit) as error:
                         main()
 
+            self.assertEqual(error.exception.code, 1)
+            self.assertTrue(output.is_file())
+            self.assertIn(
+                "Reviewer A needs at least one confirmed sample.",
+                captured.getvalue(),
+            )
+            saved_report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(saved_report["agreement_audit_ready"])
+            self.assertEqual(saved_report["reviewer_a"]["confirmed_count"], 12)
+
         self.assertEqual(report["reviewer_a"]["confirmed_count"], 12)
         self.assertEqual(report["reviewer_a"]["ambiguous_count"], 12)
         self.assertTrue(report["reviewer_a"]["complete"])
@@ -328,13 +338,6 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 "blockers": ["reviewer_a_has_no_confirmed_samples"],
             }],
         )
-        self.assertEqual(error.exception.code, 1)
-        self.assertTrue(output.is_file())
-        self.assertIn("Reviewer A needs at least one confirmed sample.", captured.getvalue())
-        saved_report = json.loads(output.read_text(encoding="utf-8"))
-        self.assertFalse(saved_report["agreement_audit_ready"])
-        self.assertEqual(saved_report["reviewer_a"]["confirmed_count"], 12)
-
     def test_rejects_repeated_screenshot_across_distinct_capture_sessions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
