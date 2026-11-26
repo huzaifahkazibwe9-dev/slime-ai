@@ -146,6 +146,18 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "labelled_by_user"):
             validate_dataset(dataset)
 
+    def test_rejects_invalid_capture_timestamp(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["capture_provenance"]["captured_at"] = "not-a-timestamp"
+        with self.assertRaisesRegex(ValueError, "captured_at is invalid"):
+            validate_dataset(dataset)
+
+    def test_rejects_capture_timestamp_without_timezone(self):
+        dataset, _, _ = labelled_fixture()
+        dataset["capture_provenance"]["captured_at"] = "2026-11-26T12:00:00"
+        with self.assertRaisesRegex(ValueError, "must include a UTC offset"):
+            validate_dataset(dataset)
+
     def test_rejects_any_sample_left_unreviewed(self):
         dataset, _, _ = labelled_fixture()
         dataset["samples"][0]["review_status"] = "not_reviewed"
