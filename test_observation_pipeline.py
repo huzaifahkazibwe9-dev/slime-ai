@@ -10,7 +10,12 @@ from observation_pipeline import evaluate_observations, load_observation
 
 
 def observation(board, image_size=(1080, 2220),
-                grid_size=(35, 35), bounds=(201, 431, 881, 1113)):
+                grid_size=None, bounds=(201, 431, 881, 1113)):
+    if grid_size is None:
+        grid_size = (
+            len(board[0]) if board and isinstance(board[0], list) else 0,
+            len(board),
+        )
     return {
         "board": board,
         "image_size": list(image_size),
@@ -75,6 +80,34 @@ class ObservationPipelineTests(unittest.TestCase):
         self.assertEqual(
             result["status"], "REJECTED_INCOMPATIBLE_OBSERVATIONS"
         )
+
+    def test_board_dimensions_must_match_declared_grid_columns(self):
+        invalid = observation(self.board, grid_size=(6, 5))
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("declares 6", result["errors"][0])
+        self.assertFalse(result["transition_verified"])
+        self.assertFalse(result["tile_removals_verified"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_board_dimensions_must_match_declared_grid_rows(self):
+        invalid = observation(self.board, grid_size=(5, 6))
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("declares 6", result["errors"][0])
+
+    def test_boolean_grid_dimensions_are_rejected(self):
+        invalid = observation(self.board, grid_size=(True, 5))
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("positive integers", result["errors"][0])
+
+    def test_non_list_board_rows_are_rejected_against_grid(self):
+        invalid = observation(self.board, grid_size=(5, 5))
+        invalid["board"] = [tuple(row) for row in self.board]
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("must be a list", result["errors"][0])
 
     def test_tile_removals_never_claimed_verified(self):
         changed = [row[:] for row in self.board]

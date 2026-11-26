@@ -357,3 +357,13 @@ The reported `file_modified_at` comes from that same descriptor, rather than a
 later path lookup that could describe a replacement file. This remains a
 filesystem modification timestamp, not proof of when the screenshot was
 captured.
+
+
+### Observation board/grid shape validation
+
+Before comparing two screenshot observations, the transition pipeline checks
+that each extracted board is a rectangular list whose row and column counts
+match that observation's declared calibration grid. Invalid, boolean,
+non-positive, oversized, truncated or over-wide grid declarations are
+rejected rather than compared as if they were complete boards. A rejected
+shape never verifies a transition or enables game taps.
