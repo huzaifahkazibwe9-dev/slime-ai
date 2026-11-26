@@ -68,8 +68,11 @@ python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
 ```
 
 The command always saves the report first and prints a per-capture blocker
-summary to the terminal. It also prints confirmed, ambiguous, and unreviewed
-counts separately for both reviewers in every capture. Unreviewed slots and
+summary to the terminal. It writes through a uniquely named temporary file in
+the output directory and atomically replaces the report, so an existing
+`*.tmp` file is not reused. It also prints confirmed, ambiguous, and
+unreviewed counts separately for both reviewers in every capture. Unreviewed
+slots and
 the absence of a confirmed sample are reported separately for each reviewer.
 It exits with status `0` only when
 every reviewer has completed every slot and has at least one confirmed sample
