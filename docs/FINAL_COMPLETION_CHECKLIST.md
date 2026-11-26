@@ -26,11 +26,11 @@
 
 ## CI evidence snapshot
 
-The verified CI runs are recorded machine-readably in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json). The latest listed run (#1178) passed **1,227 unit tests on each of Python 3.10, 3.11, 3.12 and 3.14**, along with Python compilation and Termux build-script syntax checks.
+The verified CI runs are recorded machine-readably in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json). The latest listed run (#1181) passed **1,229 unit tests on each of Python 3.10, 3.11, 3.12 and 3.14**, along with Python compilation and Termux build-script syntax checks.
 
 These runs were triggered for stacked pull requests. They are **not** tests on an Android handset, do not establish detector accuracy, and do not verify gameplay.
 
-At the time of this audit, PRs #138–#149 are open draft PRs in a feature-branch stack. They are not merged into `main`. See [the audit report](FINAL_COMPLETION_AUDIT.md) for the exact scope and outstanding external blockers.
+At the time of this audit, PRs #138–#150 are open draft PRs in a feature-branch stack. They are not merged into `main`. See [the audit report](FINAL_COMPLETION_AUDIT.md) for the exact scope and outstanding external blockers.
 
 ## Definition of 100% completion
 
