@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from game_state import GameState, Shooter
+from game_state import DIRECTIONS, GameState, Shooter
 from solver import simulate_shot
 
 
@@ -27,6 +27,102 @@ class ShotSimulatorReferenceCaseTests(unittest.TestCase):
         ids = [case.get("id") for case in cases]
         self.assertTrue(all(isinstance(value, str) and value for value in ids))
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_reference_cases_have_exact_types_and_complete_shapes(self):
+        self.assertIsInstance(self.reference, dict)
+        self.assertEqual(
+            set(self.reference),
+            {"schema_version", "purpose", "cases"},
+        )
+        self.assertIs(type(self.reference["schema_version"]), int)
+        self.assertEqual(self.reference["schema_version"], 1)
+        self.assertIsInstance(self.reference["purpose"], str)
+        self.assertTrue(self.reference["purpose"].strip())
+
+        for case in self.reference["cases"]:
+            with self.subTest(case=case.get("id")):
+                self.assertEqual(
+                    set(case), {"id", "board", "shooter", "steps"}
+                )
+                board = case["board"]
+                self.assertIsInstance(board, list)
+                self.assertTrue(board)
+                self.assertTrue(all(isinstance(row, list) for row in board))
+                width = len(board[0])
+                self.assertGreater(width, 0)
+                self.assertTrue(all(len(row) == width for row in board))
+                for row in board:
+                    for cell in row:
+                        self.assertTrue(
+                            cell is None
+                            or (isinstance(cell, str) and bool(cell))
+                        )
+
+                shooter = case["shooter"]
+                self.assertEqual(
+                    set(shooter),
+                    {"id", "color", "ammo", "direction", "x", "y"},
+                )
+                self.assertIsInstance(shooter["id"], str)
+                self.assertTrue(shooter["id"])
+                self.assertIsInstance(shooter["color"], str)
+                self.assertTrue(shooter["color"])
+                self.assertTrue(
+                    shooter["ammo"] is None
+                    or type(shooter["ammo"]) is int
+                )
+                self.assertIsInstance(shooter["direction"], str)
+                self.assertIn(shooter["direction"], DIRECTIONS)
+                self.assertIs(type(shooter["x"]), int)
+                self.assertIs(type(shooter["y"]), int)
+
+                steps = case["steps"]
+                self.assertIsInstance(steps, list)
+                self.assertTrue(steps)
+                for expected in steps:
+                    self.assertEqual(
+                        set(expected),
+                        {
+                            "fired", "removed", "position", "reason",
+                            "remaining_ammo", "board",
+                        },
+                    )
+                    self.assertIs(type(expected["fired"]), bool)
+                    self.assertIs(type(expected["removed"]), bool)
+                    self.assertIsInstance(expected["reason"], str)
+                    self.assertTrue(expected["reason"])
+                    position = expected["position"]
+                    if position is not None:
+                        self.assertIsInstance(position, list)
+                        self.assertEqual(len(position), 2)
+                        self.assertTrue(
+                            all(type(value) is int for value in position)
+                        )
+                    remaining_ammo = expected["remaining_ammo"]
+                    self.assertTrue(
+                        remaining_ammo is None
+                        or (
+                            type(remaining_ammo) is int
+                            and remaining_ammo >= 0
+                        )
+                    )
+                    expected_board = expected["board"]
+                    self.assertIsInstance(expected_board, list)
+                    self.assertEqual(len(expected_board), len(board))
+                    self.assertTrue(
+                        all(
+                            isinstance(row, list) and len(row) == width
+                            for row in expected_board
+                        )
+                    )
+                    self.assertTrue(
+                        all(
+                            cell is None
+                            or (isinstance(cell, str) and bool(cell))
+                            for row in expected_board
+                            for cell in row
+                        )
+                    )
 
     def test_reference_corpus_covers_all_four_cardinal_directions(self):
         cases = {case["id"]: case for case in self.reference["cases"]}
