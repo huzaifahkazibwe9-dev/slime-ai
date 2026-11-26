@@ -377,3 +377,12 @@ not use the screenshot ingestor's known colour-label vocabulary. Matching
 metadata alone is not sufficient: each payload must independently satisfy
 the same basic shape and sampling constraints before two boards can be
 compared. Invalid payloads remain unverified and cannot enable game taps.
+
+### Observation sample-window geometry validation
+
+The observation gate also reproduces the screenshot ingestor's rounded sample
+centres from the declared grid and bounds. It rejects calibrations whose
+adjacent 3x3 sample windows would overlap, or whose rounded centres would put
+a sample window outside the screenshot. This prevents metadata that is merely
+inside the image rectangle from being accepted when the ingestor could not
+have sampled the declared grid safely.

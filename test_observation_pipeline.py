@@ -145,6 +145,47 @@ class ObservationPipelineTests(unittest.TestCase):
             )
             self.assertIn("bounds", result["errors"][0])
 
+    def test_sampling_bounds_must_produce_non_overlapping_3x3_windows(self):
+        invalid = observation(
+            self.board,
+            bounds=(201, 431, 205, 435),
+        )
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(
+            result["status"], "REJECTED_INVALID_OBSERVATION"
+        )
+        self.assertIn("overlapping 3x3", result["errors"][0])
+        self.assertFalse(result["transition_verified"])
+        self.assertFalse(result["tile_removals_verified"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_rounded_sample_centres_must_leave_room_inside_image(self):
+        cases = (
+            (
+                [["white"]],
+                (1078.6, 431, 1079, 1113),
+            ),
+            (
+                [["white"]],
+                (201, 2218.6, 881, 2219),
+            ),
+        )
+        for board, bounds in cases:
+            with self.subTest(bounds=bounds):
+                invalid = observation(
+                    board,
+                    grid_size=(1, 1),
+                    bounds=bounds,
+                )
+                result = evaluate_observations(invalid, invalid)
+                self.assertEqual(
+                    result["status"], "REJECTED_INVALID_OBSERVATION"
+                )
+                self.assertIn("outside image_size", result["errors"][0])
+                self.assertFalse(result["transition_verified"])
+                self.assertFalse(result["tile_removals_verified"])
+                self.assertFalse(result["game_taps_enabled"])
+
     def test_unknown_colour_labels_are_rejected(self):
         invalid_board = [row[:] for row in self.board]
         invalid_board[1][2] = "transparent"
