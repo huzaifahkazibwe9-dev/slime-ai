@@ -149,7 +149,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
             with self.subTest(invalid_count=invalid_count):
                 invalid = dict(self.observation)
                 invalid["counts"] = dict(self.observation["counts"])
-                invalid["counts"]["white"] = invalid_count
+                invalid["counts"]["orange"] = invalid_count
                 with self.assertRaisesRegex(
                     ValueError, "colour counts"
                 ):
