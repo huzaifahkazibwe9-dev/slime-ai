@@ -70,9 +70,10 @@ python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
 The command always saves the report first and prints a per-capture blocker
 summary to the terminal. It writes through a uniquely named temporary file in
 the output directory and atomically replaces the report, so an existing
-`*.tmp` file is not reused. The output path itself must not be a symbolic
-link; the command rejects symlink destinations rather than following them.
-On POSIX systems, the final report keeps the
+`*.tmp` file is not reused. The output path must not traverse symbolic
+links in either the filename or its parent directories; these destinations
+are rejected rather than followed. On POSIX systems, the final report keeps
+the
 private `0600` permissions of the temporary file. If opening the temporary
 file stream fails, the raw file descriptor and partial file are also cleaned
 up. It also prints
