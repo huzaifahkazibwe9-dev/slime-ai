@@ -2,13 +2,13 @@
 
 **Audit date:** 2026-11-26  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `a1dad242044110f61b365327d84523241715ac29` (`validate-candidate-limit-before-provenance`)  
+**Audited code head:** `519c62b8fdcb924de924a077b55bffd7805b3980` (`deterministic-dry-run-candidate-order`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1191](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896194822)
+**Latest verified automated run in this snapshot:** [CI #1193](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45899730048)
 
 ## Executive finding
 
-Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,229 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A separate five-case dry-run outcome corpus covers a modeled board-clearing candidate, no selectable group, a candidate that is simulated but leaves the board unsolved, unverified capture provenance and malformed-state rejection.
+Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,231 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A separate five-case dry-run outcome corpus covers a modeled board-clearing candidate, no selectable group, a candidate that is simulated but leaves the board unsolved, unverified capture provenance and malformed-state rejection.
 
 **The project is not 100% complete.** Automated unit tests cannot establish the true colour of game tiles, shooter identity/visibility accuracy, real conveyor timing, device compatibility, or correct behaviour on a live game state. Those require original device captures, independent human review and a real Termux acceptance run. The project is still an offline/advisory system; no gameplay taps or purchases are enabled.
 
@@ -32,6 +32,8 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#149](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/149) | Candidate-search truncation boundary reporting | [#1178](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989), 1,227 tests/version | Open draft, unmerged |
 | [#150](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/150) | Five-case dry-run outcome reference corpus | [#1190](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45889101898), 1,229 tests/version | Open draft, unmerged |
 | [#151](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/151) | Validate candidate-search budget before provenance gate | [#1191](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896194822), 1,230 tests/version | Open draft, unmerged |
+| [#152](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/152) | Refresh evidence through candidate-budget validation | [#1192](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896444804), 1,230 tests/version | Open draft, unmerged |
+| [#153](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/153) | Deterministic bounded dry-run candidate ordering | [#1193](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45899730048), 1,231 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
@@ -45,6 +47,7 @@ The base PRs in the stack are also open draft changes; review and merge order mu
 - `GameState.validate()` returns controlled diagnostics for malformed boards, rows, cells, shooter records and occupancy containers.
 - The direct shot simulator validates its own shooter/board inputs; its eleven-case reference corpus covers all four cardinal directions, empty-cell traversal, blocking, no-target, ammo edge cases and successive removal. The fixture's exact schema, field sets and primitive types are checked before use.
 - Bounded dry-run candidate enumeration reports truncation only when another legal prefix exists beyond the configured budget; exact-budget complete traversals remain non-truncated, with regression tests for both boundary cases.
+- Bounded dry-run candidate traversal now sorts eligible groups by canonical shooter IDs before enumeration. A regression test reverses shooter dictionary insertion order and confirms that a one-candidate budget selects the same first candidate; bounded search remains potentially truncated and is not an optimality proof.
 - The dry-run outcome fixture distinguishes a modeled board-clearing candidate, a valid candidate simulation that leaves the board unsolved, no selectable group, an explicit provenance block and structural input rejection. The tests do not treat `SIMULATED` or an empty simulated board as proof of a live-game win.
 - Recent CI runs passed the full unit suite on Python 3.10, 3.11, 3.12 and 3.14, plus Python compilation and shell syntax checks.
 
