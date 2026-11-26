@@ -617,6 +617,39 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 [],
             )
 
+    def test_cli_preserves_existing_report_and_cleans_temp_when_write_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            output.parent.mkdir(parents=True)
+            original = b'{"previous": "report"}\n'
+            output.write_bytes(original)
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                with patch(
+                    "shooter_review_intake_audit.json.dump",
+                    side_effect=OSError("simulated temporary report write failure"),
+                ):
+                    with self.assertRaises(SystemExit) as error:
+                        main()
+
+            self.assertEqual(error.exception.code, 2)
+            self.assertEqual(output.read_bytes(), original)
+            self.assertEqual(
+                list(output.parent.glob(f".{output.name}.*.tmp")),
+                [],
+            )
+
     def test_blank_pair_reports_zero_completion_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
