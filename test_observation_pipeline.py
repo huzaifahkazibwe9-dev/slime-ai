@@ -109,9 +109,9 @@ class ObservationPipelineTests(unittest.TestCase):
             real_read_bytes = Path.read_bytes
             reads = []
 
-            def read_then_replace(path):
-                data = real_read_bytes(path)
-                reads.append(Path(path).resolve())
+            def read_then_replace(*_args, **_kwargs):
+                data = real_read_bytes(image_path)
+                reads.append(image_path.resolve())
                 Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
                 return data
 
