@@ -9,6 +9,7 @@ from PIL import Image
 from screenshot_ingestor import classify_rgb, sample_centres_for_grid
 from source_pixel_audit import (
     audit_source_pixels,
+    canonical_observation_sha256,
     EXTRACTION_FINGERPRINT_FIELDS,
     validate_source_pixel_audit_status,
 )
@@ -99,9 +100,21 @@ class SourcePixelAuditTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, flag):
                         validate_source_pixel_audit_status(candidate)
 
+    def test_canonical_observation_digest_changes_when_any_payload_field_changes(self):
+        first = canonical_observation_sha256(self.observation)
+        self.assertRegex(first, r"^[0-9a-f]{64}$")
+        changed = dict(self.observation)
+        changed["extra_metadata"] = {"review_state": "edited"}
+        self.assertNotEqual(first, canonical_observation_sha256(changed))
+        self.assertIsNone(canonical_observation_sha256([]))
+
     def test_reproduces_all_source_pixel_samples_and_payload_fingerprint(self):
         report = audit_source_pixels(self.observation, self.image_bytes)
         self.assertTrue(report["pixel_samples_reproduced"])
+        self.assertEqual(
+            report["board_observation_sha256"],
+            canonical_observation_sha256(self.observation),
+        )
         self.assertEqual(report["reproduced_sample_count"], 9)
         self.assertTrue(report["colour_counts_match"])
         self.assertTrue(report["extraction_fingerprint_match"])

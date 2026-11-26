@@ -22,6 +22,19 @@ EXTRACTION_FINGERPRINT_FIELDS = (
 )
 
 
+def canonical_observation_sha256(observation):
+    """Fingerprint the complete parsed board observation using canonical JSON."""
+    if not isinstance(observation, dict):
+        return None
+    try:
+        encoded = json.dumps(
+            observation, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return None
+    return hashlib.sha256(encoded).hexdigest()
+
+
 AUDIT_STATUS_TRUE_FLAGS = (
     "source_image_hash_checked",
     "source_image_dimensions_checked",
@@ -184,6 +197,7 @@ def audit_source_pixels(observation, source_image_bytes):
         return {
             "schema_version": 1,
             "source_sha256": actual_hash,
+            "board_observation_sha256": canonical_observation_sha256(observation),
             "image_size": list(image.size),
             "grid_size": grid_size,
             "sample_count": total,

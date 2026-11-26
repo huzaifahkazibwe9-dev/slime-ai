@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from capture_preflight import validate_capture_pair
+from source_pixel_audit import canonical_observation_sha256
 
 
 class CapturePreflightTests(unittest.TestCase):
@@ -49,7 +50,7 @@ class CapturePreflightTests(unittest.TestCase):
         board_path.write_text(json.dumps(board))
         shooter_path.write_text(json.dumps(shooter))
         audit_path = Path(root) / "source_pixel_audit_latest.json"
-        audit_path.write_text(json.dumps({
+        audit = {
             "schema_version": 1,
             "source_sha256": source_hash,
             "image_size": [1080, 2220],
@@ -73,7 +74,9 @@ class CapturePreflightTests(unittest.TestCase):
             "calibration_alignment_verified": False,
             "gameplay_verified": False,
             "game_taps_enabled": False,
-        }))
+        }
+        audit["board_observation_sha256"] = canonical_observation_sha256(board)
+        audit_path.write_text(json.dumps(audit))
         return board_path, shooter_path, now
 
     def test_accepts_recent_matching_capture_pair(self):
@@ -277,6 +280,31 @@ class CapturePreflightTests(unittest.TestCase):
                 data = json.loads(audit_path.read_text())
                 del data[field]
                 audit_path.write_text(json.dumps(data))
+                result = validate_capture_pair(board, shooters, now=now)
+                self.assertFalse(result["valid"])
+                self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_board_payload_changed_after_pixel_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            board, shooters, now = self.write_pair(directory)
+            board_data = json.loads(board.read_text())
+            board_data["post_audit_edit"] = "modified payload"
+            board.write_text(json.dumps(board_data))
+            result = validate_capture_pair(board, shooters, now=now)
+        self.assertFalse(result["valid"])
+        self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_missing_or_malformed_board_observation_digest_in_audit(self):
+        for value in (None, "not-a-sha256"):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                board, shooters, now = self.write_pair(directory)
+                audit_path = Path(directory) / "source_pixel_audit_latest.json"
+                audit = json.loads(audit_path.read_text())
+                if value is None:
+                    del audit["board_observation_sha256"]
+                else:
+                    audit["board_observation_sha256"] = value
+                audit_path.write_text(json.dumps(audit))
                 result = validate_capture_pair(board, shooters, now=now)
                 self.assertFalse(result["valid"])
                 self.assertIn("pixel audit is incomplete", result["reason"])

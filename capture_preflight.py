@@ -10,7 +10,10 @@ from capture_provenance import (
     validate_capture_session_id,
 )
 from snapshot_sync import validate_capture_freshness
-from source_pixel_audit import validate_source_pixel_audit_status
+from source_pixel_audit import (
+    canonical_observation_sha256,
+    validate_source_pixel_audit_status,
+)
 
 
 def _positive_int_pair(value):
@@ -199,6 +202,8 @@ def validate_capture_pair(
         and type(audit_label_mismatch_count) is int
         and audit_label_mismatch_count == 0
         and pixel_audit.get("source_sha256") == source_hash
+        and pixel_audit.get("board_observation_sha256")
+        == canonical_observation_sha256(board)
         and pixel_audit.get("capture_session_id") == board_session
         and pixel_audit.get("captured_at") == board.get("captured_at")
         and pixel_audit.get("snapshot_id") == board.get("snapshot_id")
