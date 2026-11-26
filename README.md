@@ -346,3 +346,14 @@ prevents an observation from combining pixels from one file version with the
 digest of a later replacement. The reported digest identifies the bytes read;
 it does not independently verify the screenshot's capture time or gameplay
 state.
+
+
+### Screenshot file metadata consistency
+
+Screenshot ingestion now reads bytes through one open file descriptor and
+checks the descriptor's device, inode, size, modification time and change time
+before and after the read. A file modified in place during the read is rejected.
+The reported `file_modified_at` comes from that same descriptor, rather than a
+later path lookup that could describe a replacement file. This remains a
+filesystem modification timestamp, not proof of when the screenshot was
+captured.
