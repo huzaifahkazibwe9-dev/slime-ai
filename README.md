@@ -336,3 +336,13 @@ The orchestration pipeline shares one evolving-board search result with the capa
 ## Human visual review workflow
 
 Prepare board-colour and shooter-observation templates from one screenshot with `python prepare_visual_review.py path/to/original-screenshot.png --config data/shooter_capture_config.json`. After manually completing both templates, evaluate them together with `evaluate_visual_review_bundle.py`. The two stages and their provenance checks are documented in [docs/COMBINED_VISUAL_REVIEW.md](docs/COMBINED_VISUAL_REVIEW.md). The metrics remain separate and user-labelled; this workflow does not claim gameplay verification.
+
+### Immutable screenshot observations
+
+The screenshot transition pipeline reads each input screenshot once and uses
+the same immutable byte snapshot for board extraction and SHA-256 provenance.
+It does not reopen a mutable path between visual analysis and hashing. This
+prevents an observation from combining pixels from one file version with the
+digest of a later replacement. The reported digest identifies the bytes read;
+it does not independently verify the screenshot's capture time or gameplay
+state.
