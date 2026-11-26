@@ -420,3 +420,15 @@ mismatch count must be exactly zero, and both pixel- and label-mismatch lists
 must be empty. Boolean values are not accepted as integer counts. These
 consistency checks complement the existing screenshot hash, dimensions,
 capture-session and status checks.
+
+
+### Pixel-audit binding to the complete board observation
+
+The source-pixel audit now records a canonical SHA-256 digest of the complete
+parsed board-observation object, in addition to the screenshot-byte digest.
+Capture preflight recomputes that digest from the board object it actually
+received and requires an exact match. Any later edit to board labels, RGB
+samples, calibration metadata or other payload fields invalidates the earlier
+pixel audit and blocks readiness. This binds report consistency; it is not a
+digital signature and does not establish that the board labels match game
+truth.
