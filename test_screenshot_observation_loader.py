@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 from screenshot_observation_loader import load_observed_level
-from screenshot_observation_loader import verify_source_samples
+from screenshot_observation_loader import verify_source_samples, _require_grid
 
 from level_loader import load_level
 from execution_engine import run_dry_simulation, run_multi_batch_schedule
@@ -77,6 +77,53 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
     def write(self):
         self.observation_path.write_text(json.dumps(self.observation))
         self.shooter_path.write_text(json.dumps(self.shooters))
+
+    def test_direct_loader_rejects_overlapping_3x3_sample_windows(self):
+        invalid = dict(self.observation)
+        invalid["grid_size"] = [5, 2]
+        invalid["bounds"] = [10, 10, 20, 190]
+        invalid["board"] = [["white"] * 5 for _ in range(2)]
+        invalid["raw_rgb"] = [
+            [[245, 245, 245] for _ in range(5)]
+            for _ in range(2)
+        ]
+        invalid["counts"] = {"white": 10}
+        with self.assertRaisesRegex(ValueError, "overlapping 3x3"):
+            _require_grid(invalid)
+
+    def test_direct_loader_rejects_rounded_sample_window_outside_image(self):
+        invalid = dict(self.observation)
+        invalid["grid_size"] = [1, 1]
+        invalid["bounds"] = [298.6, 20, 299, 40]
+        invalid["board"] = [["white"]]
+        invalid["raw_rgb"] = [[[245, 245, 245]]]
+        invalid["counts"] = {"white": 1}
+        with self.assertRaisesRegex(ValueError, "outside the screenshot"):
+            _require_grid(invalid)
+
+    def test_source_sample_verifier_rejects_overlapping_sampling_windows(self):
+        from PIL import Image
+        import hashlib
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (300, 200), (245, 245, 245)).save(
+            buffer, format="PNG"
+        )
+        source_bytes = buffer.getvalue()
+        invalid = dict(self.observation)
+        invalid["source_sha256"] = hashlib.sha256(source_bytes).hexdigest()
+        invalid["grid_size"] = [5, 2]
+        invalid["bounds"] = [10, 10, 20, 190]
+        invalid["sample_centres"] = {
+            "x": [11, 13, 15, 17, 19],
+            "y": [55, 145],
+        }
+        invalid["raw_rgb"] = [
+            [[245, 245, 245] for _ in range(5)]
+            for _ in range(2)
+        ]
+        with self.assertRaisesRegex(ValueError, "overlapping 3x3"):
+            verify_source_samples(invalid, source_bytes)
 
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
