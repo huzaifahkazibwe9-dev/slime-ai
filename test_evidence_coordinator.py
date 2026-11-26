@@ -1,5 +1,12 @@
+import hashlib
+import json
+import tempfile
 import unittest
-from evidence_coordinator import audit_transition
+from pathlib import Path
+from unittest.mock import patch
+from PIL import Image
+
+from evidence_coordinator import audit_transition, coordinate, OBSERVATION, REPORT
 
 
 class EvidenceCoordinatorTests(unittest.TestCase):
@@ -113,6 +120,60 @@ class EvidenceCoordinatorTests(unittest.TestCase):
     def test_empty_board_rejected(self):
         with self.assertRaises(ValueError):
             audit_transition([], [])
+
+    def test_coordinate_binds_extraction_and_hash_to_one_byte_snapshot(self):
+        """Extraction, hash and EXIF must come from the same immutable bytes.
+
+        Even if the source path is replaced after the initial read, the
+        returned digest and board must still match the original snapshot.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            # Solid white image that classifies as all-"white"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            original_bytes = image_path.read_bytes()
+            expected_digest = hashlib.sha256(original_bytes).hexdigest()
+
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            def replace_source_then_extract(path, calibration):
+                # Simulate a race: replace the original path after the
+                # snapshot has been taken but before extraction finishes.
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+                from screenshot_ingestor import extract_board as real_extract
+                return real_extract(path, calibration)
+
+            with patch(
+                "evidence_coordinator.extract_board",
+                side_effect=replace_source_then_extract,
+            ):
+                result = coordinate(
+                    image_path,
+                    baseline_path=baseline_path,
+                )
+
+            self.assertEqual(result["source_sha256"], expected_digest)
+            self.assertEqual(result["snapshot_id"], "sha256:" + expected_digest)
+            self.assertFalse(result["game_taps_enabled"])
+            self.assertFalse(result["gameplay_verified"])
+
+            # The observation written from the snapshot must also match
+            observation = json.loads(OBSERVATION.read_text())
+            self.assertEqual(observation["source_sha256"], expected_digest)
+            self.assertEqual(observation["board"], board)
+            self.assertEqual(result["transition"]["status"], "UNCHANGED")
+
+            # Clean up the fixed-path artefacts the coordinator writes
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
 
 if __name__ == "__main__":
     unittest.main()
