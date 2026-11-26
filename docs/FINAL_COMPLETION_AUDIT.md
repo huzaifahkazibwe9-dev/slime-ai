@@ -2,9 +2,9 @@
 
 **Audit date:** 2026-11-26  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `191afde37d80d55971c599a07a89fb31580faca6` (`add-solver-outcome-reference-cases`)  
+**Audited code head:** `a1dad242044110f61b365327d84523241715ac29` (`validate-candidate-limit-before-provenance`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1188](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888960648)
+**Latest verified automated run in this snapshot:** [CI #1191](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896194822)
 
 ## Executive finding
 
@@ -30,7 +30,8 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#147](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/147) | Strict shot-reference fixture schema | [#1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997), 1,225 tests/version | Open draft, unmerged |
 | [#148](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/148) | Refresh completion evidence register | [#1177](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45885139628), 1,225 tests/version | Open draft, unmerged |
 | [#149](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/149) | Candidate-search truncation boundary reporting | [#1178](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989), 1,227 tests/version | Open draft, unmerged |
-| [#150](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/150) | Five-case dry-run outcome reference corpus | [#1188](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888960648), 1,229 tests/version | Open draft, unmerged |
+| [#150](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/150) | Five-case dry-run outcome reference corpus | [#1190](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45889101898), 1,229 tests/version | Open draft, unmerged |
+| [#151](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/151) | Validate candidate-search budget before provenance gate | [#1191](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896194822), 1,230 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
