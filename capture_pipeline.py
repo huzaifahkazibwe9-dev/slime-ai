@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -19,6 +20,29 @@ from strict_json import strict_json_loads
 BOARD_OUTPUT = Path("data/board_observation_latest.json")
 SHOOTER_OUTPUT = Path("data/shooter_detection.json")
 PIXEL_AUDIT_OUTPUT = Path("data/source_pixel_audit_latest.json")
+
+
+def _read_capture_snapshot(path):
+    """Read one stable screenshot version through a single file descriptor."""
+    image_path = Path(path)
+    with image_path.open("rb") as image_file:
+        before = os.fstat(image_file.fileno())
+        image_bytes = image_file.read()
+        after = os.fstat(image_file.fileno())
+
+    stable_fields = (
+        "st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"
+    )
+    if (
+        any(getattr(before, field) != getattr(after, field)
+            for field in stable_fields)
+        or len(image_bytes) != after.st_size
+    ):
+        raise RuntimeError(
+            "Screenshot changed while the capture snapshot was being read; "
+            "capture a stable file and retry"
+        )
+    return image_bytes
 
 
 def load_capture_config(path):
@@ -172,10 +196,10 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
 def run_capture_pipeline(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
-    # Read the source once, then stage those exact bytes in a private directory.
-    # Both subprocesses consume the staged file, so a change to the original
-    # pathname between stages cannot split the board and shooter observations.
-    source_image_bytes = Path(screenshot).read_bytes()
+    # Read one stable descriptor snapshot, then stage those exact bytes in a
+    # private directory. Atomic path replacement cannot swap the open file;
+    # in-place changes are detected by the descriptor metadata checks.
+    source_image_bytes = _read_capture_snapshot(screenshot)
     expected_source_sha256 = hashlib.sha256(source_image_bytes).hexdigest()
     common = [
         "--capture-session-id", config["capture_session_id"],
