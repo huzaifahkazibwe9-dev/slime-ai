@@ -75,6 +75,61 @@ class AnnotationValidatorTests(unittest.TestCase):
             result = load_and_validate(path)
             self.assertEqual(result["annotator"], "test-human")
 
+    def test_empty_shooters_list_accepted_when_confirmed(self):
+        data = dict(VALID)
+        data["shooters"] = []
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_boolean_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": True}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_float_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10.0}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_naive_timestamp_rejected(self):
+        data = dict(VALID)
+        data["annotated_at"] = "2026-11-26T12:00:00"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotated_at" in e for e in errors))
+
+    def test_session_id_with_space_rejected(self):
+        data = dict(VALID)
+        data["capture_session_id"] = "bad session"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("capture_session_id" in e for e in errors))
+
+    def test_empty_color_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "", "ammo": 5}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("color" in e for e in errors))
+
+    def test_empty_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "", "color": "red", "ammo": 5}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any(".id" in e for e in errors))
+
+    def test_extra_fields_tolerated(self):
+        data = dict(VALID)
+        data["notes"] = "optional note"
+        data["shooters"][0]["bonded_ids"] = ["s2"]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
 
 if __name__ == "__main__":
     unittest.main()
