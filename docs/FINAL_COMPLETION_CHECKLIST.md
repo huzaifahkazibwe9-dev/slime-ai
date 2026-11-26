@@ -2,7 +2,7 @@
 
 Repository: huzaifahkazibwe9-dev/slime-ai  
 Branch: reliability-offline-hardening-2026-11  
-Last updated: 2026-11-26
+Last updated: 2026-11-27
 
 Status values: `NOT_STARTED` | `IN_PROGRESS` | `BLOCKED` | `VERIFIED`
 
@@ -58,7 +58,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 - Subsystem: Shooter validation
 - Status: **IN_PROGRESS**
 - Acceptance: Schema + instructions that do not invent labels
-- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests
+- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + expanded unit tests (16 tests covering strict type and format edges)
 
 ### CONVEYOR-001 — Conveyor identity and snapshot synchronization
 - Subsystem: Conveyor
@@ -114,7 +114,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 | BLOCKED      | 3     |
 | NOT_STARTED  | 2     |
 
-**Honest offline engineering completion (current):** approximately 56–68%  
+**Honest offline engineering completion (current):** approximately 57–69%  
 **External validation completion:** near 0% (device + human labels still required)
 
 This checklist will be updated after every meaningful milestone.
