@@ -284,10 +284,37 @@ def _metric(pairs):
         for actual in labels
     }
     correct = sum(actual == predicted for actual, predicted in pairs)
+    per_class = {}
+    f1_values = []
+    for label in labels:
+        true_positive = matrix[label][label]
+        false_positive = sum(matrix[actual][label] for actual in labels if actual != label)
+        false_negative = sum(matrix[label][predicted] for predicted in labels if predicted != label)
+        precision = (
+            true_positive / (true_positive + false_positive)
+            if true_positive + false_positive else 0.0
+        )
+        recall = (
+            true_positive / (true_positive + false_negative)
+            if true_positive + false_negative else 0.0
+        )
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall else 0.0
+        )
+        per_class[label] = {
+            "support": sum(matrix[label].values()),
+            "precision": round(precision, 6),
+            "recall": round(recall, 6),
+            "f1": round(f1, 6),
+        }
+        f1_values.append(f1)
     return {
         "support": len(pairs),
         "correct_count": correct,
         "accuracy": round(correct / len(pairs), 6),
+        "macro_f1": round(sum(f1_values) / len(f1_values), 6),
+        "per_class": per_class,
         "confusion_matrix": matrix,
     }
 
