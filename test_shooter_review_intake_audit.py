@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import socket
 import stat
 import tempfile
 import unittest
@@ -647,6 +648,55 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 list(output_dir.glob(f".{output.name}.*.tmp")),
                 [],
             )
+
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(socket, "AF_UNIX"),
+        "POSIX Unix-domain sockets are required",
+    )
+    def test_cli_rejects_directory_and_socket_output_destinations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output_dir = root / "reports"
+            output_dir.mkdir()
+
+            directory_output = output_dir / "directory-target"
+            directory_output.mkdir()
+            socket_output = output_dir / "socket-target"
+            server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                server.bind(str(socket_output))
+            finally:
+                server.close()
+
+            for output, is_directory in (
+                (directory_output, True),
+                (socket_output, False),
+            ):
+                with self.subTest(output=output.name):
+                    with patch(
+                        "sys.argv",
+                        [
+                            "shooter_review_intake_audit.py",
+                            str(base / "review_manifest.json"),
+                            "--reviewer-a-id", "reviewer-a",
+                            "--reviewer-b-id", "reviewer-b",
+                            "--output", str(output),
+                        ],
+                    ):
+                        with self.assertRaises(SystemExit) as error:
+                            main()
+
+                    self.assertEqual(error.exception.code, 2)
+                    mode = output.lstat().st_mode
+                    if is_directory:
+                        self.assertTrue(stat.S_ISDIR(mode))
+                    else:
+                        self.assertTrue(stat.S_ISSOCK(mode))
+                    self.assertEqual(
+                        list(output_dir.glob(f".{output.name}.*.tmp")),
+                        [],
+                    )
 
     def test_cli_writes_report_to_new_output_path(self):
         with tempfile.TemporaryDirectory() as directory:
