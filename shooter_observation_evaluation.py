@@ -6,6 +6,7 @@ that labels are independently verified or that gameplay is correct.
 """
 import argparse
 from collections import Counter
+from datetime import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -68,6 +69,16 @@ def validate_dataset(data):
         raise ValueError("capture_provenance capture_session_id is invalid")
     if not isinstance(capture.get("captured_at"), str) or not capture["captured_at"].strip():
         raise ValueError("capture_provenance captured_at is invalid")
+    try:
+        captured_at = datetime.fromisoformat(
+            capture["captured_at"].replace("Z", "+00:00")
+        )
+    except ValueError as exc:
+        raise ValueError("capture_provenance captured_at is invalid") from exc
+    if captured_at.tzinfo is None or captured_at.utcoffset() is None:
+        raise ValueError(
+            "capture_provenance captured_at must include a UTC offset"
+        )
     bounds = capture.get("panel_bounds")
     if (not isinstance(bounds, list) or len(bounds) != 4
             or any(type(value) is not int for value in bounds)
