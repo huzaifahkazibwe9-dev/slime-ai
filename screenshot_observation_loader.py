@@ -116,8 +116,6 @@ def _require_grid(data):
             "Invalid or inconsistent screenshot/board snapshot identity"
         )
 
-    if data.get("same_board_state_confirmed") is not False:
-        raise ValueError("Screenshot observation must keep same_board_state_confirmed False")
     if data.get("gameplay_verified") is not False:
         raise ValueError("Screenshot observation must remain gameplay-unverified")
     if data.get("vision_classification_verified") is not False:
@@ -193,6 +191,16 @@ def verify_source_samples(observation, source_image_bytes):
     }
 
 
+def _require_unverified_capture_status(data):
+    """Require the state loader to preserve an explicitly unconfirmed board."""
+    if not isinstance(data, dict):
+        raise ValueError("Observation must be a JSON object")
+    if data.get("same_board_state_confirmed") is not False:
+        raise ValueError(
+            "Screenshot observation must keep same_board_state_confirmed False"
+        )
+
+
 def load_observed_level(
     observation_path=DEFAULT_OBSERVATION,
     shooter_path=DEFAULT_SHOOTERS,
@@ -209,6 +217,7 @@ def load_observed_level(
         if observation_data is not None
         else strict_json_loads(observation_path.read_bytes())
     )
+    _require_unverified_capture_status(data)
     width, height, board, counts = _require_grid(data)
 
     if shooter_data is None:
