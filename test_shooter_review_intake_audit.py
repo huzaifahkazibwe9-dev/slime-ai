@@ -520,6 +520,32 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX file permissions are required")
+    def test_cli_replacement_restricts_preexisting_report_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            output.parent.mkdir(parents=True)
+            output.write_text('{"previous": "report"}\n', encoding="utf-8")
+            output.chmod(0o644)
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                main()
+
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["capture_count"], 1)
+            self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
+
     def test_cli_writes_report_to_new_output_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
