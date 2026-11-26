@@ -144,6 +144,25 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
                         shooter_data=self.shooters,
                     )
 
+    def test_direct_loader_rejects_boolean_and_float_colour_counts(self):
+        for invalid_count in (True, 2.0):
+            with self.subTest(invalid_count=invalid_count):
+                invalid = dict(self.observation)
+                invalid["counts"] = dict(self.observation["counts"])
+                invalid["counts"]["white"] = invalid_count
+                with self.assertRaisesRegex(
+                    ValueError, "colour counts"
+                ):
+                    _require_grid(invalid)
+
+    def test_direct_loader_requires_lowercase_sha256_hex(self):
+        invalid = dict(self.observation)
+        invalid["source_sha256"] = "A" * 64
+        invalid["snapshot_id"] = "sha256:" + "A" * 64
+        invalid["board_snapshot_id"] = "sha256:" + "A" * 64
+        with self.assertRaisesRegex(ValueError, "snapshot identity"):
+            _require_grid(invalid)
+
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
             self.observation_path, self.shooter_path, level=39
