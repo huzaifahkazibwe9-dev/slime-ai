@@ -343,6 +343,14 @@ def main():
     parser.add_argument(
         "--output", default="data/shooter_review_intake_audit.json"
     )
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help=(
+            "Exit with status 1 after saving the report when any reviewer "
+            "has an unfinished slot in any capture"
+        ),
+    )
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest).expanduser().resolve()
@@ -402,6 +410,13 @@ def main():
     print("Gameplay verified: False")
     print("Game taps enabled: False")
     print("Report:", output)
+
+    if args.require_ready and not report["agreement_audit_ready"]:
+        parser.exit(
+            1,
+            "ERROR: Readiness gate failed; the intake report was saved, "
+            "but paired reviews are incomplete.\\n",
+        )
 
 
 if __name__ == "__main__":
