@@ -85,3 +85,14 @@ not accuracy; this workflow does not establish reviewer independence, label
 truth, detector quality, representativeness, or gameplay success. It does not
 change detector calibration or interact with the game. Game taps remain
 disabled.
+
+## Check completion before agreement
+
+While reviews are still in progress, run
+`shooter_review_intake_audit.py review_manifest.json` with the same two
+reviewer IDs. The preflight verifies that both datasets remain tied to each
+exact capture and reports confirmed, ambiguous, and not-yet-reviewed counts.
+It accepts unfinished datasets and sets `agreement_audit_ready = true` only
+when both reviewers have completed every slot in every capture. See
+[`REVIEW_INTAKE_READINESS.md`](REVIEW_INTAKE_READINESS.md) for the full
+preflight command and validation rules.
