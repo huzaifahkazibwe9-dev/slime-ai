@@ -68,6 +68,74 @@ class ShotSimulatorTests(unittest.TestCase):
         self.assertEqual(result.reason, "No ammunition")
         self.assertEqual(state.board, [["red"]])
 
+    def test_direct_simulator_rejects_malformed_ammunition_types(self):
+        for ammo in (True, 1.5, "2", -1):
+            with self.subTest(ammo=ammo):
+                state = GameState(
+                    board=[["red"]],
+                    shooters={
+                        "R1": Shooter("R1", "red", ammo, "right", -1, 0)
+                    },
+                )
+                result = simulate_shot(state, "R1")
+                self.assertFalse(result.fired)
+                self.assertFalse(result.removed)
+                self.assertEqual(result.reason, "Invalid ammunition")
+                self.assertEqual(state.board, [["red"]])
+
+    def test_direct_simulator_rejects_unhashable_direction(self):
+        state = GameState(
+            board=[["red"]],
+            shooters={
+                "R1": Shooter("R1", "red", 2, ["right"], -1, 0)
+            },
+        )
+        result = simulate_shot(state, "R1")
+        self.assertFalse(result.fired)
+        self.assertEqual(result.reason, "Invalid direction")
+        self.assertEqual(state.board, [["red"]])
+
+    def test_direct_simulator_rejects_non_integer_coordinates(self):
+        for x, y in ((-1.5, 0), (-1, True)):
+            with self.subTest(x=x, y=y):
+                state = GameState(
+                    board=[["red"]],
+                    shooters={
+                        "R1": Shooter("R1", "red", 2, "right", x, y)
+                    },
+                )
+                result = simulate_shot(state, "R1")
+                self.assertFalse(result.fired)
+                self.assertEqual(result.reason, "Invalid shooter coordinates")
+                self.assertEqual(state.board, [["red"]])
+
+    def test_direct_simulator_rejects_missing_shooter_colour(self):
+        state = GameState(
+            board=[["red"]],
+            shooters={"R1": Shooter("R1", None, 2, "right", -1, 0)},
+        )
+        result = simulate_shot(state, "R1")
+        self.assertFalse(result.fired)
+        self.assertEqual(result.reason, "Shooter colour is unknown")
+        self.assertEqual(state.board, [["red"]])
+
+    def test_direct_simulator_rejects_malformed_board_structure(self):
+        for board in (None, [], [["red"], None], [[True]]):
+            with self.subTest(board=board):
+                state = GameState(
+                    board=board,
+                    shooters={"R1": Shooter("R1", "red", 2, "right", -1, 0)},
+                )
+                result = simulate_shot(state, "R1")
+                self.assertFalse(result.fired)
+                self.assertEqual(result.reason, "Invalid board structure")
+
+    def test_shooter_validation_rejects_non_integer_board_coordinates(self):
+        for x, y in ((-1.5, 0), (-1, True)):
+            with self.subTest(x=x, y=y):
+                shooter = Shooter("R1", "red", 2, "right", x, y)
+                self.assertFalse(shooter.valid())
+
     def test_invalid_direction_is_rejected(self):
         state = GameState(
             board=[["red"]],
