@@ -69,6 +69,29 @@ class EvolvingBoardPlannerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             plan_evolving_board(state, max_nodes=0)
 
+    def test_no_accessible_groups_returns_partial_sequence_without_mutation(self):
+        """Regression: empty accessible set yields partial sequence and leaves source unchanged."""
+        state = GameState(
+            board=[["red", "blue"]],
+            shooters={
+                "A": Shooter("A", "red", 3, "right", -1, 0, accessible=False),
+                "B": Shooter("B", "blue", 2, "left", 2, 0, accessible=False),
+            },
+        )
+        original = copy.deepcopy(state)
+        report = plan_evolving_board(state, max_nodes=10, beam_width=5)
+        self.assertEqual(report["status"], "PARTIAL_SEQUENCE")
+        self.assertEqual(report["sequence"], [])
+        self.assertEqual(report["sequence_length"], 0)
+        self.assertEqual(report["simulated_remaining_pixels"], report["initial_pixels"])
+        self.assertEqual(report["simulated_pixels_removed"], 0)
+        self.assertFalse(report["board_cleared"])
+        self.assertIn("NO_COMPLETE_BOARD_SEQUENCE_FOUND", report["blockers"])
+        self.assertFalse(report["game_taps_enabled"])
+        self.assertFalse(report["gameplay_actions_performed"])
+        self.assertTrue(report["source_state_unchanged"])
+        self.assertEqual(state, original)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
