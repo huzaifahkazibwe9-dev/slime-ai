@@ -462,3 +462,12 @@ The direct screenshot-to-GameState loader requires
 gameplay, colour-classification and game-tap restrictions. Missing or true
 values are rejected; the loader cannot silently accept an observation that
 claims the board state has already been confirmed.
+
+
+### Standalone loader count and digest type checks
+
+Saved colour counts must be exact positive integers; booleans and floating-point
+values are rejected even when Python's numeric equality would make them compare
+equal to integer totals. Screenshot SHA-256 values must use canonical lowercase
+hexadecimal notation, matching the digests produced by the capture and audit
+pipelines.
