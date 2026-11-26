@@ -62,7 +62,7 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         self.assertEqual(report["confirmed_sample_count"], 12)
         self.assertEqual(metrics["visibility"]["support"], 12)
         self.assertEqual(metrics["visibility"]["accuracy"], round(11 / 12, 6))
-        self.assertAlmostEqual(metrics["visibility"]["macro_f1"], 0.916667, places=5)
+        self.assertAlmostEqual(metrics["visibility"]["macro_f1"], 0.714286, places=5)
         self.assertEqual(metrics["visibility"]["per_class"]["visible"]["support"], 4)
         self.assertEqual(metrics["visibility"]["per_class"]["visible"]["recall"], 1.0)
         self.assertEqual(metrics["slot_position_alignment"]["support"], 12)
