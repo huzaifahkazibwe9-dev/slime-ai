@@ -159,6 +159,77 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
         self.assertEqual(report["reviewer_a"]["completion_rate"], 0.5)
         self.assertFalse(report["agreement_audit_ready"])
 
+    def test_cli_prints_reviewer_progress_for_each_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            second = self._second_capture(root)
+            manifest = self._two_capture_manifest(root, second)
+
+            self._write(path_a, self._complete(dataset_a))
+            self._write(path_b, self._complete(dataset_b))
+
+            second_a = json.loads(
+                second["reviewer_a_dataset"].read_text(encoding="utf-8")
+            )
+            second_b = json.loads(
+                second["reviewer_b_dataset"].read_text(encoding="utf-8")
+            )
+            completed_second_a = self._complete(second_a)
+            partial_second_a = copy.deepcopy(second_a)
+            partial_second_a["samples"][0] = completed_second_a["samples"][0]
+            partial_second_a["labelled_by_user"] = False
+            self._write(second["reviewer_a_dataset"], partial_second_a)
+
+            for sample in second_b["samples"]:
+                sample["review_status"] = "ambiguous"
+            second_b["labelled_by_user"] = True
+            self._write(second["reviewer_b_dataset"], second_b)
+
+            manifest_path = base / "multi-capture-manifest.json"
+            self._write(manifest_path, manifest)
+            output = root / "reports" / "multi-capture-intake.json"
+            captured = io.StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(manifest_path),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                with redirect_stdout(captured):
+                    main()
+
+        output_text = captured.getvalue()
+        self.assertIn("Per-capture reviewer progress:", output_text)
+        self.assertIn(
+            "Capture 1 (session-",
+            output_text,
+        )
+        self.assertIn(
+            "Reviewer A: 12/12 reviewed (confirmed 12, ambiguous 0, unreviewed 0)",
+            output_text,
+        )
+        self.assertIn(
+            "Reviewer B: 12/12 reviewed (confirmed 12, ambiguous 0, unreviewed 0)",
+            output_text,
+        )
+        self.assertIn(
+            "Capture 2 (session-second):",
+            output_text,
+        )
+        self.assertIn(
+            "Reviewer A: 1/12 reviewed (confirmed 1, ambiguous 0, unreviewed 11)",
+            output_text,
+        )
+        self.assertIn(
+            "Reviewer B: 12/12 reviewed (confirmed 0, ambiguous 12, unreviewed 0)",
+            output_text,
+        )
+
     def test_all_multi_capture_pairs_must_be_complete_before_ready(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
