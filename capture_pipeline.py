@@ -45,7 +45,11 @@ def _capture_run_lock(lock_path=None):
 
 
 def _read_capture_snapshot(path):
-    """Read one stable screenshot version through a single file descriptor."""
+    """Read one stable screenshot version through a single file descriptor.
+
+    Detects both in-place mutation of the open inode and path replacement
+    (the directory entry no longer names the same inode after the read).
+    """
     image_path = Path(path)
     with image_path.open("rb") as image_file:
         before = os.fstat(image_file.fileno())
@@ -64,6 +68,23 @@ def _read_capture_snapshot(path):
             "Screenshot changed while the capture snapshot was being read; "
             "capture a stable file and retry"
         )
+
+    # Also reject if the path was swapped out from under us. The open
+    # descriptor still sees the original inode, but the name no longer
+    # refers to it.
+    try:
+        path_stat = os.stat(image_path)
+    except OSError:
+        raise RuntimeError(
+            "Screenshot changed while the capture snapshot was being read; "
+            "capture a stable file and retry"
+        )
+    if path_stat.st_dev != before.st_dev or path_stat.st_ino != before.st_ino:
+        raise RuntimeError(
+            "Screenshot changed while the capture snapshot was being read; "
+            "capture a stable file and retry"
+        )
+
     return image_bytes
 
 
