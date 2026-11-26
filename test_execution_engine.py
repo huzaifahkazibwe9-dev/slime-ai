@@ -347,6 +347,32 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertLessEqual(report["candidates_examined"], 3)
         self.assertTrue(report["search_truncated"])
 
+    def test_exact_single_candidate_limit_is_not_reported_as_truncated(self):
+        state = self.make_state([["red"]], [
+            Shooter("R", "red", 1, "right", -1, 0, accessible=True)
+        ])
+
+        report = run_dry_simulation(state, max_candidates=1)
+
+        self.assertEqual(report["candidates_examined"], 1)
+        self.assertFalse(report["search_truncated"])
+
+    def test_exact_full_search_limit_is_not_reported_as_truncated(self):
+        shooters = [
+            Shooter("A", "red", 1, "right", -1, 0, accessible=True),
+            Shooter("B", "red", 1, "right", -1, 0, accessible=True),
+        ]
+        state = self.make_state([["red"]], shooters)
+
+        complete = run_dry_simulation(state, max_candidates=3)
+        truncated = run_dry_simulation(state, max_candidates=2)
+
+        # The two singletons and their ordered pair produce three prefixes.
+        self.assertEqual(complete["candidates_examined"], 3)
+        self.assertFalse(complete["search_truncated"])
+        self.assertEqual(truncated["candidates_examined"], 2)
+        self.assertTrue(truncated["search_truncated"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
