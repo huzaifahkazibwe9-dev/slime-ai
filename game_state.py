@@ -450,7 +450,11 @@ class GameState:
                 )
 
         occupied = conveyor + storage
-        if len(occupied) != len(set(occupied)):
+        valid_occupied_ids = [
+            item for item in occupied
+            if isinstance(item, str) and item
+        ]
+        if len(valid_occupied_ids) != len(set(valid_occupied_ids)):
             errors.append("A shooter occupies multiple positions")
 
         for shooter_id in occupied:
