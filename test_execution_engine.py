@@ -364,13 +364,10 @@ class ExecutionEngineTests(unittest.TestCase):
         ]
         state = self.make_state([["red"]], shooters)
 
-        complete = run_dry_simulation(state, max_candidates=3)
-        truncated = run_dry_simulation(state, max_candidates=2)
-
-        # Two singletons plus both orderings of the pair produce four prefixes.
         complete = run_dry_simulation(state, max_candidates=4)
         truncated = run_dry_simulation(state, max_candidates=3)
 
+        # Two singletons plus both orderings of the pair produce four prefixes.
         self.assertEqual(complete["candidates_examined"], 4)
         self.assertFalse(complete["search_truncated"])
         self.assertEqual(truncated["candidates_examined"], 3)
