@@ -317,7 +317,7 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
                 self.assertEqual(aggregate[metric_name], single_capture[metric_name])
                 self.assertIn("macro_f1", aggregate[metric_name])
                 self.assertIn("per_class", aggregate[metric_name])
-        self.assertIn("visible", aggregate["metrics"]["visibility"]["per_class"] if "metrics" in aggregate["visibility"] else aggregate["visibility"]["per_class"])
+        self.assertIn("visible", aggregate["visibility"]["per_class"])
 
 
     def test_rejects_duplicate_screenshot_evidence(self):
