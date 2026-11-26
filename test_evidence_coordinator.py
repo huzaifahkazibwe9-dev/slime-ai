@@ -243,5 +243,77 @@ class EvidenceCoordinatorTests(unittest.TestCase):
             self.assertFalse(OBSERVATION.exists())
             self.assertFalse(REPORT.exists())
 
+
+    def test_coordinate_rejects_missing_baseline_without_artefacts(self):
+        """Missing baseline must raise before any artefact is written."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            missing_baseline = root / "does_not_exist.json"
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(FileNotFoundError):
+                coordinate(image_path, baseline_path=missing_baseline)
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_invalid_baseline_json_without_artefacts(self):
+        """Malformed baseline JSON must raise and leave no observation/report files."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text("{ not valid json")
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(json.JSONDecodeError):
+                coordinate(image_path, baseline_path=baseline_path)
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_bounds_mismatch_without_artefacts(self):
+        """Calibration bounds mismatch must raise and leave no artefacts."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            mismatched = {
+                "grid_size": [3, 3],
+                "bounds": [0, 0, 30, 30],  # mismatch
+                "board": board,
+                "counts": {},
+                "raw_rgb": [],
+            }
+            with patch(
+                "evidence_coordinator.extract_board",
+                return_value=mismatched,
+            ):
+                with self.assertRaises(ValueError) as ctx:
+                    coordinate(image_path, baseline_path=baseline_path)
+                self.assertIn("calibration does not match", str(ctx.exception).lower())
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
 if __name__ == "__main__":
     unittest.main()
