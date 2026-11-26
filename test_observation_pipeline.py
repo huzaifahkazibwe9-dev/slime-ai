@@ -66,7 +66,10 @@ class ObservationPipelineTests(unittest.TestCase):
     def test_different_image_size_rejected(self):
         result = evaluate_observations(
             observation(self.board),
-            observation(self.board, image_size=(720, 1280)),
+            observation(
+                self.board, image_size=(900, 1400),
+                bounds=(201, 231, 881, 1113),
+            ),
         )
         self.assertEqual(
             result["status"], "REJECTED_INCOMPATIBLE_OBSERVATIONS"
@@ -99,7 +102,7 @@ class ObservationPipelineTests(unittest.TestCase):
     def test_boolean_grid_dimensions_are_rejected(self):
         invalid = observation(self.board, grid_size=(True, 5))
         result = evaluate_observations(invalid, invalid)
-        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertEqual(result["status"], "REJECTED_INVALID_OBSERVATION")
         self.assertIn("positive integers", result["errors"][0])
 
     def test_non_list_board_rows_are_rejected_against_grid(self):
@@ -108,6 +111,58 @@ class ObservationPipelineTests(unittest.TestCase):
         result = evaluate_observations(invalid, invalid)
         self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
         self.assertIn("must be a list", result["errors"][0])
+
+    def test_non_object_observations_are_rejected_safely(self):
+        for invalid in (None, [], "board", 7):
+            result = evaluate_observations(invalid, observation(self.board))
+            self.assertEqual(
+                result["status"], "REJECTED_INVALID_OBSERVATION"
+            )
+            self.assertFalse(result["transition_verified"])
+            self.assertFalse(result["tile_removals_verified"])
+            self.assertFalse(result["game_taps_enabled"])
+
+    def test_boolean_and_non_positive_image_dimensions_are_rejected(self):
+        for image_size in ([True, 2220], [1080, 0], [1080], [1080.0, 2220]):
+            invalid = observation(self.board, image_size=image_size)
+            result = evaluate_observations(invalid, invalid)
+            self.assertEqual(
+                result["status"], "REJECTED_INVALID_OBSERVATION"
+            )
+            self.assertIn("image_size", result["errors"][0])
+
+    def test_sampling_bounds_must_be_finite_and_inside_image(self):
+        for bounds in (
+            [201, 431, 1080, 1113],
+            [201, 431, 800, 2220],
+            [float("nan"), 431, 881, 1113],
+            [201, 431, 881],
+        ):
+            invalid = observation(self.board, bounds=bounds)
+            result = evaluate_observations(invalid, invalid)
+            self.assertEqual(
+                result["status"], "REJECTED_INVALID_OBSERVATION"
+            )
+            self.assertIn("bounds", result["errors"][0])
+
+    def test_unknown_colour_labels_are_rejected(self):
+        invalid_board = [row[:] for row in self.board]
+        invalid_board[1][2] = "transparent"
+        invalid = observation(invalid_board)
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("unknown colour label", result["errors"][0])
+        self.assertFalse(result["transition_verified"])
+        self.assertFalse(result["tile_removals_verified"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_non_string_colour_labels_are_rejected(self):
+        invalid_board = [row[:] for row in self.board]
+        invalid_board[1][2] = None
+        invalid = observation(invalid_board)
+        result = evaluate_observations(invalid, invalid)
+        self.assertEqual(result["status"], "REJECTED_INVALID_BOARD")
+        self.assertIn("unknown colour label", result["errors"][0])
 
     def test_tile_removals_never_claimed_verified(self):
         changed = [row[:] for row in self.board]
@@ -122,7 +177,10 @@ class ObservationPipelineTests(unittest.TestCase):
     def test_incompatible_observation_keeps_safety_flags_false(self):
         result = evaluate_observations(
             observation(self.board),
-            observation(self.board, image_size=(720, 1280)),
+            observation(
+                self.board, image_size=(900, 1400),
+                bounds=(201, 231, 881, 1113),
+            ),
         )
         self.assertFalse(result["transition_verified"])
         self.assertFalse(result["tile_removals_verified"])

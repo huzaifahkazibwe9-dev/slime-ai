@@ -367,3 +367,13 @@ match that observation's declared calibration grid. Invalid, boolean,
 non-positive, oversized, truncated or over-wide grid declarations are
 rejected rather than compared as if they were complete boards. A rejected
 shape never verifies a transition or enables game taps.
+
+
+### Observation payload schema validation
+
+The transition evaluator rejects non-object observations, invalid screenshot
+dimensions, non-finite or out-of-frame sampling bounds, and board cells that do
+not use the screenshot ingestor's known colour-label vocabulary. Matching
+metadata alone is not sufficient: each payload must independently satisfy
+the same basic shape and sampling constraints before two boards can be
+compared. Invalid payloads remain unverified and cannot enable game taps.

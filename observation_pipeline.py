@@ -2,14 +2,60 @@
 import argparse
 import hashlib
 import json
+import math
 from strict_json import strict_json_loads
 from pathlib import Path
 
-from screenshot_ingestor import extract_board_bytes
+from screenshot_ingestor import COLOUR_LABELS, extract_board_bytes
 from edge_change_guard import inspect_edge_changes
 
 BASELINE = Path("data/vision_level39.json")
 REPORT = Path("data/observation_transition_latest.json")
+VALID_BOARD_LABELS = frozenset(COLOUR_LABELS)
+
+
+def _finite_number(value):
+    """Match calibration number rules while excluding bool and non-finite floats."""
+    if type(value) is int:
+        return True
+    return type(value) is float and math.isfinite(value)
+
+
+def _observation_metadata_error(observation, name):
+    """Validate screenshot dimensions and sampling bounds before comparison."""
+    image_size = observation.get("image_size")
+    if (
+        not isinstance(image_size, list) or len(image_size) != 2
+        or any(type(value) is not int or value < 1 for value in image_size)
+    ):
+        return f"{name} image_size must contain two positive integers"
+    width, height = image_size
+
+    grid_size = observation.get("grid_size")
+    if not isinstance(grid_size, list) or len(grid_size) != 2:
+        return f"{name} grid_size must be [columns, rows]"
+    cols, rows = grid_size
+    if (
+        type(cols) is not int or type(rows) is not int
+        or cols < 1 or rows < 1
+    ):
+        return f"{name} grid dimensions must be positive integers"
+    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
+        return f"{name} grid dimensions exceed the safe sampling limit"
+
+    bounds = observation.get("bounds")
+    if (
+        not isinstance(bounds, list) or len(bounds) != 4
+        or any(not _finite_number(value) for value in bounds)
+    ):
+        return f"{name} bounds must contain four finite numeric coordinates"
+    left, top, right, bottom = bounds
+    if (
+        left < 1 or top < 1 or right <= left or bottom <= top
+        or right > width - 1 or bottom > height - 1
+    ):
+        return f"{name} bounds must be ordered and inside image_size"
+    return None
 
 
 def _board_grid_error(observation, name):
@@ -40,10 +86,45 @@ def _board_grid_error(observation, name):
                 f"{name} board row {row_index} has {len(row)} columns "
                 f"but grid_size declares {cols}"
             )
+        for column_index, label in enumerate(row):
+            if not isinstance(label, str) or label not in VALID_BOARD_LABELS:
+                return (
+                    f"{name} board cell ({row_index}, {column_index}) "
+                    f"has an unknown colour label"
+                )
     return None
 
 
+def _rejected_observation(status, errors):
+    return {
+        "status": status,
+        "errors": errors,
+        "changed_cells": 0,
+        "transition_verified": False,
+        "tile_removals_verified": False,
+        "game_taps_enabled": False,
+    }
+
+
 def evaluate_observations(previous, current):
+    if not isinstance(previous, dict) or not isinstance(current, dict):
+        return _rejected_observation(
+            "REJECTED_INVALID_OBSERVATION",
+            ["Both observations must be JSON objects"],
+        )
+
+    metadata_errors = [
+        error for error in (
+            _observation_metadata_error(previous, "previous"),
+            _observation_metadata_error(current, "current"),
+        )
+        if error is not None
+    ]
+    if metadata_errors:
+        return _rejected_observation(
+            "REJECTED_INVALID_OBSERVATION", metadata_errors
+        )
+
     errors = []
 
     for key in ("image_size", "grid_size", "bounds"):
@@ -59,14 +140,9 @@ def evaluate_observations(previous, current):
         errors.append("Empty board data")
 
     if errors:
-        return {
-            "status": "REJECTED_INCOMPATIBLE_OBSERVATIONS",
-            "errors": errors,
-            "changed_cells": 0,
-            "transition_verified": False,
-            "tile_removals_verified": False,
-            "game_taps_enabled": False,
-        }
+        return _rejected_observation(
+            "REJECTED_INCOMPATIBLE_OBSERVATIONS", errors
+        )
 
     shape_errors = [
         error for error in (
@@ -76,26 +152,12 @@ def evaluate_observations(previous, current):
         if error is not None
     ]
     if shape_errors:
-        return {
-            "status": "REJECTED_INVALID_BOARD",
-            "errors": shape_errors,
-            "changed_cells": 0,
-            "transition_verified": False,
-            "tile_removals_verified": False,
-            "game_taps_enabled": False,
-        }
+        return _rejected_observation("REJECTED_INVALID_BOARD", shape_errors)
 
     try:
         guard = inspect_edge_changes(old_board, new_board)
     except (TypeError, ValueError, IndexError) as exc:
-        return {
-            "status": "REJECTED_INVALID_BOARD",
-            "errors": [str(exc)],
-            "changed_cells": 0,
-            "transition_verified": False,
-            "tile_removals_verified": False,
-            "game_taps_enabled": False,
-        }
+        return _rejected_observation("REJECTED_INVALID_BOARD", [str(exc)])
 
     status = guard["status"]
 
