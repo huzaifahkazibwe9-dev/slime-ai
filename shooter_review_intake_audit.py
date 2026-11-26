@@ -313,9 +313,13 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
     ]
     ready = not readiness_blockers
 
-    def totals(counts):
+    def totals(counts, reviewer_key):
         reviewed = counts["reviewed_count"]
         slots = counts["sample_count"]
+        agreement_eligible = all(
+            item[reviewer_key]["agreement_eligible"]
+            for item in capture_reports
+        )
         return {
             "sample_count": slots,
             "reviewed_count": reviewed,
@@ -324,6 +328,7 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
             "not_reviewed_count": counts["not_reviewed_count"],
             "completion_rate": round(reviewed / slots, 6) if slots else None,
             "complete": counts["not_reviewed_count"] == 0,
+            "agreement_eligible": agreement_eligible,
         }
 
     return {
@@ -333,8 +338,8 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
         "reviewer_b_id": reviewer_b_id,
         "capture_count": capture_count,
         "sample_count": total_samples,
-        "reviewer_a": totals(reviewer_a_totals),
-        "reviewer_b": totals(reviewer_b_totals),
+        "reviewer_a": totals(reviewer_a_totals, "reviewer_a"),
+        "reviewer_b": totals(reviewer_b_totals, "reviewer_b"),
         "agreement_audit_ready": ready,
         "readiness_blockers": readiness_blockers,
         "captures": capture_reports,
@@ -442,7 +447,7 @@ def main():
         parser.exit(
             1,
             "ERROR: Readiness gate failed; the intake report was saved, "
-            "but a capture is incomplete or a reviewer has no confirmed sample.\\n",
+            "but a capture is incomplete or a reviewer has no confirmed sample.\n",
         )
 
 
