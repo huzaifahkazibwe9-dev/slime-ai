@@ -44,10 +44,10 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Large number of unit tests already exist
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
+- New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
-  - CI matrix is already running (Python 3.12 / 3.14)
   - Continuous documentation of blockers
 
 ---
@@ -70,6 +70,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~55–65%**
+Approximate offline-completable progress: **~57–67%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
