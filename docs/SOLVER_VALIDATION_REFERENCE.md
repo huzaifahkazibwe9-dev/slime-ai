@@ -91,3 +91,8 @@ not independently observed game outcomes or proof that the modeled rules
 match live Slime Loop gameplay. Every returned report continues to state that
 evidence is unverified and live execution/gameplay actions are disabled.
 
+
+
+## Dry-run candidate-budget validation
+
+`run_dry_simulation()` validates `max_candidates` after the GameState structural check and before the screenshot-provenance early return. The value must be an exact positive integer; booleans, floats, zero, negative values, `None` and strings are rejected consistently even when unverified provenance would otherwise block candidate planning. A valid budget still returns the provenance-blocked report without examining candidates. This is an API input-contract guarantee, not a change to candidate search, screenshot trust or game-rule assumptions.
