@@ -22,8 +22,8 @@ python -m compileall -q .
 python -m unittest discover -v
 ```
 
-Expected public-repository outcome (as of 2026-11-26):
-- Approximately 610 tests collected
+Expected public-repository outcome (as of 2026-11-27):
+- Approximately 618 tests collected
 - 0 failures / 0 errors
 - 17 skipped (private Level 39 vision, conveyor consistency, conveyor timeline, and reachability evidence fixtures are not present in the public repository)
 

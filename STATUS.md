@@ -1,6 +1,6 @@
 # Slime AI — Offline Milestone Status
 
-Last updated: 2026-11-26 (reliability-offline-hardening-2026-11)
+Last updated: 2026-11-27 (reliability-offline-hardening-2026-11 + annotation edge tests)
 
 This file tracks progress toward a reliable, fully tested **offline** puzzle-solving system.
 It is deliberately conservative. Nothing is marked complete without evidence.
@@ -46,7 +46,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
-- Latest public unit-test run (this environment, 2026-11-26): **610 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Latest public unit-test run (this environment, 2026-11-27): **618 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Added additional edge-case regression tests for the human-review annotation validator (boolean/float ammo rejection, empty shooters, naive timestamps, session-id spaces, empty id/color, extra-field tolerance)
 - Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
 - Added fail-closed regression tests: coordinate() leaves no observation/report artefacts when extraction fails or grid size mismatches baseline
 - Added fail-closed regression tests for screenshot ingestor: zero-byte, garbage-byte, and truncated-PNG inputs raise UnidentifiedImageError and leave no observation artefacts
@@ -80,6 +81,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~68%**
+Approximate offline-completable progress: **~69%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
