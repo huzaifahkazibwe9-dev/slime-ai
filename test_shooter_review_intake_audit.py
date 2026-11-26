@@ -186,7 +186,7 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             second_b["labelled_by_user"] = True
             self._write(second["reviewer_b_dataset"], second_b)
 
-            manifest_path = base / "multi-capture-manifest.json"
+            manifest_path = root / "multi-capture-manifest.json"
             self._write(manifest_path, manifest)
             output = root / "reports" / "multi-capture-intake.json"
             captured = io.StringIO()
