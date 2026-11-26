@@ -398,3 +398,14 @@ write or pathname replacement during the read is rejected when descriptor
 metadata changes. The pipeline therefore fails closed rather than accepting
 a capture whose source changed during acquisition. This is a file-consistency
 guarantee, not proof of screenshot authenticity or capture time.
+
+
+### Capture preflight status revalidation
+
+Before a screenshot/shooter pair enters the readiness path, capture preflight
+rechecks that the board's transition/gameplay flags and the shooter's
+independent colour, ammunition and slot-mapping flags remain explicitly false.
+It also validates the source-pixel audit's required positive checks and
+unverified status flags. Missing or contradictory fields fail closed. This
+protects the later readiness boundary if evidence files are edited after the
+capture pipeline has written them.
