@@ -10,6 +10,7 @@ from capture_provenance import (
     validate_capture_session_id,
 )
 from snapshot_sync import validate_capture_freshness
+from source_pixel_audit import validate_source_pixel_audit_status
 
 
 def _positive_int_pair(value):
@@ -46,6 +47,39 @@ def validate_capture_pair(
 
     if not isinstance(board, dict) or not isinstance(shooter_data, dict):
         return {"valid": False, "reason": "Capture files must contain JSON objects."}
+
+    # Recheck the safety/evidence contract at the point where a capture is
+    # admitted for readiness. Stored files may have changed since capture.
+    board_unverified_flags = (
+        "same_board_state_confirmed",
+        "gameplay_verified",
+        "vision_classification_verified",
+        "game_taps_enabled",
+    )
+    for flag in board_unverified_flags:
+        if board.get(flag) is not False:
+            return {
+                "valid": False,
+                "reason": f"Board observation {flag} must remain False.",
+            }
+
+    shooter_quality = shooter_data.get("observation_quality")
+    if not isinstance(shooter_quality, dict):
+        return {
+            "valid": False,
+            "reason": "Shooter observation_quality flags are missing.",
+        }
+    shooter_unverified_flags = (
+        "colour_independently_verified",
+        "ammunition_independently_verified",
+        "slot_mapping_independently_verified",
+    )
+    for flag in shooter_unverified_flags:
+        if shooter_quality.get(flag) is not False:
+            return {
+                "valid": False,
+                "reason": f"Shooter observation {flag} must remain False.",
+            }
 
     provenance = shooter_data.get("capture_provenance")
     if not isinstance(provenance, dict) or provenance.get("verified") is not True:
@@ -120,6 +154,15 @@ def validate_capture_pair(
             "reason": "Independent source-pixel audit must be a JSON object.",
             "freshness": freshness,
         }
+    try:
+        validate_source_pixel_audit_status(pixel_audit)
+    except ValueError as exc:
+        return {
+            "valid": False,
+            "reason": str(exc),
+            "freshness": freshness,
+        }
+
     board_image_size = board.get("image_size")
     board_grid_size = board.get("grid_size")
     audit_image_size = pixel_audit.get("image_size")
