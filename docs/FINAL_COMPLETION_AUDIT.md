@@ -8,7 +8,7 @@
 
 ## Executive finding
 
-Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,229 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A separate four-case dry-run outcome corpus covers no selectable group, a candidate that is simulated but leaves the board unsolved, unverified capture provenance and malformed-state rejection.
+Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,229 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A separate five-case dry-run outcome corpus covers a modeled board-clearing candidate, no selectable group, a candidate that is simulated but leaves the board unsolved, unverified capture provenance and malformed-state rejection.
 
 **The project is not 100% complete.** Automated unit tests cannot establish the true colour of game tiles, shooter identity/visibility accuracy, real conveyor timing, device compatibility, or correct behaviour on a live game state. Those require original device captures, independent human review and a real Termux acceptance run. The project is still an offline/advisory system; no gameplay taps or purchases are enabled.
 
@@ -44,7 +44,7 @@ The base PRs in the stack are also open draft changes; review and merge order mu
 - `GameState.validate()` returns controlled diagnostics for malformed boards, rows, cells, shooter records and occupancy containers.
 - The direct shot simulator validates its own shooter/board inputs; its eleven-case reference corpus covers all four cardinal directions, empty-cell traversal, blocking, no-target, ammo edge cases and successive removal. The fixture's exact schema, field sets and primitive types are checked before use.
 - Bounded dry-run candidate enumeration reports truncation only when another legal prefix exists beyond the configured budget; exact-budget complete traversals remain non-truncated, with regression tests for both boundary cases.
-- The dry-run outcome fixture distinguishes a fully blocked/no-accessible state, a valid candidate simulation that does not solve the board, an explicit provenance block and structural input rejection. The tests do not treat `SIMULATED` as a solved-state guarantee.
+- The dry-run outcome fixture distinguishes a modeled board-clearing candidate, a valid candidate simulation that leaves the board unsolved, no selectable group, an explicit provenance block and structural input rejection. The tests do not treat `SIMULATED` or an empty simulated board as proof of a live-game win.
 - Recent CI runs passed the full unit suite on Python 3.10, 3.11, 3.12 and 3.14, plus Python compilation and shell syntax checks.
 
 The authoritative run list and test counts are in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json).
