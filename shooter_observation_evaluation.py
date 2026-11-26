@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime
 import hashlib
 import json
+import math
 from pathlib import Path
 
 from strict_json import strict_json_loads
@@ -264,12 +265,45 @@ def validate_dataset(data):
     return validated
 
 
+
+def wilson_interval_95(successes, total):
+    """Return a rounded 95% Wilson score interval for a binomial proportion.
+
+    Returns None when there are no eligible observations. Inputs are strict
+    integers so booleans and floating-point counts cannot be accepted by
+    accident.
+    """
+    if (type(successes) is not int or type(total) is not int
+            or successes < 0 or total < 0 or successes > total):
+        raise ValueError("successes and total must be integers with 0 <= successes <= total")
+    if total == 0:
+        return None
+
+    z = 1.959963984540054
+    proportion = successes / total
+    z_squared = z * z
+    denominator = 1 + z_squared / total
+    centre = (proportion + z_squared / (2 * total)) / denominator
+    margin = (
+        z * math.sqrt(
+            (proportion * (1 - proportion) + z_squared / (4 * total))
+            / total
+        ) / denominator
+    )
+    return {
+        "method": "wilson_score",
+        "confidence_level": 0.95,
+        "lower": round(max(0.0, centre - margin), 6),
+        "upper": round(min(1.0, centre + margin), 6),
+    }
+
 def _metric(pairs):
     if not pairs:
         return {
             "support": 0,
             "correct_count": 0,
             "accuracy": None,
+            "accuracy_interval_95": None,
             "macro_f1": None,
             "per_class": {},
             "confusion_matrix": {},
@@ -315,6 +349,7 @@ def _metric(pairs):
         "support": len(pairs),
         "correct_count": correct,
         "accuracy": round(correct / len(pairs), 6),
+        "accuracy_interval_95": wilson_interval_95(correct, len(pairs)),
         "macro_f1": round(sum(f1_values) / len(f1_values), 6),
         "per_class": per_class,
         "confusion_matrix": matrix,
@@ -430,6 +465,9 @@ def evaluate_dataset(data):
                 "exact_match_accuracy": (
                     round(ammo_correct / len(ammo_reviewed), 6)
                     if ammo_reviewed else None
+                ),
+                "exact_match_accuracy_interval_95": wilson_interval_95(
+                    ammo_correct, len(ammo_reviewed)
                 ),
                 "detector_reading_count": len(ammo_detected),
                 "detector_missing_count": len(ammo_reviewed) - len(ammo_detected),
