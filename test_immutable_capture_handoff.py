@@ -10,6 +10,7 @@ from capture_preflight import validate_capture_pair
 from orchestration import _read_capture_bundle
 from screenshot_observation_loader import load_observed_level
 from level_loader import load_level
+from source_pixel_audit import canonical_observation_sha256
 
 
 class ImmutableCaptureHandoffTests(unittest.TestCase):
@@ -51,6 +52,7 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
         audit = {
             "schema_version": 1,
             "source_sha256": digest,
+            "board_observation_sha256": canonical_observation_sha256(board),
             "image_size": [1080, 2220],
             "grid_size": [35, 35],
             "capture_session_id": "session-abc",
