@@ -1,6 +1,12 @@
+import hashlib
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
-from observation_pipeline import evaluate_observations
+from PIL import Image
+
+from observation_pipeline import evaluate_observations, load_observation
 
 
 def observation(board, image_size=(1080, 2220),
@@ -88,6 +94,37 @@ class ObservationPipelineTests(unittest.TestCase):
         self.assertFalse(result["transition_verified"])
         self.assertFalse(result["tile_removals_verified"])
         self.assertFalse(result["game_taps_enabled"])
+
+
+    def test_load_observation_hash_and_pixels_use_one_immutable_byte_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            calibration = {
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            original_bytes = image_path.read_bytes()
+            real_read_bytes = Path.read_bytes
+            reads = []
+
+            def read_then_replace(*_args, **_kwargs):
+                data = real_read_bytes(image_path)
+                reads.append(image_path.resolve())
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+                return data
+
+            with patch("pathlib.Path.read_bytes", side_effect=read_then_replace):
+                result = load_observation(image_path, calibration)
+
+            self.assertEqual(reads, [image_path.resolve()])
+            self.assertEqual(
+                result["sha256"], hashlib.sha256(original_bytes).hexdigest()
+            )
+            self.assertEqual(result["board"][0][0], "white")
+            self.assertEqual(result["raw_rgb"][0][0], [245, 245, 245])
+            self.assertNotEqual(image_path.read_bytes(), original_bytes)
 
 
 if __name__ == "__main__":
