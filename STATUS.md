@@ -37,6 +37,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Evidence gates and provenance checks are in place
 - Dry-run orchestration is implemented
 - Remaining work: tighter fixture coverage, clearer failure modes when evidence is incomplete, more regression tests around the full offline pipeline
+- Note: 17 unit tests are currently skipped because private Level 39 / conveyor evidence fixtures are not present in the public repository
 
 ## 4. Reliability
 **Status: Partial**
@@ -45,6 +46,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
+- Latest public unit-test run (this environment, 2026-11-26): **589 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -70,6 +72,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~57–67%**
+Approximate offline-completable progress: **~60%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
