@@ -9,7 +9,9 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
+import tempfile
 
 from prepare_shooter_labels import DETECTOR_COLOURS, build_template
 from shooter_review_coverage import HUMAN_VISIBILITY_LABELS
@@ -409,16 +411,30 @@ def main():
                     if not candidate.is_absolute():
                         candidate = manifest_path.parent / candidate
                     protected_inputs.add(candidate.resolve())
-        temporary = output.with_suffix(output.suffix + ".tmp")
-        if output in protected_inputs or temporary in protected_inputs:
-            raise ValueError(
-                "Output and temporary output paths must not overwrite input artifacts"
-            )
+        if output in protected_inputs:
+            raise ValueError("Output path must not overwrite input artifacts")
         output.parent.mkdir(parents=True, exist_ok=True)
-        temporary.write_text(
-            json.dumps(report, indent=2) + "\n", encoding="utf-8"
-        )
-        temporary.replace(output)
+        temporary = None
+        try:
+            fd, temporary_name = tempfile.mkstemp(
+                prefix=f".{output.name}.",
+                suffix=".tmp",
+                dir=str(output.parent),
+            )
+            temporary = Path(temporary_name)
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(report, stream, indent=2)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            temporary.replace(output)
+            temporary = None
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink()
+                except OSError:
+                    pass
     except (OSError, TypeError, UnicodeDecodeError, ValueError) as exc:
         parser.error(str(exc))
 

@@ -519,6 +519,38 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertEqual(report["capture_count"], 1)
             self.assertFalse(report["game_taps_enabled"])
 
+    def test_cli_uses_unique_temp_and_preserves_stale_temp_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            output.parent.mkdir(parents=True)
+            stale_temp = output.with_suffix(output.suffix + ".tmp")
+            stale_temp.write_text("preserve this file", encoding="utf-8")
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                main()
+
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["capture_count"], 1)
+            self.assertEqual(
+                stale_temp.read_text(encoding="utf-8"),
+                "preserve this file",
+            )
+            self.assertEqual(
+                list(output.parent.glob(f".{output.name}.*.tmp")),
+                [],
+            )
+
     def test_blank_pair_reports_zero_completion_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
