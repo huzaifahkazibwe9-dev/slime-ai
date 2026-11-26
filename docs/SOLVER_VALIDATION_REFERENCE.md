@@ -69,11 +69,13 @@ game mechanics.
 
 ## Dry-run outcome reference corpus
 
-`data/solver_outcome_reference_cases.json` contains four table-driven
+`data/solver_outcome_reference_cases.json` contains five table-driven
 planning-boundary examples. `test_solver_outcome_reference_cases.py`
-validates the fixture schema and compares the dry-run report to each expected
-outcome:
+validates the fixture schema, requires rectangular boards for valid cases,
+and compares the dry-run report to each expected outcome:
 
+- A matching candidate can empty the modeled board (`remaining_pixels == 0`).
+  This is a simulator result, not proof of a live-game win condition.
 - No accessible group returns `NO_LEGAL_BATCH` without examining candidates.
 - A legal shot blocked by a different colour can still return `SIMULATED`
   with zero pixels removed and the board unsolved. `SIMULATED` means the
