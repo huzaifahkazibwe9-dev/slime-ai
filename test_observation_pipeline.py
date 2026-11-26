@@ -177,7 +177,10 @@ class ObservationPipelineTests(unittest.TestCase):
     def test_incompatible_observation_keeps_safety_flags_false(self):
         result = evaluate_observations(
             observation(self.board),
-            observation(self.board, image_size=(720, 1280)),
+            observation(
+                self.board, image_size=(900, 1400),
+                bounds=(201, 231, 881, 1113),
+            ),
         )
         self.assertFalse(result["transition_verified"])
         self.assertFalse(result["tile_removals_verified"])
