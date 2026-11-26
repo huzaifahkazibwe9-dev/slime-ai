@@ -261,6 +261,84 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
         self.assertEqual(report["reviewer_a"]["completion_rate"], 1.0)
         self.assertEqual(report["reviewer_b"]["completion_rate"], 1.0)
 
+    def test_require_ready_rejects_reviewer_missing_confirmation_in_one_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            second = self._second_capture(root)
+            manifest = self._two_capture_manifest(root, second)
+
+            # Both reviewers finish capture 1 with confirmed samples.
+            self._write(path_a, self._complete(dataset_a))
+            self._write(path_b, self._complete(dataset_b))
+
+            # Reviewer A finishes capture 2, but marks every sample ambiguous.
+            second_a = json.loads(
+                second["reviewer_a_dataset"].read_text(encoding="utf-8")
+            )
+            for sample in second_a["samples"]:
+                sample["review_status"] = "ambiguous"
+            second_a["labelled_by_user"] = True
+            self._write(second["reviewer_a_dataset"], second_a)
+
+            # Reviewer B has confirmed samples in both captures.
+            second_b = json.loads(
+                second["reviewer_b_dataset"].read_text(encoding="utf-8")
+            )
+            self._write(
+                second["reviewer_b_dataset"], self._complete(second_b)
+            )
+
+            report = audit_review_intake(
+                manifest, root, "reviewer-a", "reviewer-b"
+            )
+
+            manifest_path = root / "multi-capture-manifest.json"
+            self._write(manifest_path, manifest)
+            output = root / "reports" / "intake.json"
+            captured = io.StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(manifest_path),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                    "--require-ready",
+                ],
+            ):
+                with redirect_stdout(captured):
+                    with self.assertRaises(SystemExit) as error:
+                        main()
+
+            self.assertEqual(error.exception.code, 1)
+            self.assertTrue(output.is_file())
+            self.assertIn(
+                "Reviewer A needs at least one confirmed sample.",
+                captured.getvalue(),
+            )
+            saved_report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(saved_report["agreement_audit_ready"])
+            self.assertEqual(saved_report["reviewer_a"]["confirmed_count"], 12)
+
+        self.assertEqual(report["reviewer_a"]["confirmed_count"], 12)
+        self.assertEqual(report["reviewer_a"]["ambiguous_count"], 12)
+        self.assertTrue(report["reviewer_a"]["complete"])
+        self.assertFalse(report["reviewer_a"]["agreement_eligible"])
+        self.assertTrue(report["reviewer_b"]["agreement_eligible"])
+        self.assertFalse(report["agreement_audit_ready"])
+        self.assertEqual(
+            report["readiness_blockers"],
+            [{
+                "capture_index": 1,
+                "capture_session_id": report["captures"][1][
+                    "capture_session_id"
+                ],
+                "blockers": ["reviewer_a_has_no_confirmed_samples"],
+            }],
+        )
+
     def test_rejects_repeated_screenshot_across_distinct_capture_sessions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
