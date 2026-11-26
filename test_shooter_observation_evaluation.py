@@ -6,6 +6,7 @@ from shooter_observation_evaluation import (
     evaluate_dataset,
     validate_dataset,
     verify_source_artifacts,
+    wilson_interval_95,
 )
 from test_prepare_shooter_labels import fixture_artifacts
 
@@ -62,16 +63,36 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         self.assertEqual(report["confirmed_sample_count"], 12)
         self.assertEqual(metrics["visibility"]["support"], 12)
         self.assertEqual(metrics["visibility"]["accuracy"], round(11 / 12, 6))
+        self.assertEqual(metrics["visibility"]["accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.64612,
+            "upper": 0.985135,
+        })
         self.assertAlmostEqual(metrics["visibility"]["macro_f1"], 0.714286, places=5)
         self.assertEqual(metrics["visibility"]["per_class"]["visible"]["support"], 4)
         self.assertEqual(metrics["visibility"]["per_class"]["visible"]["recall"], 1.0)
         self.assertEqual(metrics["slot_position_alignment"]["support"], 12)
         self.assertEqual(metrics["slot_position_alignment"]["accuracy"], round(11 / 12, 6))
+        self.assertEqual(metrics["slot_position_alignment"]["accuracy_interval_95"]["lower"], 0.64612)
+        self.assertEqual(metrics["slot_position_alignment"]["accuracy_interval_95"]["upper"], 0.985135)
         self.assertEqual(metrics["colour"]["support"], 4)
         self.assertEqual(metrics["colour"]["accuracy"], 0.75)
+        self.assertEqual(metrics["colour"]["accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.300642,
+            "upper": 0.954413,
+        })
         self.assertEqual(metrics["ammunition"]["support"], 4)
         self.assertEqual(metrics["ammunition"]["exact_match_count"], 3)
         self.assertEqual(metrics["ammunition"]["exact_match_accuracy"], 0.75)
+        self.assertEqual(metrics["ammunition"]["exact_match_accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.300642,
+            "upper": 0.954413,
+        })
         coverage = report["coverage_profile"]
         self.assertEqual(
             coverage["panel_positions_with_confirmed_labels"], 12
@@ -267,6 +288,7 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
             "support": 0,
             "correct_count": 0,
             "accuracy": None,
+            "accuracy_interval_95": None,
             "macro_f1": None,
             "per_class": {},
             "confusion_matrix": {},
@@ -299,6 +321,26 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
                     "recall": 0.0,
                     "f1": 0.0,
                 })
+
+
+    def test_wilson_interval_handles_empty_zero_and_perfect_support(self):
+        self.assertIsNone(wilson_interval_95(0, 0))
+        self.assertEqual(wilson_interval_95(0, 10), {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.0,
+            "upper": 0.277533,
+        })
+        self.assertEqual(wilson_interval_95(10, 10), {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.722467,
+            "upper": 1.0,
+        })
+        for successes, total in ((True, 1), (2, 1), (-1, 2), (1.0, 2)):
+            with self.subTest(successes=successes, total=total):
+                with self.assertRaisesRegex(ValueError, "must be integers"):
+                    wilson_interval_95(successes, total)
 
 
 if __name__ == "__main__":
