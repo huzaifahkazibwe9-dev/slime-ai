@@ -1,8 +1,12 @@
 import copy
+import hashlib
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
+
+from PIL import Image
 
 from prepare_shooter_review_pair import prepare_review_pair
 from shooter_review_intake_audit import audit_review_intake
@@ -57,6 +61,160 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
 
     def _write(self, path, value):
         path.write_text(json.dumps(value), encoding="utf-8")
+
+    def _second_capture(self, root, *, reuse_screenshot=False):
+        _, detection_bytes, _ = fixture_artifacts()
+        detection_data = json.loads(detection_bytes)
+        if reuse_screenshot:
+            screenshot_bytes = (root / "screenshot.png").read_bytes()
+        else:
+            image_buffer = io.BytesIO()
+            Image.new("RGB", (1080, 2220), (70, 80, 90)).save(
+                image_buffer, format="PNG"
+            )
+            screenshot_bytes = image_buffer.getvalue()
+        detection_data["capture_provenance"]["source_sha256"] = (
+            hashlib.sha256(screenshot_bytes).hexdigest()
+        )
+        detection_data["capture_provenance"]["capture_session_id"] = (
+            "session-second"
+        )
+        detection_data["capture_provenance"]["captured_at"] = (
+            "2026-11-25T13:00:00+00:00"
+        )
+        detection_bytes = json.dumps(
+            detection_data, separators=(",", ":")
+        ).encode("utf-8")
+        detection_path = root / "detection-2.json"
+        screenshot_path = root / "screenshot-2.png"
+        detection_path.write_bytes(detection_bytes)
+        screenshot_path.write_bytes(screenshot_bytes)
+        pair = prepare_review_pair(
+            detection_path,
+            screenshot_path,
+            root / "pair-2",
+            "reviewer-a",
+            "reviewer-b",
+        )
+        return {
+            "reviewer_a_dataset": pair["reviewer_a_dataset"],
+            "reviewer_b_dataset": pair["reviewer_b_dataset"],
+            "detection": detection_path,
+            "screenshot": screenshot_path,
+        }
+
+    def _two_capture_manifest(self, root, second):
+        return {
+            "schema_version": 1,
+            "captures": [
+                {
+                    "reviewer_a_dataset": "review-pair/reviewer-a.json",
+                    "reviewer_b_dataset": "review-pair/reviewer-b.json",
+                    "detection": "detection.json",
+                    "screenshot": "screenshot.png",
+                },
+                {
+                    "reviewer_a_dataset": str(
+                        second["reviewer_a_dataset"].relative_to(root)
+                    ),
+                    "reviewer_b_dataset": str(
+                        second["reviewer_b_dataset"].relative_to(root)
+                    ),
+                    "detection": second["detection"].name,
+                    "screenshot": second["screenshot"].name,
+                },
+            ],
+        }
+
+    def test_multi_capture_progress_aggregates_only_distinct_source_pairs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            second = self._second_capture(root)
+            manifest = self._two_capture_manifest(root, second)
+            second_a = json.loads(
+                second["reviewer_a_dataset"].read_text(encoding="utf-8")
+            )
+            second_b = json.loads(
+                second["reviewer_b_dataset"].read_text(encoding="utf-8")
+            )
+            self._write(
+                second["reviewer_a_dataset"], self._complete(second_a)
+            )
+            self._write(
+                second["reviewer_b_dataset"], self._complete(second_b)
+            )
+            report = audit_review_intake(
+                manifest, root, "reviewer-a", "reviewer-b"
+            )
+
+        self.assertEqual(report["capture_count"], 2)
+        self.assertEqual(report["sample_count"], 24)
+        self.assertEqual(report["reviewer_a"]["sample_count"], 24)
+        self.assertEqual(report["reviewer_a"]["reviewed_count"], 12)
+        self.assertEqual(report["reviewer_b"]["reviewed_count"], 12)
+        self.assertEqual(report["reviewer_a"]["completion_rate"], 0.5)
+        self.assertFalse(report["agreement_audit_ready"])
+
+    def test_all_multi_capture_pairs_must_be_complete_before_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            second = self._second_capture(root)
+            manifest = self._two_capture_manifest(root, second)
+            self._write(path_a, self._complete(dataset_a))
+            self._write(path_b, self._complete(dataset_b))
+            second_a = json.loads(
+                second["reviewer_a_dataset"].read_text(encoding="utf-8")
+            )
+            second_b = json.loads(
+                second["reviewer_b_dataset"].read_text(encoding="utf-8")
+            )
+            self._write(
+                second["reviewer_a_dataset"], self._complete(second_a)
+            )
+            self._write(
+                second["reviewer_b_dataset"], self._complete(second_b)
+            )
+            report = audit_review_intake(
+                manifest, root, "reviewer-a", "reviewer-b"
+            )
+
+        self.assertEqual(report["capture_count"], 2)
+        self.assertTrue(report["agreement_audit_ready"])
+        self.assertEqual(report["reviewer_a"]["reviewed_count"], 24)
+        self.assertEqual(report["reviewer_b"]["reviewed_count"], 24)
+        self.assertEqual(report["reviewer_a"]["completion_rate"], 1.0)
+        self.assertEqual(report["reviewer_b"]["completion_rate"], 1.0)
+
+    def test_rejects_repeated_screenshot_across_distinct_capture_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            second = self._second_capture(root, reuse_screenshot=True)
+            manifest = self._two_capture_manifest(root, second)
+            with self.assertRaisesRegex(
+                ValueError, "repeats an identical source screenshot"
+            ):
+                audit_review_intake(
+                    manifest, root, "reviewer-a", "reviewer-b"
+                )
+
+    def test_rejects_reusing_a_reviewer_dataset_across_captures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            second = self._second_capture(root)
+            manifest = self._two_capture_manifest(root, second)
+            manifest["captures"][1]["reviewer_a_dataset"] = (
+                manifest["captures"][0]["reviewer_a_dataset"]
+            )
+            with self.assertRaisesRegex(
+                ValueError, "reuses a reviewer dataset file"
+            ):
+                audit_review_intake(
+                    manifest, root, "reviewer-a", "reviewer-b"
+                )
 
     def test_blank_pair_reports_zero_completion_and_not_ready(self):
         with tempfile.TemporaryDirectory() as directory:
