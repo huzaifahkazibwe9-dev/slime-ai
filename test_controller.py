@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from controller import SlimeController
 from orchestration import _canonical_json_sha256
+from source_pixel_audit import canonical_observation_sha256
 
 
 def write_capture_pair(directory, captured_at=None, shooter_hash=None):
@@ -63,6 +64,7 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     audit = {
         "schema_version": 1,
         "source_sha256": source_hash,
+        "board_observation_sha256": canonical_observation_sha256(board),
         "image_size": [1080, 2220],
         "grid_size": [35, 35],
         "capture_session_id": "session-abc",
