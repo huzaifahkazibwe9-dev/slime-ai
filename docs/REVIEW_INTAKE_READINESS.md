@@ -67,9 +67,12 @@ python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
   --require-ready
 ```
 
-The command always saves the report first. It exits with status `0` only when
+The command always saves the report first and prints a per-capture blocker
+summary to the terminal. Unreviewed slots and the absence of a confirmed sample
+are reported separately for each reviewer. It exits with status `0` only when
 every reviewer has completed every slot and has at least one confirmed sample
 in every capture. It exits with status `1` when a slot remains unreviewed or a
 reviewer has no confirmed sample for a capture. Without `--require-ready`, a
 valid but incomplete or agreement-ineligible intake remains a successful
-progress audit and returns status `0`.
+progress audit and returns status `0`. The JSON report remains the complete
+machine-readable source of blocker details.
