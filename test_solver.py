@@ -41,6 +41,18 @@ class ShotSimulatorTests(unittest.TestCase):
         self.assertEqual(state.board, [[None, None]])
         self.assertEqual(state.shooters["R1"].ammo, 3)
 
+    def test_direct_simulator_rejects_unhashable_or_invalid_shooter_ids(self):
+        state = GameState(
+            board=[["red"]],
+            shooters={"R1": Shooter("R1", "red", 2, "right", -1, 0)},
+        )
+        for invalid_id in ([], {}, "", None):
+            with self.subTest(shooter_id=invalid_id):
+                result = simulate_shot(state, invalid_id)
+                self.assertFalse(result.fired)
+                self.assertEqual(result.reason, "Invalid shooter ID")
+                self.assertEqual(state.board, [["red"]])
+
     def test_unknown_shooter_is_rejected(self):
         state = GameState(board=[["red"]])
         result = simulate_shot(state, "missing")
