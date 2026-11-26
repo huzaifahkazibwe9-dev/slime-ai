@@ -432,6 +432,18 @@ class CapturePipelineConfigTests(unittest.TestCase):
             self.assertEqual(result["capture_session_id"], "session-abc")
             self.assertEqual(result["captured_at"], "2026-11-25T12:00:00+00:00")
             self.assertEqual(result["snapshot_id"], "sha256:" + "a" * 64)
+            self.assertRegex(
+                result["board_observation_sha256"], r"^[0-9a-f]{64}$"
+            )
+            self.assertEqual(
+                result["board_observation_sha256"],
+                __import__("hashlib").sha256(
+                    json.dumps(
+                        json.loads(board_path.read_text()),
+                        sort_keys=True, separators=(",", ":"), allow_nan=False,
+                    ).encode("utf-8")
+                ).hexdigest(),
+            )
             self.assertEqual(json.loads(output_path.read_text()), result)
 
     def test_audit_capture_pixels_rejects_unreadable_utf8_observation(self):
