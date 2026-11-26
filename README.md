@@ -488,6 +488,8 @@ not Android-device validation or proof of visual/gameplay correctness.
 The simulator validates the structure of its input `GameState` before
 searching. Malformed boards, rows, cells, shooter records and occupancy
 containers are rejected with explicit validation errors rather than incidental
-type exceptions. See
+type exceptions. The direct shot API also checks ammunition, direction,
+coordinates and board structure. Seven hand-checkable shot cases are stored in
+`data/solver_reference_cases.json` and replayed by a table-driven test. See
 [docs/SOLVER_VALIDATION_REFERENCE.md](docs/SOLVER_VALIDATION_REFERENCE.md)
 for the reference test coverage and its limits.

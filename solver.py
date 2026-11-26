@@ -11,24 +11,63 @@ class ShotResult:
 
 
 def simulate_shot(state, shooter_id):
-    shooter = state.shooters.get(shooter_id)
+    if not isinstance(state, GameState):
+        return ShotResult(False, False, reason="Invalid game state")
+    if not isinstance(getattr(state, "shooters", None), dict):
+        return ShotResult(False, False, reason="Invalid shooter mapping")
 
+    if not isinstance(shooter_id, str) or not shooter_id:
+        return ShotResult(False, False, reason="Invalid shooter ID")
+
+    shooter = state.shooters.get(shooter_id)
     if shooter is None:
         return ShotResult(False, False, reason="Unknown shooter")
 
-    if shooter.ammo is None:
+    ammo = getattr(shooter, "ammo", None)
+    if ammo is None:
         return ShotResult(False, False, reason="Ammunition is unknown")
-
-    if shooter.ammo <= 0:
+    if type(ammo) is not int:
+        return ShotResult(False, False, reason="Invalid ammunition")
+    if ammo < 0:
+        return ShotResult(False, False, reason="Invalid ammunition")
+    if ammo == 0:
         return ShotResult(False, False, reason="No ammunition")
 
-    if shooter.direction not in DIRECTIONS:
+    direction = getattr(shooter, "direction", None)
+    if not isinstance(direction, str) or direction not in DIRECTIONS:
         return ShotResult(False, False, reason="Invalid direction")
 
-    dx, dy = DIRECTIONS[shooter.direction]
+    shooter_x = getattr(shooter, "x", None)
+    shooter_y = getattr(shooter, "y", None)
+    if (
+        type(shooter_x) is not int
+        or type(shooter_y) is not int
+    ):
+        return ShotResult(False, False, reason="Invalid shooter coordinates")
 
-    x = shooter.x + dx
-    y = shooter.y + dy
+    shooter_color = getattr(shooter, "color", None)
+    if not isinstance(shooter_color, str) or not shooter_color:
+        return ShotResult(False, False, reason="Shooter colour is unknown")
+
+    board = getattr(state, "board", None)
+    if (
+        not isinstance(board, list)
+        or not board
+        or any(not isinstance(row, list) for row in board)
+        or not board[0]
+        or any(len(row) != len(board[0]) for row in board)
+        or any(
+            cell is not None and (not isinstance(cell, str) or not cell)
+            for row in board
+            for cell in row
+        )
+    ):
+        return ShotResult(False, False, reason="Invalid board structure")
+
+    dx, dy = DIRECTIONS[direction]
+
+    x = shooter_x + dx
+    y = shooter_y + dy
 
     # Check pixels in the shooter's facing direction.
     # Empty cells allow the shot to pass through.
@@ -38,7 +77,7 @@ def simulate_shot(state, shooter_id):
 
         if pixel is not None:
             # The first occupied pixel blocks everything behind it.
-            if pixel == shooter.color:
+            if pixel == shooter_color:
                 state.board[y][x] = None
                 shooter.ammo -= 1
 

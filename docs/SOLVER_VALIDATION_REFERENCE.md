@@ -34,3 +34,24 @@ Slime Loop game follows every modeled rule, that the planner is globally
 optimal, or that a recommendation will succeed on a real device. Game-rule
 coverage still needs confirmation against genuine captures and independently
 reviewed gameplay evidence. Live game actions remain disabled.
+
+
+## Table-driven reference corpus
+
+`data/solver_reference_cases.json` contains seven hand-checkable simulator
+cases: passing through an empty cell to a matching pixel, blocking at the first
+different colour, an empty ray, zero ammunition, unknown ammunition,
+successive removal of newly exposed matching pixels, and a shooter starting
+outside the board boundary. `test_solver_reference_cases.py` compares every
+shot result, reason, position, remaining-ammunition value and resulting board
+against the fixture.
+
+The direct `simulate_shot()` API also has negative-input regressions for
+malformed ammunition types, non-string directions, non-integer coordinates,
+unknown shooter colours and malformed board structures. These checks ensure
+the low-level callable fails closed even when callers bypass the higher-level
+`run_dry_simulation()` GameState gate.
+
+The fixture is a transparent oracle for the code's current ray-simulation
+contract. It is not a record of externally observed game outcomes and cannot
+replace independent confirmation that the live game uses the same rules.

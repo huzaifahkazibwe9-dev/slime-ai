@@ -53,6 +53,8 @@ class Shooter:
 
         if not isinstance(self.direction, str) or self.direction not in DIRECTIONS:
             return False
+        if type(self.x) is not int or type(self.y) is not int:
+            return False
 
         if (
             isinstance(self.rotation_progress, bool)
