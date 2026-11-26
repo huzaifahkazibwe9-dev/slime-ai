@@ -116,6 +116,8 @@ def _require_grid(data):
             "Invalid or inconsistent screenshot/board snapshot identity"
         )
 
+    if data.get("same_board_state_confirmed") is not False:
+        raise ValueError("Screenshot observation must keep same_board_state_confirmed False")
     if data.get("gameplay_verified") is not False:
         raise ValueError("Screenshot observation must remain gameplay-unverified")
     if data.get("vision_classification_verified") is not False:
