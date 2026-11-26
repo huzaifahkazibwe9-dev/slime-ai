@@ -437,7 +437,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
             )
             self.assertEqual(
                 result["board_observation_sha256"],
-                __import__("hashlib").sha256(
+                hashlib.sha256(
                     json.dumps(
                         json.loads(board_path.read_text()),
                         sort_keys=True, separators=(",", ":"), allow_nan=False,
