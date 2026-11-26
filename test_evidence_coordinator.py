@@ -315,5 +315,37 @@ class EvidenceCoordinatorTests(unittest.TestCase):
             self.assertFalse(OBSERVATION.exists())
             self.assertFalse(REPORT.exists())
 
+    def test_coordinate_rejects_invalid_capture_session_id_without_artefacts(self):
+        """Invalid capture_session_id must raise ValueError and leave no artefacts.
+
+        Validation occurs after extraction but before any file writes.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(ValueError) as ctx:
+                coordinate(
+                    image_path,
+                    baseline_path=baseline_path,
+                    capture_session_id="invalid session id with spaces!",
+                )
+            self.assertIn("Invalid capture session ID", str(ctx.exception))
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
 if __name__ == "__main__":
     unittest.main()
