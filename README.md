@@ -394,7 +394,7 @@ Before either board or shooter processing starts, the capture orchestrator
 reads the original screenshot through one open file descriptor. It compares
 device, inode, size, modification time and change time before and after the
 read, and verifies the byte count against the descriptor size. An in-place
-write during the read is rejected. Replacing the pathname after the file is
-opened does not redirect the capture: both processing stages still receive
-the exact bytes read from the original descriptor. This is a file-consistency
+write or pathname replacement during the read is rejected when descriptor
+metadata changes. The pipeline therefore fails closed rather than accepting
+a capture whose source changed during acquisition. This is a file-consistency
 guarantee, not proof of screenshot authenticity or capture time.
