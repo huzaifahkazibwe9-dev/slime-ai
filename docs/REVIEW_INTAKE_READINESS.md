@@ -70,8 +70,10 @@ python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
 The command always saves the report first and prints a per-capture blocker
 summary to the terminal. It writes through a uniquely named temporary file in
 the output directory and atomically replaces the report, so an existing
-`*.tmp` file is not reused. If opening the temporary file stream fails, the
-raw file descriptor and partial file are also cleaned up. It also prints
+`*.tmp` file is not reused. On POSIX systems, the final report keeps the
+private `0600` permissions of the temporary file. If opening the temporary
+file stream fails, the raw file descriptor and partial file are also cleaned
+up. It also prints
 confirmed, ambiguous, and unreviewed counts separately for both reviewers in
 every capture. Unreviewed
 slots and
