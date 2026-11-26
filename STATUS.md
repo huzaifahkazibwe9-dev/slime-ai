@@ -1,0 +1,75 @@
+# Slime AI — Offline Milestone Status
+
+Last updated: 2026-11-26 (reliability-offline-hardening-2026-11)
+
+This file tracks progress toward a reliable, fully tested **offline** puzzle-solving system.
+It is deliberately conservative. Nothing is marked complete without evidence.
+
+## Legend
+- **Complete** — Independently verified offline with tests or fixtures
+- **Partial** — Substantial progress, remaining gaps documented
+- **Blocked** — Requires human evidence, real Android device data, or external input
+- **Not started**
+
+---
+
+## 1. Android device validation
+**Status: Blocked**
+
+- Screenshot ingestion and device compatibility code exists
+- Reproducible validation procedures are partially documented in README
+- **Blocked on**: Actual device evidence from the target Android phone (screenshots, timings, failure modes under real Termux conditions)
+- Do not claim device validation without real device evidence
+
+## 2. Shooter detection validation
+**Status: Partial / Blocked**
+
+- Detection pipeline, sample-quality checks, and low-confidence filtering exist
+- Measurement reporting is present
+- Human-review annotation package is not yet complete
+- **Blocked on**: Human-reviewed ground-truth labels for shooter identities, colours, and ammunition values
+- Never invent ground-truth labels
+
+## 3. End-to-end integration (offline)
+**Status: Partial**
+
+- Screenshot ingestion → board perception → conveyor simulation → planning → solver evaluation path exists
+- Evidence gates and provenance checks are in place
+- Dry-run orchestration is implemented
+- Remaining work: tighter fixture coverage, clearer failure modes when evidence is incomplete, more regression tests around the full offline pipeline
+
+## 4. Reliability
+**Status: Partial**
+
+- Large number of unit tests already exist
+- Safety flags (game taps disabled) are consistently enforced
+- Data-integrity and fail-closed behaviour is strong in many modules
+- Remaining work:
+  - Additional edge-case and regression tests
+  - Clearer documentation of known limitations
+  - CI matrix is already running (Python 3.12 / 3.14)
+  - Continuous documentation of blockers
+
+---
+
+## Current focus (this branch)
+
+Priority order for offline-verifiable work:
+1. Strengthen regression tests around evidence gates and provenance
+2. Improve documentation of remaining offline gaps
+3. Add or tighten fixtures for the end-to-end offline path
+4. Keep STATUS.md accurate after every meaningful change
+
+## Rules reminder
+- Never enable gameplay taps or live automation
+- Never fabricate device results or human labels
+- Never claim 100% completion without evidence
+- Work only on feature branches and open draft PRs
+
+---
+
+## Honest completion estimate (offline-completable portion only)
+
+Approximate offline-completable progress: **~55–65%**
+
+This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
