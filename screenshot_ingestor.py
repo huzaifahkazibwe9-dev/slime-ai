@@ -45,6 +45,63 @@ def sample_centres_for_grid(grid_size, bounds):
     }
 
 
+def validate_sample_window_geometry(grid_size, bounds, image_size):
+    """Validate the rounded pixel centres and non-overlapping 3x3 sample windows."""
+    if (
+        not isinstance(grid_size, (list, tuple)) or len(grid_size) != 2
+        or any(type(value) is not int or value < 1 for value in grid_size)
+    ):
+        raise ValueError("Grid dimensions must be positive integers")
+    cols, rows = grid_size
+    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
+        raise ValueError("Grid dimensions exceed the safe sampling limit")
+    if (
+        not isinstance(image_size, (list, tuple)) or len(image_size) != 2
+        or any(type(value) is not int or value < 1 for value in image_size)
+    ):
+        raise ValueError("Image dimensions must be positive integers")
+    if (
+        not isinstance(bounds, (list, tuple)) or len(bounds) != 4
+        or any(not _is_finite_number(value) for value in bounds)
+    ):
+        raise ValueError("Board bounds must contain four finite numeric coordinates")
+
+    width, height = image_size
+    left, top, right, bottom = bounds
+    if (
+        left < 1 or top < 1 or right <= left or bottom <= top
+        or right > width - 1 or bottom > height - 1
+    ):
+        raise ValueError(
+            "Board bounds must be ordered and inside the screenshot "
+            "with room for the 3x3 sampling window"
+        )
+
+    try:
+        centres = sample_centres_for_grid(grid_size, bounds)
+    except (OverflowError, TypeError, ValueError, ZeroDivisionError) as exc:
+        raise ValueError("Bounds and grid do not form valid sample centres") from exc
+
+    x_centres, y_centres = centres["x"], centres["y"]
+    if (
+        any(b - a < 3 for a, b in zip(x_centres, x_centres[1:]))
+        or any(b - a < 3 for a, b in zip(y_centres, y_centres[1:]))
+    ):
+        raise ValueError(
+            "Calibration grid produces overlapping 3x3 sample windows; "
+            "increase board bounds or reduce grid dimensions"
+        )
+    if (
+        any(x - 1 < 0 or x + 1 >= width for x in x_centres)
+        or any(y - 1 < 0 or y + 1 >= height for y in y_centres)
+    ):
+        raise ValueError(
+            "Calibration grid places a sample window outside the screenshot "
+            "(outside image_size)"
+        )
+    return centres
+
+
 def classify_rgb(rgb):
     r, g, b = [v / 255 for v in rgb]
     hue, saturation, value = colorsys.rgb_to_hsv(r, g, b)
@@ -99,38 +156,12 @@ def _extract_board_image(img, calibration):
     cols, rows = grid_size
     left, top, right, bottom = bounds
 
-    if (
-        type(cols) is not int or type(rows) is not int
-        or cols < 1 or rows < 1
-    ):
-        raise ValueError("Grid dimensions must be positive integers")
-    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
-        raise ValueError("Grid dimensions exceed the safe sampling limit")
-
-    if (
-        any(not _is_finite_number(value)
-            for value in (left, top, right, bottom))
-        or left < 1 or top < 1
-        or right <= left or bottom <= top
-        or right > width - 1 or bottom > height - 1
-    ):
-        raise ValueError(
-            "Board bounds must be ordered and inside the screenshot "
-            "with room for the 3x3 sampling window"
-        )
-
-    sample_centres = sample_centres_for_grid(grid_size, bounds)
+    cols, rows = grid_size
+    sample_centres = validate_sample_window_geometry(
+        grid_size, bounds, img.size
+    )
     x_centers = sample_centres["x"]
     y_centers = sample_centres["y"]
-    if (any(b - a < 3 for a, b in zip(x_centers, x_centers[1:]))
-            or any(b - a < 3 for a, b in zip(y_centers, y_centers[1:]))):
-        raise ValueError(
-            "Calibration grid produces overlapping 3x3 sample windows; "
-            "increase board bounds or reduce grid dimensions"
-        )
-    if (any(x - 1 < 0 or x + 1 >= width for x in x_centers)
-            or any(y - 1 < 0 or y + 1 >= height for y in y_centers)):
-        raise ValueError("Calibration grid places a sample window outside the screenshot")
     pixels = np.asarray(img, dtype=np.uint8)
 
     board, raw_rgb = [], []
