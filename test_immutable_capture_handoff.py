@@ -49,6 +49,7 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             },
         }
         audit = {
+            "schema_version": 1,
             "source_sha256": digest,
             "image_size": [1080, 2220],
             "grid_size": [35, 35],
@@ -56,6 +57,11 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             "captured_at": captured_at,
             "snapshot_id": "sha256:" + digest,
             "board_snapshot_id": "sha256:" + digest,
+            "sample_count": 1225,
+            "reproduced_sample_count": 1225,
+            "pixel_sample_mismatch_count": 0,
+            "pixel_sample_mismatches": [],
+            "label_mismatches": [],
             "pixel_samples_reproduced": True,
             "extraction_fingerprint_match": True,
             "label_mismatch_count": 0,

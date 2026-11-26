@@ -50,6 +50,7 @@ class CapturePreflightTests(unittest.TestCase):
         shooter_path.write_text(json.dumps(shooter))
         audit_path = Path(root) / "source_pixel_audit_latest.json"
         audit_path.write_text(json.dumps({
+            "schema_version": 1,
             "source_sha256": source_hash,
             "image_size": [1080, 2220],
             "grid_size": [35, 35],
@@ -57,6 +58,11 @@ class CapturePreflightTests(unittest.TestCase):
             "captured_at": board_time,
             "snapshot_id": "sha256:" + source_hash,
             "board_snapshot_id": "sha256:" + source_hash,
+            "sample_count": 1225,
+            "reproduced_sample_count": 1225,
+            "pixel_sample_mismatch_count": 0,
+            "pixel_sample_mismatches": [],
+            "label_mismatches": [],
             "pixel_samples_reproduced": True,
             "extraction_fingerprint_match": True,
             "label_mismatch_count": 0,
@@ -230,6 +236,50 @@ class CapturePreflightTests(unittest.TestCase):
                     result = validate_capture_pair(board, shooters, now=now)
                     self.assertFalse(result["valid"])
                     self.assertIn(flag, result["reason"])
+
+    def test_rejects_inconsistent_pixel_audit_sample_coverage(self):
+        mutations = (
+            ("schema_version", 2),
+            ("schema_version", True),
+            ("sample_count", 1224),
+            ("sample_count", True),
+            ("reproduced_sample_count", 1224),
+            ("reproduced_sample_count", True),
+            ("pixel_sample_mismatch_count", 1),
+            ("pixel_sample_mismatch_count", True),
+            ("pixel_sample_mismatches", [{"row": 0, "column": 0}]),
+            ("label_mismatches", [{"row": 0, "column": 0}]),
+        )
+        for field, value in mutations:
+            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as directory:
+                board, shooters, now = self.write_pair(directory)
+                audit_path = Path(directory) / "source_pixel_audit_latest.json"
+                data = json.loads(audit_path.read_text())
+                data[field] = value
+                audit_path.write_text(json.dumps(data))
+                result = validate_capture_pair(board, shooters, now=now)
+                self.assertFalse(result["valid"])
+                self.assertIn("pixel audit is incomplete", result["reason"])
+
+    def test_rejects_missing_pixel_audit_coverage_fields(self):
+        fields = (
+            "schema_version",
+            "sample_count",
+            "reproduced_sample_count",
+            "pixel_sample_mismatch_count",
+            "pixel_sample_mismatches",
+            "label_mismatches",
+        )
+        for field in fields:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                board, shooters, now = self.write_pair(directory)
+                audit_path = Path(directory) / "source_pixel_audit_latest.json"
+                data = json.loads(audit_path.read_text())
+                del data[field]
+                audit_path.write_text(json.dumps(data))
+                result = validate_capture_pair(board, shooters, now=now)
+                self.assertFalse(result["valid"])
+                self.assertIn("pixel audit is incomplete", result["reason"])
 
     def test_rejects_missing_source_pixel_audit(self):
         with tempfile.TemporaryDirectory() as directory:

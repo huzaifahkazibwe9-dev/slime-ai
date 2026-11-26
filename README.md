@@ -409,3 +409,14 @@ It also validates the source-pixel audit's required positive checks and
 unverified status flags. Missing or contradictory fields fail closed. This
 protects the later readiness boundary if evidence files are edited after the
 capture pipeline has written them.
+
+
+### Pixel-audit sample coverage consistency
+
+Capture preflight checks the source-pixel report's detailed coverage against
+the calibrated grid. The schema version must be supported, the sample and
+reproduced-sample counts must both equal the grid cell count, the pixel
+mismatch count must be exactly zero, and both pixel- and label-mismatch lists
+must be empty. Boolean values are not accepted as integer counts. These
+consistency checks complement the existing screenshot hash, dimensions,
+capture-session and status checks.
