@@ -17,7 +17,10 @@ from PIL import Image
 
 from game_state import GameState
 from shooter_loader import load_shooters
-from screenshot_ingestor import classify_rgb, sample_centres_for_grid
+from screenshot_ingestor import (
+    classify_rgb,
+    validate_sample_window_geometry,
+)
 from strict_json import strict_json_loads
 from capture_provenance import (
     parse_aware_capture_timestamp,
@@ -61,10 +64,16 @@ def _require_grid(data):
     if (left < 1 or top < 1 or right <= left or bottom <= top
             or right > image_width - 1 or bottom > image_height - 1):
         raise ValueError("Board bounds are outside the screenshot")
-    if "sample_centres" in data:
-        expected_centres = sample_centres_for_grid(grid, bounds)
-        if data.get("sample_centres") != expected_centres:
-            raise ValueError("Sample centres do not match calibrated board geometry")
+    # Enforce the ingestor's 3x3 sample-window geometry even when the
+    # optional sample_centres metadata field is absent.
+    expected_centres = validate_sample_window_geometry(
+        grid, bounds, image
+    )
+    if (
+        "sample_centres" in data
+        and data.get("sample_centres") != expected_centres
+    ):
+        raise ValueError("Sample centres do not match calibrated board geometry")
 
     if not isinstance(board, list) or len(board) != height:
         raise ValueError("Board row count does not match grid_size")
@@ -145,7 +154,9 @@ def verify_source_samples(observation, source_image_bytes):
             or not isinstance(bounds, list) or len(bounds) != 4
             or any(not _is_finite_coordinate(value) for value in bounds)):
         raise ValueError("Invalid grid geometry for source sample verification")
-    expected_centres = sample_centres_for_grid(grid, bounds)
+    expected_centres = validate_sample_window_geometry(
+        grid, bounds, image_size
+    )
     if observation.get("sample_centres") != expected_centres:
         raise ValueError("Sample centres do not match calibrated board geometry")
 
