@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "purpose": "Hand-checkable outcomes for bounded dry-run planning: no selectable group, modeled board clearing, a legal but unsolved simulation, unverified capture provenance, and malformed state rejection. These are software-contract examples, not observations of live game mechanics.",
+  "cases": [
+    {
+      "id": "no_accessible_group_returns_no_legal_batch",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R",
+        "color": "red",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": false
+      },
+      "provenance_verified": null,
+      "expected": {
+        "status": "NO_LEGAL_BATCH",
+        "raises": null,
+        "accessible_group_count": 0,
+        "candidates_examined": 0,
+        "search_truncated": false,
+        "best": null,
+        "source_state_unchanged": true,
+        "evidence_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false
+      }
+    },
+    {
+      "id": "matching_candidate_empties_modeled_board",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R",
+        "color": "red",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": true
+      },
+      "provenance_verified": null,
+      "expected": {
+        "status": "SIMULATED",
+        "raises": null,
+        "accessible_group_count": 1,
+        "candidates_examined": 1,
+        "search_truncated": false,
+        "best": {
+          "pixels_removed": 1,
+          "remaining_pixels": 0,
+          "blocked_attempts": 0
+        },
+        "source_state_unchanged": true,
+        "evidence_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false
+      }
+    },
+    {
+      "id": "blocked_shot_is_simulated_but_board_remains_unsolved",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "B",
+        "color": "blue",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": true
+      },
+      "provenance_verified": null,
+      "expected": {
+        "status": "SIMULATED",
+        "raises": null,
+        "accessible_group_count": 1,
+        "candidates_examined": 1,
+        "search_truncated": false,
+        "best": {
+          "pixels_removed": 0,
+          "remaining_pixels": 1,
+          "blocked_attempts": 1
+        },
+        "source_state_unchanged": true,
+        "evidence_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false
+      }
+    },
+    {
+      "id": "unverified_capture_provenance_blocks_candidate_planning",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R",
+        "color": "red",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": true
+      },
+      "provenance_verified": false,
+      "expected": {
+        "status": "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE",
+        "raises": null,
+        "accessible_group_count": 0,
+        "candidates_examined": 0,
+        "search_truncated": false,
+        "best": null,
+        "source_state_unchanged": true,
+        "evidence_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false
+      }
+    },
+    {
+      "id": "ragged_board_is_rejected_before_search",
+      "board": [
+        [
+          "red"
+        ],
+        [
+          "blue",
+          "green"
+        ]
+      ],
+      "shooter": {
+        "id": "R",
+        "color": "red",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": true
+      },
+      "provenance_verified": null,
+      "expected": {
+        "status": null,
+        "raises": "GameState validation failed",
+        "accessible_group_count": null,
+        "candidates_examined": null,
+        "search_truncated": null,
+        "best": null,
+        "source_state_unchanged": null,
+        "evidence_verified": null,
+        "live_execution_allowed": null,
+        "gameplay_actions_performed": null
+      }
+    }
+  ]
+}

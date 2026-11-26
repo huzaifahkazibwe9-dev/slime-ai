@@ -66,3 +66,28 @@ and correctly shaped expected result boards. This prevents Python's
 `True == 1` numeric equality or missing fields from silently weakening the
 test oracle. It validates fixture structure only, not the truth of the modeled
 game mechanics.
+
+## Dry-run outcome reference corpus
+
+`data/solver_outcome_reference_cases.json` contains five table-driven
+planning-boundary examples. `test_solver_outcome_reference_cases.py`
+validates the fixture schema, requires rectangular boards for valid cases,
+and compares the dry-run report to each expected outcome:
+
+- A matching candidate can empty the modeled board (`remaining_pixels == 0`).
+  This is a simulator result, not proof of a live-game win condition.
+- No accessible group returns `NO_LEGAL_BATCH` without examining candidates.
+- A legal shot blocked by a different colour can still return `SIMULATED`
+  with zero pixels removed and the board unsolved. `SIMULATED` means the
+  candidate was evaluated; it does not mean the puzzle was solved.
+- Explicitly unverified screenshot provenance returns
+  `BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE` without producing a candidate.
+- A ragged board raises the controlled `GameState validation failed` error
+  before candidate search begins.
+
+These examples pin the current software contract for no-legal-move, unsolved,
+provenance-blocked and invalid states. They are synthetic code-level cases,
+not independently observed game outcomes or proof that the modeled rules
+match live Slime Loop gameplay. Every returned report continues to state that
+evidence is unverified and live execution/gameplay actions are disabled.
+
