@@ -217,6 +217,56 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                     manifest, root, "reviewer-a", "reviewer-b"
                 )
 
+    def test_require_ready_saves_report_then_exits_nonzero_for_incomplete_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                    "--require-ready",
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 1)
+            self.assertTrue(output.is_file())
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(report["agreement_audit_ready"])
+            self.assertEqual(report["reviewer_a"]["not_reviewed_count"], 12)
+
+    def test_require_ready_exits_successfully_for_complete_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            self._write(path_a, self._complete(dataset_a))
+            self._write(path_b, self._complete(dataset_b))
+            output = root / "reports" / "intake.json"
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                    "--require-ready",
+                ],
+            ):
+                main()
+
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertTrue(report["agreement_audit_ready"])
+            self.assertEqual(report["reviewer_a"]["not_reviewed_count"], 0)
+            self.assertEqual(report["reviewer_b"]["not_reviewed_count"], 0)
+
     def test_cli_refuses_to_overwrite_any_review_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
