@@ -293,6 +293,33 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
         )
 
 
+
+    def test_single_capture_aggregate_metrics_match_capture_metrics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = write_capture(root, 1, (10, 20, 30))
+            manifest = {
+                "schema_version": 1,
+                "captures": [{
+                    key: capture[key]
+                    for key in ("dataset", "detection", "screenshot")
+                }],
+            }
+
+            report = evaluate_manifest(manifest, base_dir=root)
+
+        aggregate = report["metrics"]
+        single_capture = report["captures"][0]["metrics"]
+        for metric_name in (
+            "visibility", "slot_position_alignment", "colour"
+        ):
+            with self.subTest(metric=metric_name):
+                self.assertEqual(aggregate[metric_name], single_capture[metric_name])
+                self.assertIn("macro_f1", aggregate[metric_name])
+                self.assertIn("per_class", aggregate[metric_name])
+        self.assertIn("visible", aggregate["metrics"]["visibility"]["per_class"] if "metrics" in aggregate["visibility"] else aggregate["visibility"]["per_class"])
+
+
     def test_rejects_duplicate_screenshot_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
