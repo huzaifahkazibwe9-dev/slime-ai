@@ -432,3 +432,14 @@ samples, calibration metadata or other payload fields invalidates the earlier
 pixel audit and blocks readiness. This binds report consistency; it is not a
 digital signature and does not establish that the board labels match game
 truth.
+
+
+### Concurrent capture-run serialization
+
+The screenshot-to-board/shooter capture pipeline takes an exclusive operating
+system file lock before reading configuration or writing its shared latest
+capture reports. Concurrent invocations serialize rather than interleaving
+their board, shooter and pixel-audit outputs. The lock is released on normal
+completion or error, and the operating system releases it if the process exits.
+This protects the shared-file workflow from competing capture runs; it does not
+replace the per-capture screenshot hash, session, timestamp or payload checks.

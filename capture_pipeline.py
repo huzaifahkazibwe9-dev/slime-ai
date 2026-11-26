@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run board ingestion and shooter detection from one explicitly calibrated capture."""
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -8,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from capture_provenance import (
@@ -23,6 +25,23 @@ from strict_json import strict_json_loads
 BOARD_OUTPUT = Path("data/board_observation_latest.json")
 SHOOTER_OUTPUT = Path("data/shooter_detection.json")
 PIXEL_AUDIT_OUTPUT = Path("data/source_pixel_audit_latest.json")
+
+
+@contextmanager
+def _capture_run_lock(lock_path=None):
+    """Serialize access to shared capture outputs across processes."""
+    path = (
+        Path(lock_path)
+        if lock_path is not None
+        else Path("data/.capture_pipeline.lock")
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _read_capture_snapshot(path):
@@ -197,7 +216,13 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
     return report
 
 
-def run_capture_pipeline(screenshot, config_path):
+def run_capture_pipeline(screenshot, config_path, lock_path=None):
+    """Run one capture while holding an exclusive lock on shared output files."""
+    with _capture_run_lock(lock_path):
+        return _run_capture_pipeline_unlocked(screenshot, config_path)
+
+
+def _run_capture_pipeline_unlocked(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
     # Read one stable descriptor snapshot, then stage those exact bytes in a
