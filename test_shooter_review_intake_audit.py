@@ -383,9 +383,47 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 manifest, base, "reviewer-a", "reviewer-b"
             )
 
-        self.assertTrue(report["agreement_audit_ready"])
+        self.assertTrue(report["reviewer_a"]["complete"])
+        self.assertTrue(report["reviewer_b"]["complete"])
+        self.assertFalse(report["reviewer_a"]["agreement_eligible"])
+        self.assertFalse(report["reviewer_b"]["agreement_eligible"])
+        self.assertFalse(report["agreement_audit_ready"])
         self.assertEqual(report["reviewer_a"]["ambiguous_count"], 12)
         self.assertEqual(report["reviewer_b"]["ambiguous_count"], 12)
+        self.assertEqual(
+            report["readiness_blockers"][0]["blockers"],
+            [
+                "reviewer_a_has_no_confirmed_samples",
+                "reviewer_b_has_no_confirmed_samples",
+            ],
+        )
+
+    def test_complete_mixed_reviews_are_agreement_eligible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, manifest, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            for path, dataset in (
+                (path_a, dataset_a),
+                (path_b, dataset_b),
+            ):
+                completed = self._complete(dataset)
+                for index in range(1, len(completed["samples"])):
+                    completed["samples"][index]["review_status"] = "ambiguous"
+                    completed["samples"][index]["human"] = copy.deepcopy(
+                        dataset["samples"][index]["human"]
+                    )
+                self._write(path, completed)
+
+            report = audit_review_intake(
+                manifest, base, "reviewer-a", "reviewer-b"
+            )
+
+        self.assertTrue(report["agreement_audit_ready"])
+        self.assertTrue(report["captures"][0]["paired_review_complete"])
+        self.assertTrue(report["captures"][0]["paired_agreement_eligible"])
+        self.assertEqual(report["reviewer_a"]["confirmed_count"], 1)
+        self.assertEqual(report["reviewer_b"]["confirmed_count"], 1)
+        self.assertEqual(report["readiness_blockers"], [])
 
     def test_rejects_labelled_by_user_true_for_partial_dataset(self):
         with tempfile.TemporaryDirectory() as directory:

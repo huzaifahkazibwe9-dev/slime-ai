@@ -139,6 +139,12 @@ def _dataset_progress(dataset, expected_template, label):
         "not_reviewed_count": counts["not_reviewed"],
         "completion_rate": round(reviewed / total, 6) if total else None,
         "complete": complete,
+        "agreement_eligible": counts["confirmed"] >= 1,
+        "agreement_eligibility_reason": (
+            "at_least_one_confirmed_sample"
+            if counts["confirmed"] >= 1
+            else "no_confirmed_samples"
+        ),
         "labelled_by_user": dataset["labelled_by_user"],
         "dataset_sha256": None,
     }
@@ -267,6 +273,16 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
             reviewer_b_totals[key] += progress_b[key]
         total_samples += progress_a["sample_count"]
 
+        blockers = []
+        for reviewer_name, progress in (
+            ("reviewer_a", progress_a),
+            ("reviewer_b", progress_b),
+        ):
+            if not progress["complete"]:
+                blockers.append(f"{reviewer_name}_has_unreviewed_samples")
+            if not progress["agreement_eligible"]:
+                blockers.append(f"{reviewer_name}_has_no_confirmed_samples")
+
         capture_reports.append({
             "capture_index": index,
             "capture_session_id": session_id,
@@ -278,20 +294,32 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
             "paired_review_complete": (
                 progress_a["complete"] and progress_b["complete"]
             ),
+            "paired_agreement_eligible": (
+                progress_a["agreement_eligible"]
+                and progress_b["agreement_eligible"]
+            ),
+            "agreement_blockers": blockers,
         })
 
     capture_count = len(capture_reports)
-    reviewer_a_complete = all(
-        item["reviewer_a"]["complete"] for item in capture_reports
-    )
-    reviewer_b_complete = all(
-        item["reviewer_b"]["complete"] for item in capture_reports
-    )
-    ready = reviewer_a_complete and reviewer_b_complete
+    readiness_blockers = [
+        {
+            "capture_index": item["capture_index"],
+            "capture_session_id": item["capture_session_id"],
+            "blockers": item["agreement_blockers"],
+        }
+        for item in capture_reports
+        if item["agreement_blockers"]
+    ]
+    ready = not readiness_blockers
 
-    def totals(counts):
+    def totals(counts, reviewer_key):
         reviewed = counts["reviewed_count"]
         slots = counts["sample_count"]
+        agreement_eligible = all(
+            item[reviewer_key]["agreement_eligible"]
+            for item in capture_reports
+        )
         return {
             "sample_count": slots,
             "reviewed_count": reviewed,
@@ -300,6 +328,7 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
             "not_reviewed_count": counts["not_reviewed_count"],
             "completion_rate": round(reviewed / slots, 6) if slots else None,
             "complete": counts["not_reviewed_count"] == 0,
+            "agreement_eligible": agreement_eligible,
         }
 
     return {
@@ -309,9 +338,10 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
         "reviewer_b_id": reviewer_b_id,
         "capture_count": capture_count,
         "sample_count": total_samples,
-        "reviewer_a": totals(reviewer_a_totals),
-        "reviewer_b": totals(reviewer_b_totals),
+        "reviewer_a": totals(reviewer_a_totals, "reviewer_a"),
+        "reviewer_b": totals(reviewer_b_totals, "reviewer_b"),
         "agreement_audit_ready": ready,
+        "readiness_blockers": readiness_blockers,
         "captures": capture_reports,
         "source_provenance": {
             "all_capture_sources_verified": True,
@@ -324,11 +354,13 @@ def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
         "gameplay_verified": False,
         "game_taps_enabled": False,
         "interpretation": (
-            "Readiness means both reviewer files are complete and source-bound. "
-            "It does not mean the reviewers are independent, their labels are "
-            "correct, the reviewers agree, or gameplay has been verified. "
-            "Run shooter_batch_review_agreement.py only after this audit reports "
-            "agreement_audit_ready = true."
+            "Readiness means both reviewer files are complete, source-bound, "
+            "and each contains at least one confirmed sample for every capture. "
+            "The agreement evaluator rejects a reviewer dataset with zero "
+            "confirmed samples. Readiness does not mean reviewers are "
+            "independent, labels are correct, reviewers agree, or gameplay is "
+            "verified. Run shooter_batch_review_agreement.py only after this "
+            "audit reports agreement_audit_ready = true."
         ),
     }
 
@@ -348,7 +380,7 @@ def main():
         action="store_true",
         help=(
             "Exit with status 1 after saving the report when any reviewer "
-            "has an unfinished slot in any capture"
+            "has an unfinished slot or no confirmed sample in any capture"
         ),
     )
     args = parser.parse_args()
@@ -415,7 +447,7 @@ def main():
         parser.exit(
             1,
             "ERROR: Readiness gate failed; the intake report was saved, "
-            "but paired reviews are incomplete.\\n",
+            "but a capture is incomplete or a reviewer has no confirmed sample.\n",
         )
 
 

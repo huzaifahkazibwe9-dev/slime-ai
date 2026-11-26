@@ -30,6 +30,13 @@ slots count as reviewed only when their human fields remain blank. A dataset
 is complete only when all slots are confirmed or ambiguous and
 labelled_by_user is true.
 
+A completed review pair is not automatically eligible for the agreement
+evaluator. Each reviewer must have at least one `confirmed` sample in every
+capture; the evaluator rejects a dataset containing only ambiguous samples.
+The intake report exposes this distinction through each reviewer's
+`agreement_eligible` flag and lists per-capture blockers in
+`readiness_blockers`.
+
 ## Source and dataset checks
 
 For every manifest entry, the audit rebuilds the expected blank template from
@@ -60,8 +67,9 @@ python shooter_review_intake_audit.py data/review-pair/review_manifest.json \
   --require-ready
 ```
 
-The command always saves the report first. It exits with status `0` when all
-reviewers have completed all captures, and status `1` when any slot remains
-unreviewed. Without `--require-ready`, an incomplete but valid intake remains
-a successful audit and returns status `0`, so progress can be checked
-repeatedly without treating work-in-progress as corrupt evidence.
+The command always saves the report first. It exits with status `0` only when
+every reviewer has completed every slot and has at least one confirmed sample
+in every capture. It exits with status `1` when a slot remains unreviewed or a
+reviewer has no confirmed sample for a capture. Without `--require-ready`, a
+valid but incomplete or agreement-ineligible intake remains a successful
+progress audit and returns status `0`.
