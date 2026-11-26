@@ -267,6 +267,48 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertEqual(report["reviewer_a"]["not_reviewed_count"], 0)
             self.assertEqual(report["reviewer_b"]["not_reviewed_count"], 0)
 
+    def test_require_ready_rejects_complete_all_ambiguous_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            for path, dataset in ((path_a, dataset_a), (path_b, dataset_b)):
+                for sample in dataset["samples"]:
+                    sample["review_status"] = "ambiguous"
+                dataset["labelled_by_user"] = True
+                self._write(path, dataset)
+
+            output = root / "reports" / "intake.json"
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                    "--require-ready",
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 1)
+            self.assertTrue(output.is_file())
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertTrue(report["reviewer_a"]["complete"])
+            self.assertTrue(report["reviewer_b"]["complete"])
+            self.assertFalse(report["reviewer_a"]["agreement_eligible"])
+            self.assertFalse(report["reviewer_b"]["agreement_eligible"])
+            self.assertFalse(report["agreement_audit_ready"])
+            self.assertEqual(
+                report["readiness_blockers"][0]["blockers"],
+                [
+                    "reviewer_a_has_no_confirmed_samples",
+                    "reviewer_b_has_no_confirmed_samples",
+                ],
+            )
+            self.assertFalse(report["game_taps_enabled"])
+
     def test_cli_refuses_to_overwrite_any_review_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
