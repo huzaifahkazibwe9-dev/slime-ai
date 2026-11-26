@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from capture_provenance import (
@@ -171,38 +172,46 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
 def run_capture_pipeline(screenshot, config_path):
     screenshot = str(Path(screenshot).expanduser().resolve())
     config = load_capture_config(config_path)
-    # Preserve one immutable byte snapshot for hashing and independent audit.
+    # Read the source once, then stage those exact bytes in a private directory.
+    # Both subprocesses consume the staged file, so a change to the original
+    # pathname between stages cannot split the board and shooter observations.
     source_image_bytes = Path(screenshot).read_bytes()
     expected_source_sha256 = hashlib.sha256(source_image_bytes).hexdigest()
     common = [
         "--capture-session-id", config["capture_session_id"],
         "--captured-at", config["captured_at"],
     ]
-    subprocess.run(
-        [sys.executable, "screenshot_ingestor.py", screenshot, *common],
-        check=True,
-    )
-    subprocess.run(
-        [
-            sys.executable, "shooter_detector.py",
-            "--source-screenshot", screenshot,
-            "--panel-bounds", *map(str, config["panel_bounds"]),
-            "--extract-panel",
-            "--capture-config-sha256", config["config_sha256"],
-            *common,
-        ],
-        check=True,
-    )
-    validate_capture_outputs(
-        BOARD_OUTPUT,
-        SHOOTER_OUTPUT,
-        expected_source_sha256,
-        config["capture_session_id"],
-        config["captured_at"],
-        config["config_sha256"],
-        config["panel_bounds"],
-    )
-    return audit_capture_pixels(BOARD_OUTPUT, source_image_bytes)
+    with tempfile.TemporaryDirectory(prefix="slime-ai-capture-") as snapshot_dir:
+        snapshot_path = Path(snapshot_dir) / "screenshot.bin"
+        snapshot_path.write_bytes(source_image_bytes)
+        if snapshot_path.read_bytes() != source_image_bytes:
+            raise OSError("Temporary screenshot snapshot failed byte verification")
+        snapshot = str(snapshot_path)
+        subprocess.run(
+            [sys.executable, "screenshot_ingestor.py", snapshot, *common],
+            check=True,
+        )
+        subprocess.run(
+            [
+                sys.executable, "shooter_detector.py",
+                "--source-screenshot", snapshot,
+                "--panel-bounds", *map(str, config["panel_bounds"]),
+                "--extract-panel",
+                "--capture-config-sha256", config["config_sha256"],
+                *common,
+            ],
+            check=True,
+        )
+        validate_capture_outputs(
+            BOARD_OUTPUT,
+            SHOOTER_OUTPUT,
+            expected_source_sha256,
+            config["capture_session_id"],
+            config["captured_at"],
+            config["config_sha256"],
+            config["panel_bounds"],
+        )
+        return audit_capture_pixels(BOARD_OUTPUT, source_image_bytes)
 
 
 def main():

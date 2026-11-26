@@ -4,8 +4,8 @@ This branch combines the simulator snapshot work with the screenshot evidence pi
 
 ## Evidence flow
 
-1. `capture_pipeline.py` captures one screenshot byte snapshot and pins its SHA-256.
-2. Board and shooter extraction must identify that same source hash, capture session, and timestamp.
+1. `capture_pipeline.py` reads one screenshot byte snapshot, stages it in a private temporary directory, verifies the staged bytes, and pins its SHA-256.
+2. Board and shooter extraction both consume the same staged file and must identify that same source hash, capture session, and timestamp. The staged file is removed after the run, including on extraction failure.
 3. `source_pixel_audit.py` independently reproduces saved RGB samples from the original screenshot bytes.
 4. `capture_preflight.py` requires a recent, matching board/shooter pair and matching source-pixel audit.
 5. `orchestration.py` reads the three JSON artifacts once, validates those parsed objects, and passes the same board/shooter objects to the level loader.
