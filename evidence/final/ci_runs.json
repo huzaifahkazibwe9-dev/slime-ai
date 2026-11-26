@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-26T18:59:53Z",
+  "generated_at_utc": "2026-11-26T19:36:55Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
-  "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification.",
+  "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
     "3.10",
     "3.11",
@@ -75,6 +75,82 @@
       "unit_tests_per_python_version": 1204,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880159833"
+    },
+    {
+      "run_number": 1171,
+      "run_id": 45880754230,
+      "pull_request": 143,
+      "branch": "build-final-completion-evidence-register",
+      "commit_sha": "3db5efe1eb724dc910a338d6a679a43c089e671e",
+      "unit_tests_per_python_version": 1204,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880754230"
+    },
+    {
+      "run_number": 1173,
+      "run_id": 45881361942,
+      "pull_request": 144,
+      "branch": "harden-game-state-validation",
+      "commit_sha": "ae9cc5faec02f2f6d624f069dcb1c0cc2454ad23",
+      "unit_tests_per_python_version": 1214,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45881361942"
+    },
+    {
+      "run_number": 1174,
+      "run_id": 45881811535,
+      "pull_request": 145,
+      "branch": "add-hand-checkable-shot-reference-corpus",
+      "commit_sha": "cd1e7ee8182761763829aed51337856e8709c0de",
+      "unit_tests_per_python_version": 1223,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45881811535"
+    },
+    {
+      "run_number": 1175,
+      "run_id": 45884666978,
+      "pull_request": 146,
+      "branch": "cover-four-cardinal-shot-directions",
+      "commit_sha": "95d928ab55f461940d67b00855c13669af492eee",
+      "unit_tests_per_python_version": 1224,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884666978"
+    },
+    {
+      "run_number": 1176,
+      "run_id": 45884869997,
+      "pull_request": 147,
+      "branch": "validate-shot-reference-fixture-schema",
+      "commit_sha": "d6c6d0ef5dd0ef011e99d3417c867f25b875b382",
+      "unit_tests_per_python_version": 1225,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997"
+    }
+  ],
+  "superseded_failures": [
+    {
+      "run_number": 1166,
+      "run_id": 45879539716,
+      "pull_request": 140,
+      "branch": "enforce-sampling-geometry-in-state-loader",
+      "conclusion": "failure",
+      "resolution": "A new source-sample test omitted the BytesIO import; the import was corrected and run #1167 passed."
+    },
+    {
+      "run_number": 1168,
+      "run_id": 45879824413,
+      "pull_request": 141,
+      "branch": "require-explicit-unverified-board-state",
+      "conclusion": "failure",
+      "resolution": "A board-state status requirement was initially placed in a shared diagnostic helper; it was scoped to the direct state-loader entry point and run #1169 passed."
+    },
+    {
+      "run_number": 1172,
+      "run_id": 45881275034,
+      "pull_request": 144,
+      "branch": "harden-game-state-validation",
+      "conclusion": "failure",
+      "resolution": "A test misclassified a dictionary-valued cell as a non-list row; the case was corrected and run #1173 passed."
     }
   ]
 }

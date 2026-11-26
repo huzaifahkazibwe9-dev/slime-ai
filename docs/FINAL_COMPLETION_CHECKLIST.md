@@ -26,7 +26,7 @@
 
 ## CI evidence snapshot
 
-The verified CI runs are recorded machine-readably in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json). The latest listed run (#1170) passed **1,204 unit tests on each of Python 3.10, 3.11, 3.12 and 3.14**, along with Python compilation and Termux build-script syntax checks.
+The verified CI runs are recorded machine-readably in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json). The latest listed run (#1176) passed **1,225 unit tests on each of Python 3.10, 3.11, 3.12 and 3.14**, along with Python compilation and Termux build-script syntax checks.
 
 These runs were triggered for stacked pull requests. They are **not** tests on an Android handset, do not establish detector accuracy, and do not verify gameplay.
 

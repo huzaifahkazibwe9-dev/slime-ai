@@ -2,13 +2,13 @@
 
 **Audit date:** 2026-11-26  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited feature head:** `bdfb1013dc4298b00bfe03cb4c61f503dfb610bc` (`strict-loader-counts-and-hashes`)  
+**Audited feature head:** `d6c6d0ef5dd0ef011e99d3417c867f25b875b382` (`validate-shot-reference-fixture-schema`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1170](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880159833)
+**Latest verified automated run in this snapshot:** [CI #1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997)
 
 ## Executive finding
 
-Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,204 tests per Python version.
+Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,225 tests per Python version. The direct shot simulator now has eleven table-driven reference cases covering all four cardinal directions, and the fixture schema itself is checked for exact field sets and types.
 
 **The project is not 100% complete.** Automated unit tests cannot establish the true colour of game tiles, shooter identity/visibility accuracy, real conveyor timing, device compatibility, or correct behaviour on a live game state. Those require original device captures, independent human review and a real Termux acceptance run. The project is still an offline/advisory system; no gameplay taps or purchases are enabled.
 
@@ -23,6 +23,11 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#140](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/140) | Shared sampling geometry in standalone loader | [#1167](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45879615162), 1,201 tests/version | Open draft, unmerged |
 | [#141](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/141) | Explicit unverified board-state status | [#1169](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45879937289), 1,202 tests/version | Open draft, unmerged |
 | [#142](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/142) | Exact counts and canonical lowercase hashes | [#1170](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880159833), 1,204 tests/version | Open draft, unmerged |
+| [#143](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/143) | Final completion checklist and evidence register | [#1171](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45880754230), 1,204 tests/version | Open draft, unmerged |
+| [#144](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/144) | Fail-closed GameState input validation | [#1173](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45881361942), 1,214 tests/version | Open draft, unmerged |
+| [#145](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/145) | Direct shot input validation and reference cases | [#1174](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45881811535), 1,223 tests/version | Open draft, unmerged |
+| [#146](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/146) | Four-direction shot reference corpus | [#1175](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884666978), 1,224 tests/version | Open draft, unmerged |
+| [#147](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/147) | Strict shot-reference fixture schema | [#1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997), 1,225 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
@@ -33,6 +38,8 @@ The base PRs in the stack are also open draft changes; review and merge order mu
 - Pixel-audit sample counts, mismatch lists and the full board-observation payload digest are checked before readiness.
 - Concurrent capture runs are serialized to protect shared latest-report files.
 - The standalone loader enforces board geometry, explicit unverified state, exact integer colour counts and canonical lowercase screenshot hashes.
+- `GameState.validate()` returns controlled diagnostics for malformed boards, rows, cells, shooter records and occupancy containers.
+- The direct shot simulator validates its own shooter/board inputs; its eleven-case reference corpus covers all four cardinal directions, empty-cell traversal, blocking, no-target, ammo edge cases and successive removal. The fixture's exact schema, field sets and primitive types are checked before use.
 - Recent CI runs passed the full unit suite on Python 3.10, 3.11, 3.12 and 3.14, plus Python compilation and shell syntax checks.
 
 The authoritative run list and test counts are in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json).
