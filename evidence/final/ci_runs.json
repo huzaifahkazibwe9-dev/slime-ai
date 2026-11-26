@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-26T21:11:30.348Z",
+  "generated_at_utc": "2026-11-26T21:41:50.318Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -185,6 +185,16 @@
       "unit_tests_per_python_version": 1230,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45896194822"
+    },
+    {
+      "run_number": 1193,
+      "run_id": 45899730048,
+      "pull_request": 153,
+      "branch": "deterministic-dry-run-candidate-order",
+      "commit_sha": "519c62b8fdcb924de924a077b55bffd7805b3980",
+      "unit_tests_per_python_version": 1231,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45899730048"
     }
   ],
   "superseded_failures": [
