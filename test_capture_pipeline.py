@@ -106,46 +106,84 @@ class CapturePipelineConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "UTC offset"):
                 load_capture_config(path)
 
-    def test_runs_ingestor_and_detector_with_identical_capture_metadata(self):
+    def test_runs_both_stages_from_one_private_immutable_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             screenshot = root / "source.jpg"
-            screenshot.write_bytes(b"placeholder")
+            screenshot.write_bytes(b"original screenshot bytes")
             config = self.write_config(directory, {
                 "panel_bounds": [10, 20, 900, 600],
                 "capture_session_id": "session-abc",
                 "captured_at": "2026-11-23T12:30:00+03:00",
             })
             expected_config_sha256 = hashlib.sha256(config.read_bytes()).hexdigest()
-            with patch("capture_pipeline.subprocess.run") as run, patch(
+            staged_paths = []
+
+            def run_stage(command, check):
+                if "screenshot_ingestor.py" in command:
+                    staged = Path(command[2])
+                else:
+                    staged = Path(command[command.index("--source-screenshot") + 1])
+                self.assertTrue(staged.is_file())
+                self.assertEqual(staged.read_bytes(), b"original screenshot bytes")
+                staged_paths.append(staged)
+                if len(staged_paths) == 1:
+                    # Simulate another process replacing the original after stage one.
+                    screenshot.write_bytes(b"replacement screenshot bytes")
+
+            with patch("capture_pipeline.subprocess.run", side_effect=run_stage) as run, patch(
                 "capture_pipeline.validate_capture_outputs"
             ) as validate, patch("capture_pipeline.audit_capture_pixels") as audit:
                 run_capture_pipeline(screenshot, config)
-        self.assertEqual(run.call_count, 2)
-        ingestor_args = run.call_args_list[0].args[0]
-        detector_args = run.call_args_list[1].args[0]
-        for flag in ("--capture-session-id", "session-abc",
-                     "--captured-at", "2026-11-23T12:30:00+03:00"):
-            self.assertIn(flag, ingestor_args)
-            self.assertIn(flag, detector_args)
-        self.assertIn("--extract-panel", detector_args)
-        self.assertIn(
-            expected_config_sha256,
-            detector_args,
-        )
-        self.assertIn("--capture-config-sha256", detector_args)
-        self.assertEqual(
-            detector_args[detector_args.index("--panel-bounds") + 1:
-                          detector_args.index("--panel-bounds") + 5],
-            ["10", "20", "900", "600"],
-        )
-        validate.assert_called_once()
-        audit.assert_called_once()
-        self.assertEqual(
-            validate.call_args.args[2],
-            hashlib.sha256(b"placeholder").hexdigest(),
-        )
-        self.assertEqual(audit.call_args.args[1], b"placeholder")
+
+            self.assertEqual(run.call_count, 2)
+            ingestor_args = run.call_args_list[0].args[0]
+            detector_args = run.call_args_list[1].args[0]
+            self.assertEqual(staged_paths[0], staged_paths[1])
+            self.assertNotEqual(staged_paths[0], screenshot)
+            self.assertFalse(staged_paths[0].exists())
+            for flag in ("--capture-session-id", "session-abc",
+                         "--captured-at", "2026-11-23T12:30:00+03:00"):
+                self.assertIn(flag, ingestor_args)
+                self.assertIn(flag, detector_args)
+            self.assertIn("--extract-panel", detector_args)
+            self.assertIn(expected_config_sha256, detector_args)
+            self.assertIn("--capture-config-sha256", detector_args)
+            self.assertEqual(
+                detector_args[detector_args.index("--panel-bounds") + 1:
+                              detector_args.index("--panel-bounds") + 5],
+                ["10", "20", "900", "600"],
+            )
+            validate.assert_called_once()
+            audit.assert_called_once()
+            self.assertEqual(
+                validate.call_args.args[2],
+                hashlib.sha256(b"original screenshot bytes").hexdigest(),
+            )
+            self.assertEqual(audit.call_args.args[1], b"original screenshot bytes")
+
+    def test_temporary_snapshot_is_removed_when_a_stage_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            screenshot = root / "source.jpg"
+            screenshot.write_bytes(b"source bytes")
+            config = self.write_config(directory, {
+                "panel_bounds": [10, 20, 900, 600],
+                "capture_session_id": "session-abc",
+                "captured_at": "2026-11-23T12:30:00+03:00",
+            })
+            staged_paths = []
+
+            def fail_stage(command, check):
+                staged_paths.append(Path(command[2]))
+                raise RuntimeError("simulated extraction failure")
+
+            with patch("capture_pipeline.subprocess.run", side_effect=fail_stage):
+                with self.assertRaisesRegex(RuntimeError, "extraction failure"):
+                    run_capture_pipeline(screenshot, config)
+
+            self.assertEqual(len(staged_paths), 1)
+            self.assertFalse(staged_paths[0].exists())
 
     def test_rejects_board_observation_with_any_verified_or_missing_flag(self):
         flag_names = (
