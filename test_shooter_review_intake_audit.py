@@ -498,6 +498,28 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 2)
             self.assertEqual(path_a.read_bytes(), original)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX file permissions are required")
+    def test_cli_creates_report_with_private_file_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                main()
+
+            self.assertTrue(output.is_file())
+            self.assertEqual(os.stat(output).st_mode & 0o777, 0o600)
+
     def test_cli_writes_report_to_new_output_path(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
