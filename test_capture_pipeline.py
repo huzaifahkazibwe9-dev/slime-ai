@@ -1,3 +1,4 @@
+import fcntl
 import hashlib
 import json
 import os
@@ -7,6 +8,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from capture_pipeline import (
+    _capture_run_lock,
     _read_capture_snapshot,
     load_capture_config,
     run_capture_pipeline,
@@ -55,6 +57,40 @@ class CapturePipelineConfigTests(unittest.TestCase):
             "bonding_config_sha256": None,
         }))
         return board_path, shooter_path
+
+    def test_capture_run_lock_excludes_a_second_open_file_description(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lock_path = Path(directory) / "capture.lock"
+            with _capture_run_lock(lock_path):
+                with lock_path.open("a+") as competing_handle:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(
+                            competing_handle.fileno(),
+                            fcntl.LOCK_EX | fcntl.LOCK_NB,
+                        )
+
+            # The lock is released even after its context exits, so another
+            # process/invocation can acquire it and continue.
+            with lock_path.open("a+") as next_handle:
+                fcntl.flock(
+                    next_handle.fileno(),
+                    fcntl.LOCK_EX | fcntl.LOCK_NB,
+                )
+                fcntl.flock(next_handle.fileno(), fcntl.LOCK_UN)
+
+    def test_capture_run_lock_is_released_when_capture_raises(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lock_path = Path(directory) / "capture.lock"
+            with self.assertRaisesRegex(RuntimeError, "simulated failure"):
+                with _capture_run_lock(lock_path):
+                    raise RuntimeError("simulated failure")
+
+            with lock_path.open("a+") as next_handle:
+                fcntl.flock(
+                    next_handle.fileno(),
+                    fcntl.LOCK_EX | fcntl.LOCK_NB,
+                )
+                fcntl.flock(next_handle.fileno(), fcntl.LOCK_UN)
 
     def test_rejects_unreadable_utf8_capture_config(self):
         with tempfile.TemporaryDirectory() as directory:
