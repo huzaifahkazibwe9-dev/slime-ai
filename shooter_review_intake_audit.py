@@ -396,7 +396,10 @@ def main():
             args.reviewer_a_id,
             args.reviewer_b_id,
         )
-        output = Path(args.output).expanduser().resolve()
+        output_argument = Path(args.output).expanduser()
+        if output_argument.is_symlink():
+            raise ValueError("Output path must not be a symbolic link")
+        output = output_argument.resolve()
         protected_inputs = {manifest_path}
         for entry in manifest.get("captures", []):
             if not isinstance(entry, dict):
