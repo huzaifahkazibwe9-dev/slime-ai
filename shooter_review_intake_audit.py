@@ -437,6 +437,25 @@ def main():
         report["reviewer_b"]["sample_count"],
     )
     print("Ready for agreement audit:", report["agreement_audit_ready"])
+    print("Per-capture reviewer progress:")
+    for capture in report["captures"]:
+        reviewer_a = capture["reviewer_a"]
+        reviewer_b = capture["reviewer_b"]
+        print(
+            f"  Capture {capture['capture_index'] + 1} "
+            f"({capture['capture_session_id']}):"
+        )
+        for label, progress in (
+            ("Reviewer A", reviewer_a),
+            ("Reviewer B", reviewer_b),
+        ):
+            print(
+                f"    {label}: {progress['reviewed_count']}/"
+                f"{progress['sample_count']} reviewed "
+                f"(confirmed {progress['confirmed_count']}, "
+                f"ambiguous {progress['ambiguous_count']}, "
+                f"unreviewed {progress['not_reviewed_count']})"
+            )
     if report["readiness_blockers"]:
         print("Readiness blockers:")
         blocker_labels = {
