@@ -10,6 +10,7 @@ from pathlib import Path
 from PIL import Image
 
 from prepare_shooter_review_pair import prepare_review_pair
+from shooter_batch_review_agreement import evaluate_agreement_manifest
 from shooter_review_intake_audit import audit_review_intake, main
 from test_prepare_shooter_labels import fixture_artifacts
 
@@ -391,6 +392,69 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
         self.assertEqual(
             report["captures"][0]["reviewer_a"]["dataset_sha256"].__len__(),
             64,
+        )
+
+    def test_ready_intake_runs_through_agreement_evaluator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, manifest, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            self._write(path_a, self._complete(dataset_a))
+            self._write(path_b, self._complete(dataset_b))
+
+            intake = audit_review_intake(
+                manifest, base, "reviewer-a", "reviewer-b"
+            )
+            self.assertTrue(intake["agreement_audit_ready"])
+
+            agreement = evaluate_agreement_manifest(
+                manifest, base, "reviewer-a", "reviewer-b"
+            )
+
+        self.assertEqual(agreement["capture_count"], 1)
+        self.assertEqual(agreement["sample_count"], 12)
+        self.assertEqual(agreement["both_confirmed_sample_count"], 12)
+        self.assertEqual(agreement["disagreement_count"], 0)
+        self.assertEqual(
+            agreement["field_agreement"]["visibility"]["agreement_rate"],
+            1.0,
+        )
+        self.assertTrue(agreement["source_provenance"]["all_capture_sources_verified"])
+        self.assertFalse(agreement["reviewer_independence_verified"])
+        self.assertFalse(agreement["label_truth_independently_verified"])
+        self.assertFalse(agreement["gameplay_verified"])
+        self.assertFalse(agreement["game_taps_enabled"])
+
+    def test_ready_intake_agreement_evaluator_reports_real_label_disagreement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, manifest, path_a, path_b, dataset_a, dataset_b = self._pair(root)
+            completed_a = self._complete(dataset_a)
+            completed_b = self._complete(dataset_b)
+            completed_b["samples"][0]["human"]["colour"] = "blue"
+            self._write(path_a, completed_a)
+            self._write(path_b, completed_b)
+
+            intake = audit_review_intake(
+                manifest, base, "reviewer-a", "reviewer-b"
+            )
+            self.assertTrue(intake["agreement_audit_ready"])
+
+            agreement = evaluate_agreement_manifest(
+                manifest, base, "reviewer-a", "reviewer-b"
+            )
+
+        self.assertEqual(agreement["disagreement_count"], 1)
+        self.assertEqual(
+            agreement["field_agreement"]["colour"]["agreement_rate"],
+            round(11 / 12, 6),
+        )
+        self.assertEqual(
+            agreement["disagreements"][0]["sample_id"],
+            "top_1",
+        )
+        self.assertEqual(
+            agreement["disagreements"][0]["disagreements"][0]["field"],
+            "colour",
         )
 
     def test_partial_review_reports_per_reviewer_progress(self):
