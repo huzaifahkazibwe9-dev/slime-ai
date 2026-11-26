@@ -61,6 +61,7 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
     (root / "board_observation_latest.json").write_text(json.dumps(board))
     (root / "shooter_detection.json").write_text(json.dumps(shooter))
     audit = {
+        "schema_version": 1,
         "source_sha256": source_hash,
         "image_size": [1080, 2220],
         "grid_size": [35, 35],
@@ -68,6 +69,11 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "captured_at": captured_at,
         "snapshot_id": "sha256:" + source_hash,
         "board_snapshot_id": "sha256:" + source_hash,
+        "sample_count": 1225,
+        "reproduced_sample_count": 1225,
+        "pixel_sample_mismatch_count": 0,
+        "pixel_sample_mismatches": [],
+        "label_mismatches": [],
         "pixel_samples_reproduced": True,
         "extraction_fingerprint_match": True,
         "label_mismatch_count": 0,
