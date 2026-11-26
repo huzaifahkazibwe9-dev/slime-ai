@@ -56,8 +56,9 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 
 ### SHOOTER-002 — Annotation package and human-review format
 - Subsystem: Shooter validation
-- Status: **NOT_STARTED**
+- Status: **IN_PROGRESS**
 - Acceptance: Schema + instructions that do not invent labels
+- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests
 
 ### CONVEYOR-001 — Conveyor identity and snapshot synchronization
 - Subsystem: Conveyor
@@ -94,7 +95,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 ### EVIDENCE-001 — Structured evidence directory
 - Subsystem: Process
 - Path: `evidence/final/`
-- Status: **NOT_STARTED**
+- Status: **IN_PROGRESS**
 - Acceptance: Required artifact files present and consistent
 
 ### SAFETY-001 — Gameplay taps remain disabled
@@ -113,7 +114,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 | BLOCKED      | 3     |
 | NOT_STARTED  | 2     |
 
-**Honest offline engineering completion (current):** approximately 56–66%  
+**Honest offline engineering completion (current):** approximately 56–68%  
 **External validation completion:** near 0% (device + human labels still required)
 
 This checklist will be updated after every meaningful milestone.
