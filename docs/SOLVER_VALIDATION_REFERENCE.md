@@ -96,3 +96,9 @@ evidence is unverified and live execution/gameplay actions are disabled.
 ## Dry-run candidate-budget validation
 
 `run_dry_simulation()` validates `max_candidates` after the GameState structural check and before the screenshot-provenance early return. The value must be an exact positive integer; booleans, floats, zero, negative values, `None` and strings are rejected consistently even when unverified provenance would otherwise block candidate planning. A valid budget still returns the provenance-blocked report without examining candidates. This is an API input-contract guarantee, not a change to candidate search, screenshot trust or game-rule assumptions.
+
+## Deterministic bounded candidate ordering
+
+Before enumerating dry-run candidate prefixes, `run_dry_simulation()` sorts eligible accessible groups by their canonical sorted shooter-ID tuple. This makes the traversal order independent of the insertion order of the shooter's mapping in an otherwise equivalent `GameState`. The table-driven regression test `test_bounded_search_uses_canonical_group_order` builds equivalent states with reversed shooter insertion order and confirms that a one-candidate budget selects the same first group in both states.
+
+This guarantee concerns repeatable traversal under a fixed state and candidate budget. It does not expand the budget, eliminate truncation, change scoring, validate unobserved game mechanics or prove global solver optimality. Live gameplay actions remain disabled.
