@@ -2,9 +2,9 @@
 
 **Audit date:** 2026-11-26  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `b981d3a7f1ec1578af28ffb1346d4fc9352704d8` (`add-solver-outcome-reference-cases`)  
+**Audited code head:** `191afde37d80d55971c599a07a89fb31580faca6` (`add-solver-outcome-reference-cases`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1181](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888510535)
+**Latest verified automated run in this snapshot:** [CI #1188](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888960648)
 
 ## Executive finding
 
@@ -30,7 +30,7 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#147](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/147) | Strict shot-reference fixture schema | [#1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997), 1,225 tests/version | Open draft, unmerged |
 | [#148](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/148) | Refresh completion evidence register | [#1177](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45885139628), 1,225 tests/version | Open draft, unmerged |
 | [#149](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/149) | Candidate-search truncation boundary reporting | [#1178](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989), 1,227 tests/version | Open draft, unmerged |
-| [#150](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/150) | Dry-run outcome reference corpus | [#1181](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888510535), 1,229 tests/version | Open draft, unmerged |
+| [#150](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/150) | Five-case dry-run outcome reference corpus | [#1188](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45888960648), 1,229 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
