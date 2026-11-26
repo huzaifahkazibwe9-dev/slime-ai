@@ -332,6 +332,13 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
     if state.validate():
         raise ValueError("GameState validation failed")
 
+    # Validate the search budget before any early-return gate so malformed
+    # caller input is rejected consistently for verified and unverified states.
+    if (not isinstance(max_candidates, int)
+            or isinstance(max_candidates, bool)
+            or max_candidates < 1):
+        raise ValueError("max_candidates must be a positive integer")
+
     # Screenshot-derived states carry an explicit provenance gate. If the
     # shooter panel cannot be tied to the board screenshot/session, do not
     # produce a candidate plan from a potentially mixed capture.
@@ -356,11 +363,6 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
                 "No candidate plan is produced from mismatched or unverified captures.",
             ],
         }
-
-    if (not isinstance(max_candidates, int)
-            or isinstance(max_candidates, bool)
-            or max_candidates < 1):
-        raise ValueError("max_candidates must be a positive integer")
 
     original = copy.deepcopy(state)
     groups = [

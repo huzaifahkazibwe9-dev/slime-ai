@@ -347,6 +347,29 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertLessEqual(report["candidates_examined"], 3)
         self.assertTrue(report["search_truncated"])
 
+    def test_candidate_limit_is_validated_before_provenance_gate(self):
+        state = self.make_state([["red"]], [
+            Shooter("R", "red", 1, "right", -1, 0, accessible=True)
+        ])
+        state.shooter_capture_provenance_verified = False
+        before = copy.deepcopy(state)
+
+        invalid_limits = (0, -1, True, False, 1.5, None, "1")
+        for value in invalid_limits:
+            with self.subTest(max_candidates=value):
+                with self.assertRaisesRegex(
+                    ValueError, "max_candidates must be a positive integer"
+                ):
+                    run_dry_simulation(state, max_candidates=value)
+
+        self.assertEqual(state, before)
+        blocked = run_dry_simulation(state, max_candidates=1)
+        self.assertEqual(
+            blocked["status"], "BLOCKED_UNVERIFIED_CAPTURE_PROVENANCE"
+        )
+        self.assertEqual(blocked["candidate_limit"], 1)
+        self.assertEqual(blocked["candidates_examined"], 0)
+
     def test_exact_single_candidate_limit_is_not_reported_as_truncated(self):
         state = self.make_state([["red"]], [
             Shooter("R", "red", 1, "right", -1, 0, accessible=True)
