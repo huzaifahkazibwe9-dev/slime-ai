@@ -134,7 +134,11 @@ detector JSON and original screenshot before including it. It rejects repeated
 capture sessions, identical source detector files, and duplicate screenshot
 bytes so the same screenshot cannot inflate the sample count. Reports retain
 per-capture results as well as support-weighted aggregate visibility, slot
-alignment, colour, and ammunition metrics.
+alignment, colour, and ammunition metrics. Aggregate categorical metrics
+include the same per-class support, precision, recall, F1, macro-F1, confusion
+matrix, and 95% Wilson accuracy interval as single-capture evaluation. A
+single-capture manifest therefore yields identical categorical metric objects
+at the aggregate and per-capture levels.
 
 A combined report still does not prove that human labels are correct or that
 the captures represent every gameplay condition. Coverage adequacy and label
