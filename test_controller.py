@@ -25,6 +25,10 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "board_snapshot_id": "sha256:" + source_hash,
         "capture_session_id": "session-abc",
         "captured_at": captured_at,
+        "same_board_state_confirmed": False,
+        "gameplay_verified": False,
+        "vision_classification_verified": False,
+        "game_taps_enabled": False,
         "image_size": [1080, 2220],
         "grid_size": [35, 35],
     }
@@ -39,6 +43,11 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         capture_config_path.read_bytes()
     ).hexdigest()
     shooter = {
+        "observation_quality": {
+            "colour_independently_verified": False,
+            "ammunition_independently_verified": False,
+            "slot_mapping_independently_verified": False,
+        },
         "capture_provenance": {
             "verified": True,
             "source_sha256": shooter_hash or source_hash,
@@ -63,6 +72,10 @@ def write_capture_pair(directory, captured_at=None, shooter_hash=None):
         "extraction_fingerprint_match": True,
         "label_mismatch_count": 0,
         "colour_counts_match": True,
+        "source_image_hash_checked": True,
+        "source_image_dimensions_checked": True,
+        "label_truth_independently_verified": False,
+        "calibration_alignment_verified": False,
         "gameplay_verified": False,
         "game_taps_enabled": False,
     }

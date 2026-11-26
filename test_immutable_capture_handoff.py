@@ -23,6 +23,7 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             "capture_session_id": "session-abc",
             "captured_at": captured_at,
             "timestamp_identified": True,
+            "same_board_state_confirmed": False,
             "image_size": [1080, 2220],
             "grid_size": [35, 35],
             "gameplay_verified": False,
@@ -33,6 +34,11 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             "counts": {"dark": 1},
         }
         shooters = {
+            "observation_quality": {
+                "colour_independently_verified": False,
+                "ammunition_independently_verified": False,
+                "slot_mapping_independently_verified": False,
+            },
             "visible_shooters": [],
             "bonded_groups": [],
             "capture_provenance": {
@@ -54,6 +60,10 @@ class ImmutableCaptureHandoffTests(unittest.TestCase):
             "extraction_fingerprint_match": True,
             "label_mismatch_count": 0,
             "colour_counts_match": True,
+            "source_image_hash_checked": True,
+            "source_image_dimensions_checked": True,
+            "label_truth_independently_verified": False,
+            "calibration_alignment_verified": False,
             "gameplay_verified": False,
             "game_taps_enabled": False,
         }
