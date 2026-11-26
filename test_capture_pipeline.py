@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -111,7 +112,7 @@ class CapturePipelineConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.png"
             source.write_bytes(b"original screenshot bytes")
-            real_fstat = __import__("os").fstat
+            real_fstat = os.fstat
             calls = []
 
             def mutate_before_final_stat(file_descriptor):
@@ -130,14 +131,14 @@ class CapturePipelineConfigTests(unittest.TestCase):
 
             self.assertEqual(len(calls), 2)
 
-    def test_capture_snapshot_keeps_open_file_when_path_is_replaced(self):
+    def test_capture_snapshot_rejects_path_replacement_during_read(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "source.png"
             replacement = root / "replacement.png"
             source.write_bytes(b"original screenshot bytes")
             replacement.write_bytes(b"replacement screenshot bytes")
-            real_fstat = __import__("os").fstat
+            real_fstat = os.fstat
             calls = []
 
             def replace_path_before_final_stat(file_descriptor):
@@ -150,10 +151,10 @@ class CapturePipelineConfigTests(unittest.TestCase):
                 "capture_pipeline.os.fstat",
                 side_effect=replace_path_before_final_stat,
             ):
-                captured = _read_capture_snapshot(source)
+                with self.assertRaisesRegex(RuntimeError, "changed while"):
+                    _read_capture_snapshot(source)
 
             self.assertEqual(len(calls), 2)
-            self.assertEqual(captured, b"original screenshot bytes")
             self.assertEqual(source.read_bytes(), b"replacement screenshot bytes")
 
     def test_runs_both_stages_from_one_private_immutable_snapshot(self):
