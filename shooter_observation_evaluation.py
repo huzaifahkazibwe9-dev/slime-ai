@@ -270,6 +270,8 @@ def _metric(pairs):
             "support": 0,
             "correct_count": 0,
             "accuracy": None,
+            "macro_f1": None,
+            "per_class": {},
             "confusion_matrix": {},
         }
     labels = sorted({actual for actual, _ in pairs} | {predicted for _, predicted in pairs})

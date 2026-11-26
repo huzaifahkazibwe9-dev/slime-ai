@@ -232,3 +232,15 @@ A detector-declared state is rejected if its status is missing or is not
 `PARSED_EXACT_DIGITS`; the level audit reports counts by OCR status. This keeps
 a failed OCR state from becoming valid merely by passing through a simulation
 snapshot/restore cycle.
+
+
+### Empty metric subsets
+
+A metric with no eligible reviewed pairs (for example, colour when no reviewed
+sample is visible, or slot-position alignment when no human position is
+recorded) keeps the same result schema as populated metrics. Its support and
+correct count are zero, `accuracy` and `macro_f1` are `null`, and
+`per_class` and `confusion_matrix` are empty objects. These values mean
+"not measurable from this review set", not zero-percent detector performance.
+When a class is present in the scored pairs but has no true positives, its
+class-level precision, recall, or F1 remains a numeric zero as appropriate.
