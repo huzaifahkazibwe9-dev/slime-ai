@@ -2,7 +2,7 @@ import json
 import runpy
 import sys
 from contextlib import redirect_stdout
-from io import StringIO
+from io import BytesIO, StringIO
 from unittest.mock import patch
 import tempfile
 import unittest
@@ -105,7 +105,7 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
         from PIL import Image
         import hashlib
 
-        buffer = io.BytesIO()
+        buffer = BytesIO()
         Image.new("RGB", (300, 200), (245, 245, 245)).save(
             buffer, format="PNG"
         )
