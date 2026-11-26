@@ -161,6 +161,23 @@ def _resolve_manifest_path(root, value, index, field):
     return path.resolve() if path.is_absolute() else (root / path).resolve()
 
 
+def _reject_symlink_path_components(path, label):
+    """Reject symbolic links in an output path before resolving it."""
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+
+    current = Path(candidate.anchor)
+    for component in candidate.parts[1:]:
+        if component == "..":
+            current = current.parent
+            continue
+        current = current / component
+        if current.is_symlink():
+            raise ValueError(f"{label} must not traverse symbolic links")
+    return candidate
+
+
 def audit_review_intake(manifest, base_dir, reviewer_a_id, reviewer_b_id):
     """Audit source binding and completion progress for each paired capture."""
     reviewer_a_id = _reviewer_id(reviewer_a_id, "reviewer_a_id")
@@ -396,9 +413,9 @@ def main():
             args.reviewer_a_id,
             args.reviewer_b_id,
         )
-        output_argument = Path(args.output).expanduser()
-        if output_argument.is_symlink():
-            raise ValueError("Output path must not be a symbolic link")
+        output_argument = _reject_symlink_path_components(
+            args.output, "Output path"
+        )
         output = output_argument.resolve()
         protected_inputs = {manifest_path}
         for entry in manifest.get("captures", []):
