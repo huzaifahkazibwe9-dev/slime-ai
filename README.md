@@ -386,3 +386,15 @@ adjacent 3x3 sample windows would overlap, or whose rounded centres would put
 a sample window outside the screenshot. This prevents metadata that is merely
 inside the image rectangle from being accepted when the ingestor could not
 have sampled the declared grid safely.
+
+
+### Capture orchestrator source snapshot stability
+
+Before either board or shooter processing starts, the capture orchestrator
+reads the original screenshot through one open file descriptor. It compares
+device, inode, size, modification time and change time before and after the
+read, and verifies the byte count against the descriptor size. An in-place
+write or pathname replacement during the read is rejected when descriptor
+metadata changes. The pipeline therefore fails closed rather than accepting
+a capture whose source changed during acquisition. This is a file-consistency
+guarantee, not proof of screenshot authenticity or capture time.

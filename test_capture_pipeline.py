@@ -1,11 +1,13 @@
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
 
 from capture_pipeline import (
+    _read_capture_snapshot,
     load_capture_config,
     run_capture_pipeline,
     validate_capture_outputs,
@@ -105,6 +107,55 @@ class CapturePipelineConfigTests(unittest.TestCase):
             })
             with self.assertRaisesRegex(ValueError, "UTC offset"):
                 load_capture_config(path)
+
+    def test_capture_snapshot_rejects_in_place_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.png"
+            source.write_bytes(b"original screenshot bytes")
+            real_fstat = os.fstat
+            calls = []
+
+            def mutate_before_final_stat(file_descriptor):
+                calls.append(file_descriptor)
+                if len(calls) == 2:
+                    # Truncate the same inode while the descriptor is open.
+                    source.write_bytes(b"changed")
+                return real_fstat(file_descriptor)
+
+            with patch(
+                "capture_pipeline.os.fstat",
+                side_effect=mutate_before_final_stat,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "changed while"):
+                    _read_capture_snapshot(source)
+
+            self.assertEqual(len(calls), 2)
+
+    def test_capture_snapshot_rejects_path_replacement_during_read(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.png"
+            replacement = root / "replacement.png"
+            source.write_bytes(b"original screenshot bytes")
+            replacement.write_bytes(b"replacement screenshot bytes")
+            real_fstat = os.fstat
+            calls = []
+
+            def replace_path_before_final_stat(file_descriptor):
+                calls.append(file_descriptor)
+                if len(calls) == 2:
+                    replacement.replace(source)
+                return real_fstat(file_descriptor)
+
+            with patch(
+                "capture_pipeline.os.fstat",
+                side_effect=replace_path_before_final_stat,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "changed while"):
+                    _read_capture_snapshot(source)
+
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(source.read_bytes(), b"replacement screenshot bytes")
 
     def test_runs_both_stages_from_one_private_immutable_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
