@@ -464,6 +464,13 @@ class ControllerTests(unittest.TestCase):
             # the currently pinned calibration input.
             board["calibration_sha256"] = "f" * 64
             board_path.write_text(json.dumps(board))
+            # The audit is refreshed to bind the updated board payload; this
+            # test isolates stale calibration provenance rather than a stale
+            # pixel-audit payload digest.
+            audit_path = Path(directory) / "source_pixel_audit_latest.json"
+            audit = json.loads(audit_path.read_text())
+            audit["board_observation_sha256"] = canonical_observation_sha256(board)
+            audit_path.write_text(json.dumps(audit))
             report["capture_bundle_file_sha256"] = capture_bundle_hashes(directory)
             report["planning_evidence_file_sha256"] = planning_evidence_hashes(directory)
             (Path(directory) / "orchestration_latest.json").write_text(
