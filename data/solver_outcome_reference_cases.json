@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "purpose": "Hand-checkable outcomes for bounded dry-run planning: no selectable group, a legal but unsolved simulation, unverified capture provenance, and malformed state rejection. These are software-contract examples, not observations of live game mechanics.",
+  "purpose": "Hand-checkable outcomes for bounded dry-run planning: no selectable group, modeled board clearing, a legal but unsolved simulation, unverified capture provenance, and malformed state rejection. These are software-contract examples, not observations of live game mechanics.",
   "cases": [
     {
       "id": "no_accessible_group_returns_no_legal_batch",
@@ -26,6 +26,40 @@
         "candidates_examined": 0,
         "search_truncated": false,
         "best": null,
+        "source_state_unchanged": true,
+        "evidence_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false
+      }
+    },
+    {
+      "id": "matching_candidate_empties_modeled_board",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R",
+        "color": "red",
+        "ammo": 1,
+        "direction": "right",
+        "x": -1,
+        "y": 0,
+        "accessible": true
+      },
+      "provenance_verified": null,
+      "expected": {
+        "status": "SIMULATED",
+        "raises": null,
+        "accessible_group_count": 1,
+        "candidates_examined": 1,
+        "search_truncated": false,
+        "best": {
+          "pixels_removed": 1,
+          "remaining_pixels": 0,
+          "blocked_attempts": 0
+        },
         "source_state_unchanged": true,
         "evidence_verified": false,
         "live_execution_allowed": false,
