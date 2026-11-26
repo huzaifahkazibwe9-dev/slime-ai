@@ -291,6 +291,10 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
         self.assertIsNone(
             report["metrics"]["ammunition"]["exact_match_accuracy_interval_95"]
         )
+        for metric_name in ("slot_position_alignment", "colour"):
+            with self.subTest(metric=metric_name):
+                self.assertIsNone(report["metrics"][metric_name]["macro_f1"])
+                self.assertEqual(report["metrics"][metric_name]["per_class"], {})
 
 
 
@@ -318,6 +322,46 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
                 self.assertIn("macro_f1", aggregate[metric_name])
                 self.assertIn("per_class", aggregate[metric_name])
         self.assertIn("visible", aggregate["visibility"]["per_class"])
+
+
+    def test_aggregate_metrics_retain_predicted_only_classes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = write_capture(root, 1, (10, 20, 30))
+            dataset = capture["dataset_object"]
+            for sample in dataset["samples"]:
+                sample["human"] = {
+                    "visibility": "unrevealed",
+                    "row": None,
+                    "column": None,
+                    "colour": "",
+                    "ammunition_readable": False,
+                    "ammunition": None,
+                }
+            (root / capture["dataset"]).write_text(
+                json.dumps(dataset), encoding="utf-8"
+            )
+            manifest = {
+                "schema_version": 1,
+                "captures": [{
+                    key: capture[key]
+                    for key in ("dataset", "detection", "screenshot")
+                }],
+            }
+
+            report = evaluate_manifest(manifest, base_dir=root)
+
+        visibility = report["metrics"]["visibility"]
+        self.assertEqual(visibility["support"], 12)
+        self.assertEqual(visibility["per_class"]["unrevealed"]["support"], 12)
+        for label in ("visible", "partially_occluded"):
+            with self.subTest(label=label):
+                self.assertEqual(visibility["per_class"][label], {
+                    "support": 0,
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "f1": 0.0,
+                })
 
 
     def test_rejects_duplicate_screenshot_evidence(self):
