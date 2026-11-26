@@ -338,6 +338,7 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
                 "blockers": ["reviewer_a_has_no_confirmed_samples"],
             }],
         )
+
     def test_rejects_repeated_screenshot_across_distinct_capture_sessions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
