@@ -1,5 +1,5 @@
 {
-  "report_type": "conveyor_consistency_audit",
+  "report_type": "conveyor_position_consistency_audit",
   "sequence": [
     "bottom",
     "right",
@@ -7,12 +7,14 @@
     "left"
   ],
   "sequence_confirmed_by_user": true,
+  "captured_at": null,
   "timestamps_known": false,
   "identity_verified": false,
-  "gameplay_taps_enabled": false,
-  "candidate_tracks": {
+  "gameplay_verified": false,
+  "game_taps_enabled": false,
+  "actions_performed": false,
+  "position_series": {
     "white": {
-      "candidate_shooter": "top_1",
       "positions": [
         "bottom_1",
         "right_2",
@@ -55,10 +57,9 @@
       "increases": [],
       "depletion_status": "zero_ammunition_not_observed",
       "original_observations_preserved": true,
-      "identity_status": "candidate_only_unverified"
+      "identity_status": "UNRESOLVED_POSITION_SERIES_ONLY"
     },
     "blue_cyan": {
-      "candidate_shooter": "top_2",
       "positions": [
         "bottom_2",
         "right_1",
@@ -99,9 +100,10 @@
       "increases": [],
       "depletion_status": "zero_ammunition_observed",
       "original_observations_preserved": true,
-      "identity_status": "candidate_only_unverified"
+      "identity_status": "UNRESOLVED_POSITION_SERIES_ONLY"
     }
   },
+  "source_file_sha256": {},
   "checks": {
     "timeline_has_four_stages": true,
     "stage_order_valid": true,
@@ -112,10 +114,10 @@
   "warnings": [
     "white: unchanged ammunition at left. This is not automatically an error."
   ],
-  "overall_status": "CONSISTENT_CANDIDATE_DATA",
+  "overall_status": "CONSISTENT_POSITION_DATA",
   "limitations": [
-    "Screenshot timestamps are unknown.",
-    "Shooter identity has not been independently verified.",
+    "Timestamps are not independently verified by this consistency check.",
+    "This report contains position-based ammunition trends only; no physical shooter identity is assigned.",
     "Ammunition consistency alone cannot prove physical identity.",
     "No live gameplay or firing behaviour was tested."
   ]
