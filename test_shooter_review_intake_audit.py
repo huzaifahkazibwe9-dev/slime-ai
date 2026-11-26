@@ -449,11 +449,11 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             round(11 / 12, 6),
         )
         self.assertEqual(
-            agreement["disagreements"][0]["sample_id"],
+            agreement["captures"][0]["disagreements"][0]["sample_id"],
             "top_1",
         )
         self.assertEqual(
-            agreement["disagreements"][0]["disagreements"][0]["field"],
+            agreement["captures"][0]["disagreements"][0]["disagreements"][0]["field"],
             "colour",
         )
 
