@@ -109,12 +109,30 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(report["confirmed_sample_count"], 24)
         self.assertEqual(report["metrics"]["visibility"]["support"], 24)
         self.assertEqual(report["metrics"]["visibility"]["accuracy"], 1.0)
+        self.assertEqual(report["metrics"]["visibility"]["accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.862024,
+            "upper": 1.0,
+        })
         self.assertEqual(report["metrics"]["slot_position_alignment"]["support"], 24)
         self.assertEqual(report["metrics"]["colour"]["support"], 8)
         self.assertEqual(report["metrics"]["colour"]["accuracy"], 0.875)
+        self.assertEqual(report["metrics"]["colour"]["accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.529112,
+            "upper": 0.977583,
+        })
         self.assertEqual(report["metrics"]["ammunition"]["support"], 8)
         self.assertEqual(report["metrics"]["ammunition"]["exact_match_count"], 7)
         self.assertEqual(report["metrics"]["ammunition"]["exact_match_accuracy"], 0.875)
+        self.assertEqual(report["metrics"]["ammunition"]["exact_match_accuracy_interval_95"], {
+            "method": "wilson_score",
+            "confidence_level": 0.95,
+            "lower": 0.529112,
+            "upper": 0.977583,
+        })
         self.assertTrue(report["source_provenance"]["all_source_artifacts_verified"])
         self.assertFalse(report["coverage_adequacy_assessed"])
 
@@ -237,6 +255,43 @@ class ShooterBatchEvaluationTests(unittest.TestCase):
             ["empty"],
         )
         self.assertFalse(report["review_follow_up"]["coverage_adequacy_assessed"])
+
+
+    def test_empty_aggregate_metrics_report_unavailable_intervals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = write_capture(root, 1, (10, 20, 30))
+            dataset = capture["dataset_object"]
+            for sample in dataset["samples"]:
+                sample["human"] = {
+                    "visibility": "unrevealed",
+                    "row": None,
+                    "column": None,
+                    "colour": "",
+                    "ammunition_readable": False,
+                    "ammunition": None,
+                }
+            (root / capture["dataset"]).write_text(
+                json.dumps(dataset), encoding="utf-8"
+            )
+            manifest = {
+                "schema_version": 1,
+                "captures": [{
+                    key: capture[key]
+                    for key in ("dataset", "detection", "screenshot")
+                }],
+            }
+
+            report = evaluate_manifest(manifest, base_dir=root)
+
+        self.assertIsNone(
+            report["metrics"]["slot_position_alignment"]["accuracy_interval_95"]
+        )
+        self.assertIsNone(report["metrics"]["colour"]["accuracy_interval_95"])
+        self.assertIsNone(
+            report["metrics"]["ammunition"]["exact_match_accuracy_interval_95"]
+        )
+
 
     def test_rejects_duplicate_screenshot_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
