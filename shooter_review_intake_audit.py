@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 
 from prepare_shooter_labels import DETECTOR_COLOURS, build_template
@@ -416,6 +417,14 @@ def main():
         output_argument = _reject_symlink_path_components(
             args.output, "Output path"
         )
+        try:
+            output_mode = output_argument.lstat().st_mode
+        except FileNotFoundError:
+            output_mode = None
+        if output_mode is not None and not stat.S_ISREG(output_mode):
+            raise ValueError(
+                "Existing output destination must be a regular file"
+            )
         output = output_argument.resolve()
         protected_inputs = {manifest_path}
         for entry in manifest.get("captures", []):

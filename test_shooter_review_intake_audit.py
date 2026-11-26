@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import stat
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -611,6 +612,39 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), original)
             self.assertEqual(
                 list(real_output_dir.glob(f".{output.name}.*.tmp")),
+                [],
+            )
+
+    @unittest.skipUnless(
+        os.name == "posix" and hasattr(os, "mkfifo"),
+        "POSIX named pipes are required",
+    )
+    def test_cli_rejects_fifo_output_without_replacing_special_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output_dir = root / "reports"
+            output_dir.mkdir()
+            output = output_dir / "intake.json"
+            os.mkfifo(output)
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+
+            self.assertEqual(error.exception.code, 2)
+            self.assertTrue(stat.S_ISFIFO(output.lstat().st_mode))
+            self.assertEqual(
+                list(output_dir.glob(f".{output.name}.*.tmp")),
                 [],
             )
 
