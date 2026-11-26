@@ -250,5 +250,31 @@ class ShooterObservationEvaluationTests(unittest.TestCase):
         )
 
 
+    def test_empty_metric_subsets_keep_full_schema_and_use_none_for_undefined_scores(self):
+        dataset, _, _ = labelled_fixture()
+        for sample in dataset["samples"]:
+            sample["human"] = {
+                "visibility": "unrevealed",
+                "row": None,
+                "column": None,
+                "colour": "",
+                "ammunition_readable": False,
+                "ammunition": None,
+            }
+
+        report = evaluate_dataset(dataset)
+        expected = {
+            "support": 0,
+            "correct_count": 0,
+            "accuracy": None,
+            "macro_f1": None,
+            "per_class": {},
+            "confusion_matrix": {},
+        }
+        for metric_name in ("slot_position_alignment", "colour"):
+            with self.subTest(metric=metric_name):
+                self.assertEqual(report["metrics"][metric_name], expected)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
