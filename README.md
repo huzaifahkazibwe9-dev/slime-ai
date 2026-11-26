@@ -481,3 +481,13 @@ subsystem statuses, acceptance criteria and remaining external blockers.
 Verified CI runs and the required device/human-review artifact layout are
 indexed in [the final evidence pack](evidence/final/README.md). Passing CI is
 not Android-device validation or proof of visual/gameplay correctness.
+
+
+## Solver input-state validation
+
+The simulator validates the structure of its input `GameState` before
+searching. Malformed boards, rows, cells, shooter records and occupancy
+containers are rejected with explicit validation errors rather than incidental
+type exceptions. See
+[docs/SOLVER_VALIDATION_REFERENCE.md](docs/SOLVER_VALIDATION_REFERENCE.md)
+for the reference test coverage and its limits.
