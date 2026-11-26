@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "purpose": "Hand-checkable fixtures for the repository's declared ray-based shot simulator. These are unit-level simulator contract cases, not external validation of live-game rules.",
+  "cases": [
+    {
+      "id": "pass_empty_cell_then_remove_match",
+      "board": [
+        [
+          null,
+          "red",
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 3,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            1,
+            0
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 2,
+          "board": [
+            [
+              null,
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "first_different_colour_blocks",
+      "board": [
+        [
+          "blue",
+          "red",
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 3,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": false,
+          "removed": false,
+          "position": [
+            0,
+            0
+          ],
+          "reason": "Blocked by another colour",
+          "remaining_ammo": 3,
+          "board": [
+            [
+              "blue",
+              "red",
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "empty_ray_has_no_target",
+      "board": [
+        [
+          null,
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 3,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": false,
+          "removed": false,
+          "position": null,
+          "reason": "No reachable pixel",
+          "remaining_ammo": 3,
+          "board": [
+            [
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zero_ammunition_does_not_fire",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 0,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": false,
+          "removed": false,
+          "position": null,
+          "reason": "No ammunition",
+          "remaining_ammo": 0,
+          "board": [
+            [
+              "red"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unknown_ammunition_does_not_fire",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": null,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": false,
+          "removed": false,
+          "position": null,
+          "reason": "Ammunition is unknown",
+          "remaining_ammo": null,
+          "board": [
+            [
+              "red"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "successive_shots_reach_newly_exposed_match",
+      "board": [
+        [
+          "red",
+          "red"
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 2,
+        "direction": "right",
+        "x": -1,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            0,
+            0
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 1,
+          "board": [
+            [
+              null,
+              "red"
+            ]
+          ]
+        },
+        {
+          "fired": true,
+          "removed": true,
+          "position": [
+            1,
+            0
+          ],
+          "reason": "Matching pixel removed",
+          "remaining_ammo": 0,
+          "board": [
+            [
+              null,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ray_starting_beyond_board_has_no_target",
+      "board": [
+        [
+          "red",
+          null
+        ]
+      ],
+      "shooter": {
+        "id": "R1",
+        "color": "red",
+        "ammo": 2,
+        "direction": "right",
+        "x": 2,
+        "y": 0
+      },
+      "steps": [
+        {
+          "fired": false,
+          "removed": false,
+          "position": null,
+          "reason": "No reachable pixel",
+          "remaining_ammo": 2,
+          "board": [
+            [
+              "red",
+              null
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}
