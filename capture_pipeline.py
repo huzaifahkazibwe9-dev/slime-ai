@@ -14,7 +14,10 @@ from capture_provenance import (
     parse_aware_capture_timestamp,
     validate_capture_session_id,
 )
-from source_pixel_audit import audit_source_pixels
+from source_pixel_audit import (
+    audit_source_pixels,
+    canonical_observation_sha256,
+)
 from strict_json import strict_json_loads
 
 BOARD_OUTPUT = Path("data/board_observation_latest.json")
@@ -175,6 +178,7 @@ def audit_capture_pixels(board_path, source_image_bytes, output_path=PIXEL_AUDIT
         "captured_at": observation.get("captured_at"),
         "snapshot_id": observation.get("snapshot_id"),
         "board_snapshot_id": observation.get("board_snapshot_id"),
+        "board_observation_sha256": canonical_observation_sha256(observation),
     })
     if report.get("pixel_samples_reproduced") is not True:
         raise ValueError("Independent source-pixel audit found RGB sample mismatches")
