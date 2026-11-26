@@ -2,13 +2,13 @@
 
 **Audit date:** 2026-11-26  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited feature head:** `d6c6d0ef5dd0ef011e99d3417c867f25b875b382` (`validate-shot-reference-fixture-schema`)  
+**Audited feature head:** `2e2e7370abe39cfb793c5fe4e24714b36d20e2bd` (`fix-candidate-search-truncation-accounting`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997)
+**Latest verified automated run in this snapshot:** [CI #1178](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989)
 
 ## Executive finding
 
-Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,225 tests per Python version. The direct shot simulator now has eleven table-driven reference cases covering all four cardinal directions, and the fixture schema itself is checked for exact field sets and types.
+Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,227 tests per Python version. The direct shot simulator now has eleven table-driven reference cases covering all four cardinal directions, and the fixture schema itself is checked for exact field sets and types.
 
 **The project is not 100% complete.** Automated unit tests cannot establish the true colour of game tiles, shooter identity/visibility accuracy, real conveyor timing, device compatibility, or correct behaviour on a live game state. Those require original device captures, independent human review and a real Termux acceptance run. The project is still an offline/advisory system; no gameplay taps or purchases are enabled.
 
@@ -28,6 +28,8 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#145](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/145) | Direct shot input validation and reference cases | [#1174](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45881811535), 1,223 tests/version | Open draft, unmerged |
 | [#146](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/146) | Four-direction shot reference corpus | [#1175](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884666978), 1,224 tests/version | Open draft, unmerged |
 | [#147](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/147) | Strict shot-reference fixture schema | [#1176](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997), 1,225 tests/version | Open draft, unmerged |
+| [#148](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/148) | Refresh completion evidence register | [#1177](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45885139628), 1,225 tests/version | Open draft, unmerged |
+| [#149](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/149) | Candidate-search truncation boundary reporting | [#1178](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989), 1,227 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
@@ -40,6 +42,7 @@ The base PRs in the stack are also open draft changes; review and merge order mu
 - The standalone loader enforces board geometry, explicit unverified state, exact integer colour counts and canonical lowercase screenshot hashes.
 - `GameState.validate()` returns controlled diagnostics for malformed boards, rows, cells, shooter records and occupancy containers.
 - The direct shot simulator validates its own shooter/board inputs; its eleven-case reference corpus covers all four cardinal directions, empty-cell traversal, blocking, no-target, ammo edge cases and successive removal. The fixture's exact schema, field sets and primitive types are checked before use.
+- Bounded dry-run candidate enumeration reports truncation only when another legal prefix exists beyond the configured budget; exact-budget complete traversals remain non-truncated, with regression tests for both boundary cases.
 - Recent CI runs passed the full unit suite on Python 3.10, 3.11, 3.12 and 3.14, plus Python compilation and shell syntax checks.
 
 The authoritative run list and test counts are in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json).

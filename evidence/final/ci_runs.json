@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-26T19:36:55Z",
+  "generated_at_utc": "2026-11-26T19:48:15.004Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -125,6 +125,26 @@
       "unit_tests_per_python_version": 1225,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45884869997"
+    },
+    {
+      "run_number": 1177,
+      "run_id": 45885139628,
+      "pull_request": 148,
+      "branch": "refresh-final-evidence-after-solver-corpus",
+      "commit_sha": "1823b4ce6afffa74b7763d38ada00719ced5eea0",
+      "unit_tests_per_python_version": 1225,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45885139628"
+    },
+    {
+      "run_number": 1178,
+      "run_id": 45886150989,
+      "pull_request": 149,
+      "branch": "fix-candidate-search-truncation-accounting",
+      "commit_sha": "2e2e7370abe39cfb793c5fe4e24714b36d20e2bd",
+      "unit_tests_per_python_version": 1227,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45886150989"
     }
   ],
   "superseded_failures": [

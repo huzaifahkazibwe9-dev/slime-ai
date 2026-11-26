@@ -387,10 +387,9 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
             if result is not None:
                 candidates.append(result)
 
-        if examined >= max_candidates:
-            truncated = True
-            return
-
+        # Do not infer truncation just because the budget has been used.
+        # The next candidate-entry check below marks truncation only when
+        # another legal prefix actually exists beyond the examined limit.
         for index, group in enumerate(remaining):
             size = len(group)
 
@@ -401,8 +400,7 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
                     remaining[:index] + remaining[index + 1:],
                 )
 
-                if examined >= max_candidates:
-                    truncated = True
+                if truncated:
                     return
 
     visit((), 0, groups)
