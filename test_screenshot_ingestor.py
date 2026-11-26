@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from screenshot_ingestor import classify_rgb, extract_board, ingest
 
@@ -266,5 +266,53 @@ class ScreenshotIngestorTests(unittest.TestCase):
             path.unlink(missing_ok=True)
 
 
+    def test_rejects_zero_byte_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "empty.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            image_path.write_bytes(b"")
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            with self.assertRaises(UnidentifiedImageError):
+                ingest(image_path, baseline_path, output_path)
+            self.assertFalse(output_path.exists())
+
+    def test_rejects_garbage_bytes_as_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "garbage.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            image_path.write_bytes(b"not a valid image at all")
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            with self.assertRaises(UnidentifiedImageError):
+                ingest(image_path, baseline_path, output_path)
+            self.assertFalse(output_path.exists())
+
+    def test_rejects_truncated_png(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "truncated.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+            image_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+            with self.assertRaises(UnidentifiedImageError):
+                ingest(image_path, baseline_path, output_path)
+            self.assertFalse(output_path.exists())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
