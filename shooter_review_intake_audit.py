@@ -437,6 +437,36 @@ def main():
         report["reviewer_b"]["sample_count"],
     )
     print("Ready for agreement audit:", report["agreement_audit_ready"])
+    if report["readiness_blockers"]:
+        print("Readiness blockers:")
+        blocker_labels = {
+            "reviewer_a_has_unreviewed_samples": (
+                "Reviewer A has unreviewed slots."
+            ),
+            "reviewer_b_has_unreviewed_samples": (
+                "Reviewer B has unreviewed slots."
+            ),
+            "reviewer_a_has_no_confirmed_samples": (
+                "Reviewer A needs at least one confirmed sample."
+            ),
+            "reviewer_b_has_no_confirmed_samples": (
+                "Reviewer B needs at least one confirmed sample."
+            ),
+        }
+        for item in report["readiness_blockers"]:
+            print(
+                f"  Capture {item['capture_index'] + 1} "
+                f"({item['capture_session_id']}):"
+            )
+            for blocker in item["blockers"]:
+                print(
+                    "    -",
+                    blocker_labels.get(
+                        blocker, blocker.replace("_", " ")
+                    ),
+                )
+    else:
+        print("Readiness blockers: none")
     print("Reviewer independence verified: False")
     print("Label truth independently verified: False")
     print("Gameplay verified: False")
