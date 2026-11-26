@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "source": "user_visual_contact_sheet_observations",
+  "timestamp_identified": false,
+  "identity_verified": false,
+  "gameplay_verified": false,
+  "observations": [
+    {
+      "position_id": "bottom_1",
+      "colour": "white",
+      "ammo": 38
+    },
+    {
+      "position_id": "bottom_2",
+      "colour": "blue",
+      "ammo": 40
+    },
+    {
+      "position_id": "right_1",
+      "colour": "blue",
+      "ammo": 27
+    },
+    {
+      "position_id": "right_2",
+      "colour": "white",
+      "ammo": 33
+    },
+    {
+      "position_id": "top_1",
+      "colour": "blue",
+      "ammo": 18
+    },
+    {
+      "position_id": "top_2",
+      "colour": "white",
+      "ammo": 26
+    },
+    {
+      "position_id": "left_1",
+      "colour": "white",
+      "ammo": 26
+    },
+    {
+      "position_id": "left_2",
+      "colour": "blue",
+      "ammo": 0
+    }
+  ]
+}
