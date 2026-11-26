@@ -137,7 +137,12 @@ class ScreenshotObservationLoaderTests(unittest.TestCase):
                 with self.assertRaisesRegex(
                     ValueError, "same_board_state_confirmed"
                 ):
-                    _require_grid(invalid)
+                    load_observed_level(
+                        self.observation_path,
+                        self.shooter_path,
+                        observation_data=invalid,
+                        shooter_data=self.shooters,
+                    )
 
     def test_observation_integrates_with_shooter_panel(self):
         state, audit = load_observed_level(
