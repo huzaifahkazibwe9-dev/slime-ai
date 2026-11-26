@@ -55,3 +55,14 @@ the low-level callable fails closed even when callers bypass the higher-level
 The fixture is a transparent oracle for the code's current ray-simulation
 contract. It is not a record of externally observed game outcomes and cannot
 replace independent confirmation that the live game uses the same rules.
+
+
+## Reference fixture schema
+
+The table-driven test validates the fixture itself before using it as an oracle.
+It requires exact top-level, case, shooter and expected-step field sets; exact
+integer/boolean types; known cardinal directions; rectangular board snapshots;
+and correctly shaped expected result boards. This prevents Python's
+`True == 1` numeric equality or missing fields from silently weakening the
+test oracle. It validates fixture structure only, not the truth of the modeled
+game mechanics.
