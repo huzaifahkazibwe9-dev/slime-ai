@@ -365,11 +365,16 @@ def run_dry_simulation(state, max_candidates=MAX_CANDIDATES):
         }
 
     original = copy.deepcopy(state)
-    groups = [
-        tuple(group)
-        for group in available_groups(state)
-        if group and len(group) <= state.conveyor_free
-    ]
+    # Canonicalize group traversal so a bounded search examines the same
+    # candidate prefixes regardless of shooter dictionary insertion order.
+    groups = sorted(
+        (
+            tuple(group)
+            for group in available_groups(state)
+            if group and len(group) <= state.conveyor_free
+        ),
+        key=lambda group: tuple(sorted(group)),
+    )
 
     candidates = []
     examined = 0

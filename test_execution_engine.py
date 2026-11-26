@@ -347,6 +347,28 @@ class ExecutionEngineTests(unittest.TestCase):
         self.assertLessEqual(report["candidates_examined"], 3)
         self.assertTrue(report["search_truncated"])
 
+    def test_bounded_search_uses_canonical_group_order(self):
+        shooters = [
+            Shooter("B", "red", 1, "right", -1, 0, accessible=True),
+            Shooter("A", "red", 1, "right", -1, 0, accessible=True),
+        ]
+        forward = self.make_state([["red"]], shooters)
+        reverse = self.make_state([["red"]], list(reversed(shooters)))
+
+        forward_report = run_dry_simulation(forward, max_candidates=1)
+        reverse_report = run_dry_simulation(reverse, max_candidates=1)
+
+        self.assertEqual(forward_report["candidates_examined"], 1)
+        self.assertEqual(reverse_report["candidates_examined"], 1)
+        self.assertTrue(forward_report["search_truncated"])
+        self.assertTrue(reverse_report["search_truncated"])
+        self.assertEqual(forward_report["best"]["groups"], [["A"]])
+        self.assertEqual(
+            forward_report["best"]["groups"],
+            reverse_report["best"]["groups"],
+        )
+
+
     def test_candidate_limit_is_validated_before_provenance_gate(self):
         state = self.make_state([["red"]], [
             Shooter("R", "red", 1, "right", -1, 0, accessible=True)
