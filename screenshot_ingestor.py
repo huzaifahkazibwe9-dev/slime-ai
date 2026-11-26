@@ -153,13 +153,10 @@ def _extract_board_image(img, calibration):
         raise ValueError("Calibration grid_size must be [columns, rows]")
     if not isinstance(bounds, list) or len(bounds) != 4:
         raise ValueError("Calibration bounds must contain four coordinates")
-    cols, rows = grid_size
-    left, top, right, bottom = bounds
-
-    cols, rows = grid_size
     sample_centres = validate_sample_window_geometry(
         grid_size, bounds, img.size
     )
+    cols, rows = grid_size
     x_centers = sample_centres["x"]
     y_centers = sample_centres["y"]
     pixels = np.asarray(img, dtype=np.uint8)
@@ -182,7 +179,7 @@ def _extract_board_image(img, calibration):
     return {
         "image_size": [width, height],
         "grid_size": [cols, rows],
-        "bounds": [left, top, right, bottom],
+        "bounds": list(bounds),
         "sample_centres": sample_centres,
         "board": board,
         "raw_rgb": raw_rgb,
