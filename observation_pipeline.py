@@ -12,6 +12,37 @@ BASELINE = Path("data/vision_level39.json")
 REPORT = Path("data/observation_transition_latest.json")
 
 
+def _board_grid_error(observation, name):
+    """Return a diagnostic when board rows/columns disagree with calibration."""
+    grid_size = observation.get("grid_size")
+    if not isinstance(grid_size, list) or len(grid_size) != 2:
+        return f"{name} grid_size must be [columns, rows]"
+
+    cols, rows = grid_size
+    if (
+        type(cols) is not int or type(rows) is not int
+        or cols < 1 or rows < 1
+    ):
+        return f"{name} grid dimensions must be positive integers"
+    if cols > 10_000 or rows > 10_000 or cols * rows > 1_000_000:
+        return f"{name} grid dimensions exceed the safe sampling limit"
+
+    board = observation.get("board")
+    if len(board) != rows:
+        return (
+            f"{name} board has {len(board)} rows but grid_size declares {rows}"
+        )
+    for row_index, row in enumerate(board):
+        if not isinstance(row, list):
+            return f"{name} board row {row_index} must be a list"
+        if len(row) != cols:
+            return (
+                f"{name} board row {row_index} has {len(row)} columns "
+                f"but grid_size declares {cols}"
+            )
+    return None
+
+
 def evaluate_observations(previous, current):
     errors = []
 
@@ -31,6 +62,23 @@ def evaluate_observations(previous, current):
         return {
             "status": "REJECTED_INCOMPATIBLE_OBSERVATIONS",
             "errors": errors,
+            "changed_cells": 0,
+            "transition_verified": False,
+            "tile_removals_verified": False,
+            "game_taps_enabled": False,
+        }
+
+    shape_errors = [
+        error for error in (
+            _board_grid_error(previous, "previous"),
+            _board_grid_error(current, "current"),
+        )
+        if error is not None
+    ]
+    if shape_errors:
+        return {
+            "status": "REJECTED_INVALID_BOARD",
+            "errors": shape_errors,
             "changed_cells": 0,
             "transition_verified": False,
             "tile_removals_verified": False,
