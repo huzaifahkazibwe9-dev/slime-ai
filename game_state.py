@@ -36,13 +36,22 @@ class Shooter:
     observation_quality: dict = field(default_factory=dict)
 
     def valid(self):
+        if not isinstance(self.id, str) or not self.id:
+            return False
+        if self.color is not None and (
+            not isinstance(self.color, str) or not self.color
+        ):
+            return False
+        if type(self.revealed) is not bool or type(self.accessible) is not bool:
+            return False
+
         # bool is a subclass of int in Python; reject it as malformed ammo.
         if self.ammo is not None and type(self.ammo) is not int:
             return False
         if self.ammo is not None and self.ammo < 0:
             return False
 
-        if self.direction not in DIRECTIONS:
+        if not isinstance(self.direction, str) or self.direction not in DIRECTIONS:
             return False
 
         if (
@@ -62,7 +71,9 @@ class Shooter:
         if any(not isinstance(member, str) or not member
                for member in self.bonded_ids):
             return False
-        if self.group_id is not None and not isinstance(self.group_id, str):
+        if self.group_id is not None and (
+            not isinstance(self.group_id, str) or not self.group_id
+        ):
             return False
         if self.id in self.bonded_ids:
             return False
@@ -306,24 +317,72 @@ class GameState:
         return True
 
     def validate(self):
+        """Return structural/state errors without raising on malformed input."""
         errors = []
 
-        if not self.board:
+        # The simulator indexes mutable list-of-list boards. Reject unsupported
+        # containers and malformed rows before width/pixel helpers can index them.
+        if not isinstance(self.board, list):
+            errors.append("Board must be a list of rows")
+        elif not self.board:
             errors.append("Board is empty")
-        elif any(len(row) != self.width for row in self.board):
-            errors.append("Board rows have different widths")
+        elif any(not isinstance(row, list) for row in self.board):
+            errors.append("Board rows must be lists")
+        else:
+            board_width = len(self.board[0])
+            if board_width < 1:
+                errors.append("Board must contain at least one column")
+            if any(len(row) != board_width for row in self.board):
+                errors.append("Board rows have different widths")
+            for y, row in enumerate(self.board):
+                for x, cell in enumerate(row):
+                    if cell is not None and (
+                        not isinstance(cell, str) or not cell
+                    ):
+                        errors.append(
+                            f"Invalid board cell at ({x}, {y}); "
+                            "expected a non-empty colour label or None"
+                        )
+                        break
 
-        if len(self.conveyor) > CONVEYOR_LIMIT:
-            errors.append("Conveyor capacity exceeded")
+        if not isinstance(self.conveyor, list):
+            errors.append("Conveyor must be a list of shooter IDs")
+            conveyor = []
+        else:
+            conveyor = self.conveyor
+            if len(conveyor) > CONVEYOR_LIMIT:
+                errors.append("Conveyor capacity exceeded")
+            if any(not isinstance(item, str) or not item for item in conveyor):
+                errors.append("Conveyor contains an invalid shooter ID")
 
-        if len(self.storage) > STORAGE_LIMIT:
-            errors.append("Storage capacity exceeded")
+        if not isinstance(self.storage, list):
+            errors.append("Storage must be a list of shooter IDs")
+            storage = []
+        else:
+            storage = self.storage
+            if len(storage) > STORAGE_LIMIT:
+                errors.append("Storage capacity exceeded")
+            if any(not isinstance(item, str) or not item for item in storage):
+                errors.append("Storage contains an invalid shooter ID")
+
+        if not isinstance(self.shooters, dict):
+            errors.append("Shooters must be a mapping of IDs to shooter records")
+            return errors
 
         for shooter_id, shooter in self.shooters.items():
-            if shooter.id != shooter_id:
+            if not isinstance(shooter_id, str) or not shooter_id:
+                errors.append("Shooter mapping contains an invalid ID")
+                continue
+
+            if getattr(shooter, "id", None) != shooter_id:
                 errors.append(f"Shooter ID mismatch: {shooter_id}")
 
-            if not shooter.valid():
+            valid_method = getattr(shooter, "valid", None)
+            try:
+                shooter_valid = callable(valid_method) and valid_method() is True
+            except (AttributeError, TypeError, ValueError, OverflowError):
+                shooter_valid = False
+            if not shooter_valid:
                 errors.append(f"Invalid shooter: {shooter_id}")
 
             linked_ids = getattr(shooter, "bonded_ids", None)
@@ -351,7 +410,7 @@ class GameState:
         # oversized or malformed components for selection.
         checked_groups = set()
         for shooter_id in self.shooters:
-            if shooter_id in checked_groups:
+            if shooter_id in checked_groups or not isinstance(shooter_id, str):
                 continue
             pending = [shooter_id]
             component = set()
@@ -378,7 +437,7 @@ class GameState:
                     + ", ".join(ordered_component)
                 )
             explicit_ids = {
-                self.shooters[member].group_id
+                getattr(self.shooters[member], "group_id", None)
                 for member in component
                 if isinstance(
                     getattr(self.shooters[member], "group_id", None), str
@@ -390,16 +449,18 @@ class GameState:
                     + ", ".join(ordered_component)
                 )
 
-        occupied = self.conveyor + self.storage
-
-        for shooter_id in occupied:
-            if shooter_id not in self.shooters:
-                errors.append(f"Unknown shooter: {shooter_id}")
-
+        occupied = conveyor + storage
         if len(occupied) != len(set(occupied)):
             errors.append("A shooter occupies multiple positions")
 
+        for shooter_id in occupied:
+            if not isinstance(shooter_id, str) or not shooter_id:
+                continue
+            if shooter_id not in self.shooters:
+                errors.append(f"Unknown shooter: {shooter_id}")
+
         return errors
+
 
 
 if __name__ == "__main__":
