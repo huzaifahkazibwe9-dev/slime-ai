@@ -168,6 +168,14 @@ def validate_capture_pair(
     audit_image_size = pixel_audit.get("image_size")
     audit_grid_size = pixel_audit.get("grid_size")
     audit_label_mismatch_count = pixel_audit.get("label_mismatch_count")
+    audit_schema_version = pixel_audit.get("schema_version")
+    audit_sample_count = pixel_audit.get("sample_count")
+    audit_reproduced_sample_count = pixel_audit.get("reproduced_sample_count")
+    audit_pixel_mismatch_count = pixel_audit.get("pixel_sample_mismatch_count")
+    expected_sample_count = (
+        board_grid_size[0] * board_grid_size[1]
+        if _positive_int_pair(board_grid_size) else None
+    )
     audit_matches = (
         _positive_int_pair(board_image_size)
         and _positive_int_pair(board_grid_size)
@@ -175,6 +183,19 @@ def validate_capture_pair(
         and _positive_int_pair(audit_grid_size)
         and audit_image_size == board_image_size
         and audit_grid_size == board_grid_size
+        and board_grid_size[0] <= 10_000
+        and board_grid_size[1] <= 10_000
+        and expected_sample_count <= 1_000_000
+        and type(audit_schema_version) is int
+        and audit_schema_version == 1
+        and type(audit_sample_count) is int
+        and audit_sample_count == expected_sample_count
+        and type(audit_reproduced_sample_count) is int
+        and audit_reproduced_sample_count == expected_sample_count
+        and type(audit_pixel_mismatch_count) is int
+        and audit_pixel_mismatch_count == 0
+        and pixel_audit.get("pixel_sample_mismatches") == []
+        and pixel_audit.get("label_mismatches") == []
         and type(audit_label_mismatch_count) is int
         and audit_label_mismatch_count == 0
         and pixel_audit.get("source_sha256") == source_hash
