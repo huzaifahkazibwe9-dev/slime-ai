@@ -159,16 +159,25 @@ def _extract_board_image(img, calibration):
     }
 
 
-def extract_board(image_path, calibration):
-    """Extract a board from a path, preserving the public path-based interface."""
+def extract_board_bytes(image_bytes, calibration):
+    """Extract from one immutable screenshot byte snapshot."""
+    if type(image_bytes) is not bytes:
+        raise TypeError("image_bytes must be immutable bytes")
+
     started = time.perf_counter()
-    image_path = Path(image_path)
-    if not image_path.is_file():
-        raise FileNotFoundError(image_path)
-    with Image.open(image_path) as original:
+    with Image.open(io.BytesIO(image_bytes)) as original:
         extracted = _extract_board_image(original, calibration)
     extracted["processing_seconds"] = round(time.perf_counter() - started, 6)
     return extracted
+
+
+def extract_board(image_path, calibration):
+    """Extract a board from a path using one immutable byte snapshot."""
+    image_path = Path(image_path)
+    if not image_path.is_file():
+        raise FileNotFoundError(image_path)
+    image_bytes = image_path.read_bytes()
+    return extract_board_bytes(image_bytes, calibration)
 
 
 def _extraction_payload_sha256(extracted):
