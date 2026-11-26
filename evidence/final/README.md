@@ -4,9 +4,9 @@ This directory separates **automated CI evidence** from the external evidence st
 
 ## Present and verified
 
-- [`ci_runs.json`](ci_runs.json) records selected successful pull-request CI runs, tested Python versions, test counts and checks. The latest entry is run #1176 with 1,225 passing unit tests per Python version. The JSON also records corrected intermediate CI failures in `superseded_failures` for traceability.
+- [`ci_runs.json`](ci_runs.json) records selected successful pull-request CI runs, tested Python versions, test counts and checks. The latest entry is run #1178 with 1,227 passing unit tests per Python version. The JSON also records corrected intermediate CI failures in `superseded_failures` for traceability.
 
-These are GitHub-hosted CI results for feature-branch commits. PRs #143–#147 add the completion evidence registry, structural GameState validation, direct shot input validation, an eleven-case four-direction ray reference corpus and strict fixture-schema tests. They are not Android/Termux device runs and do not validate visual ground truth or live-game behaviour.
+These are GitHub-hosted CI results for feature-branch commits. PRs #143–#149 add the completion evidence registry, structural GameState validation, direct shot input validation, an eleven-case four-direction ray reference corpus, strict fixture-schema tests and candidate-search truncation boundary checks. They are not Android/Termux device runs and do not validate visual ground truth or live-game behaviour.
 
 ## Required external evidence (not yet recorded here)
 
