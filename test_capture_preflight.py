@@ -193,10 +193,24 @@ class CapturePreflightTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("observation_quality", result["reason"])
 
-    def test_rejects_source_pixel_audit_flags_that_are_true_or_missing(self):
+    def test_rejects_required_source_pixel_audit_positive_flags_when_false_or_missing(self):
+        for flag in ("source_image_hash_checked", "source_image_dimensions_checked"):
+            for replacement in (False, None):
+                with self.subTest(flag=flag, replacement=replacement), tempfile.TemporaryDirectory() as directory:
+                    board, shooters, now = self.write_pair(directory)
+                    audit_path = Path(directory) / "source_pixel_audit_latest.json"
+                    data = json.loads(audit_path.read_text())
+                    if replacement is None:
+                        del data[flag]
+                    else:
+                        data[flag] = replacement
+                    audit_path.write_text(json.dumps(data))
+                    result = validate_capture_pair(board, shooters, now=now)
+                    self.assertFalse(result["valid"])
+                    self.assertIn(flag, result["reason"])
+
+    def test_rejects_source_pixel_audit_unverified_flags_when_true_or_missing(self):
         flag_names = (
-            "source_image_hash_checked",
-            "source_image_dimensions_checked",
             "label_truth_independently_verified",
             "calibration_alignment_verified",
             "gameplay_verified",
