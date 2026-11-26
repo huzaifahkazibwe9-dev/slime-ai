@@ -2,6 +2,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -678,6 +679,53 @@ class ShooterReviewIntakeAuditTests(unittest.TestCase):
 
             self.assertEqual(error.exception.code, 2)
             self.assertEqual(output.read_bytes(), original)
+            self.assertEqual(
+                list(output.parent.glob(f".{output.name}.*.tmp")),
+                [],
+            )
+
+    def test_cli_closes_temp_descriptor_when_stream_open_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base, _, _, _, _, _ = self._pair(root)
+            output = root / "reports" / "intake.json"
+            output.parent.mkdir(parents=True)
+            original = b'{"previous": "report"}\n'
+            output.write_bytes(original)
+            created_descriptors = []
+            real_mkstemp = tempfile.mkstemp
+
+            def capture_descriptor(*args, **kwargs):
+                descriptor, name = real_mkstemp(*args, **kwargs)
+                created_descriptors.append(descriptor)
+                return descriptor, name
+
+            with patch(
+                "sys.argv",
+                [
+                    "shooter_review_intake_audit.py",
+                    str(base / "review_manifest.json"),
+                    "--reviewer-a-id", "reviewer-a",
+                    "--reviewer-b-id", "reviewer-b",
+                    "--output", str(output),
+                ],
+            ):
+                with patch(
+                    "shooter_review_intake_audit.tempfile.mkstemp",
+                    side_effect=capture_descriptor,
+                ):
+                    with patch(
+                        "shooter_review_intake_audit.os.fdopen",
+                        side_effect=OSError("simulated stream setup failure"),
+                    ):
+                        with self.assertRaises(SystemExit) as error:
+                            main()
+
+            self.assertEqual(error.exception.code, 2)
+            self.assertEqual(output.read_bytes(), original)
+            self.assertEqual(len(created_descriptors), 1)
+            with self.assertRaises(OSError):
+                os.fstat(created_descriptors[0])
             self.assertEqual(
                 list(output.parent.glob(f".{output.name}.*.tmp")),
                 [],

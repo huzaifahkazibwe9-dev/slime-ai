@@ -414,15 +414,18 @@ def main():
         if output in protected_inputs:
             raise ValueError("Output path must not overwrite input artifacts")
         output.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = None
         temporary = None
         try:
-            fd, temporary_name = tempfile.mkstemp(
+            descriptor, temporary_name = tempfile.mkstemp(
                 prefix=f".{output.name}.",
                 suffix=".tmp",
                 dir=str(output.parent),
             )
             temporary = Path(temporary_name)
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream = os.fdopen(descriptor, "w", encoding="utf-8")
+            descriptor = None
+            with stream:
                 json.dump(report, stream, indent=2)
                 stream.write("\n")
                 stream.flush()
@@ -430,6 +433,11 @@ def main():
             temporary.replace(output)
             temporary = None
         finally:
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
             if temporary is not None:
                 try:
                     temporary.unlink()
