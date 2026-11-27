@@ -1,0 +1,257 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic negative fixtures for fail-closed bonded-group validation, canonical identity and selection. These cases pin the GameState contract and are not observations of live game behavior.",
+  "cases": [
+    {
+      "id": "asymmetric_pair_is_invalid_and_not_selectable",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": []
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Asymmetric bond: A and B"
+      ],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "A",
+      "expected_selectable": false
+    },
+    {
+      "id": "unknown_bond_reference_is_rejected",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "MISSING"
+          ]
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Unknown bonded shooter: MISSING"
+      ],
+      "expected_group": [],
+      "expected_group_id": null,
+      "expected_selectable": false
+    },
+    {
+      "id": "non_list_bonded_ids_is_rejected",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": null
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Invalid shooter: A",
+        "Invalid bonded_ids for shooter: A"
+      ],
+      "expected_group": [],
+      "expected_group_id": null,
+      "expected_selectable": false
+    },
+    {
+      "id": "non_string_bond_member_is_rejected",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            null
+          ]
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Invalid shooter: A",
+        "Invalid bonded shooter reference on: A"
+      ],
+      "expected_group": [],
+      "expected_group_id": null,
+      "expected_selectable": false
+    },
+    {
+      "id": "conflicting_explicit_group_ids_are_rejected",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR-A",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR-B",
+          "bonded_ids": [
+            "A"
+          ]
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Inconsistent group_id values in bonded component: A, B"
+      ],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": null,
+      "expected_selectable": false
+    },
+    {
+      "id": "four_member_component_exceeds_supported_limit",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "A",
+            "C"
+          ]
+        },
+        {
+          "id": "C",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "B",
+            "D"
+          ]
+        },
+        {
+          "id": "D",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "C"
+          ]
+        }
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Bonded group exceeds maximum size of 3: A, B, C, D"
+      ],
+      "expected_group": [],
+      "expected_group_id": null,
+      "expected_selectable": false
+    }
+  ]
+}

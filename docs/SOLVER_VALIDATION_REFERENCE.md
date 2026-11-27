@@ -112,3 +112,10 @@ This guarantee concerns repeatable traversal under a fixed state and candidate b
 `data/bonded_group_reference_cases.json` contains three synthetic, hand-checkable outcomes for `simulate_bonded_group()`. The paired cases cover members firing sequentially against the same evolving board, including a shared target that the first member removes before the second member is simulated. A third case covers atomic selection and ordered simulation of a complete three-member group. `test_bonded_group_reference_cases.py` validates exact fixture field sets and primitive types, then compares group membership, conveyor selection, per-member shot steps and ammunition, total pixel counts, final board, source-state immutability and the simulation-only safety flags.
 
 These fixtures pin the current software contract; they are not captured gameplay examples and do not prove that the live game uses the same bonded-group rules, firing order or board mechanics. Independent game evidence and device validation remain outstanding. Live gameplay actions remain disabled.
+
+## Invalid bonded-group reference corpus
+
+`data/bonded_group_invalid_reference_cases.json` contains six negative states: a non-reciprocal/asymmetric pair, a dangling shooter reference, a non-list bond container, a non-string bond member, conflicting explicit group IDs and a four-member component beyond the supported maximum. `test_bonded_group_invalid_reference_cases.py` checks the exact fixture schema and expected validation diagnostics, then verifies that component lookup/identity, selectability, attempted selection and the bonded-group simulator all fail closed without mutating the source state.
+
+The asymmetric case intentionally distinguishes graph discovery from permission to select: the connected component can be discovered, but a missing reciprocal edge causes validation failure and selection is refused. The fixtures are synthetic input-contract examples, not evidence about live game grouping. The maximum group size and reciprocal-link requirements are the current code contract, not claims about externally confirmed game rules.
+
