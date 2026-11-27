@@ -266,5 +266,80 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("shooters must be a list" in e for e in errors))
 
+    def test_invalid_annotation_version_rejected(self):
+        data = dict(VALID)
+        data["annotation_version"] = "2.0"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotation_version" in e for e in errors))
+
+    def test_naive_timestamp_rejected(self):
+        data = dict(VALID)
+        data["annotated_at"] = "2026-11-26T12:00:00"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotated_at" in e for e in errors))
+
+    def test_malformed_timestamp_rejected(self):
+        data = dict(VALID)
+        data["annotated_at"] = "not-a-date"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotated_at" in e for e in errors))
+
+    def test_empty_annotator_rejected(self):
+        data = dict(VALID)
+        data["annotator"] = "   "
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotator" in e for e in errors))
+
+    def test_session_id_with_spaces_rejected(self):
+        data = dict(VALID)
+        data["capture_session_id"] = "session with spaces"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("capture_session_id" in e for e in errors))
+
+    def test_empty_session_id_rejected(self):
+        data = dict(VALID)
+        data["capture_session_id"] = ""
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("capture_session_id" in e for e in errors))
+
+    def test_session_id_with_invalid_characters_rejected(self):
+        data = dict(VALID)
+        data["capture_session_id"] = "session@invalid"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("capture_session_id" in e for e in errors))
+
+    def test_valid_strict_session_id_accepted(self):
+        data = dict(VALID)
+        data["capture_session_id"] = "session-2026-11-26_001:abc"
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_uppercase_hex_in_snapshot_rejected(self):
+        data = dict(VALID)
+        data["board_snapshot_id"] = "sha256:" + "A" * 64
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("board_snapshot_id" in e for e in errors))
+
+    def test_boolean_slot_index_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": True}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("slot_index" in e for e in errors))
+
+    def test_slot_index_boundary_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": 11}]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
 if __name__ == "__main__":
     unittest.main()
