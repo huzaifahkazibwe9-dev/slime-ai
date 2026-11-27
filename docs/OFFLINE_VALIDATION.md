@@ -32,6 +32,8 @@ Local verification after adding annotation session-id alignment and field-edge r
 
 Local verification after adding GameState/Shooter validation regression tests: **676 tests ran, 0 failures, 17 skipped**.
 
+Local verification after fixing oversized bonded-group reporting in GameState.validate() and adding LifeState timing/capacity regression tests: **681 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)

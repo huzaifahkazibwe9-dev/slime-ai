@@ -154,6 +154,58 @@ class GameStateValidationTests(unittest.TestCase):
         life.maximum = None
         self.assertEqual(life.available(), 10)
 
+    def test_life_state_update_gains_lives_and_caps(self):
+        # 90 minutes elapsed → 3 lives gained (30 min each)
+        life = LifeState(lives=1, last_regeneration=0.0, maximum=3)
+        result = life.update(now=90 * 60)
+        self.assertEqual(result, 3)
+        self.assertEqual(life.lives, 3)
+        # Further time does not exceed maximum
+        result = life.update(now=90 * 60 + 60 * 60)
+        self.assertEqual(result, 3)
+        self.assertEqual(life.lives, 3)
+
+    def test_life_state_update_no_gain_before_interval(self):
+        life = LifeState(lives=2, last_regeneration=100.0, maximum=None)
+        result = life.update(now=100.0 + 29 * 60)
+        self.assertEqual(result, 2)
+        self.assertEqual(life.lives, 2)
+
+    def test_life_state_seconds_until_next(self):
+        life = LifeState(lives=1, last_regeneration=0.0, maximum=5)
+        # 10 minutes elapsed → 20 minutes until next
+        remaining = life.seconds_until_next(now=10 * 60)
+        self.assertEqual(remaining, 20 * 60)
+        # At exact interval, next is a full interval away after update semantics
+        remaining = life.seconds_until_next(now=30 * 60)
+        self.assertEqual(remaining, 30 * 60)
+
+    def test_inconsistent_group_id_in_bonded_component_reported(self):
+        a = Shooter("A", "red", 1, bonded_ids=["B"], group_id="G1")
+        b = Shooter("B", "red", 1, bonded_ids=["A"], group_id="G2")
+        state = GameState(
+            board=self._simple_board(),
+            shooters={"A": a, "B": b},
+        )
+        errors = state.validate()
+        self.assertTrue(
+            any("Inconsistent group_id values" in e for e in errors)
+        )
+
+    def test_oversized_bonded_group_is_reported_by_validate(self):
+        a = Shooter("A", "red", 1, bonded_ids=["B"])
+        b = Shooter("B", "red", 1, bonded_ids=["A", "C"])
+        c = Shooter("C", "red", 1, bonded_ids=["B", "D"])
+        d = Shooter("D", "red", 1, bonded_ids=["C"])
+        state = GameState(
+            board=self._simple_board(),
+            shooters={"A": a, "B": b, "C": c, "D": d},
+        )
+        errors = state.validate()
+        self.assertTrue(
+            any("Bonded group exceeds maximum size of 3" in e for e in errors)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
