@@ -695,5 +695,40 @@ class MultiBatchTests(unittest.TestCase):
         self.assertIn("LEVEL_FAILURE", event_names)
 
 
+    def test_pair_reactivation_is_preflighted_against_remaining_conveyor_space(self):
+        records = [
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            {"id": "C", "group_id": "SINGLE", "ammo": 2},
+        ]
+        result = simulate_batch_schedule(
+            records,
+            [
+                {"groups": ["PAIR"], "shots": {"A1": 0, "A2": 0}},
+                {"groups": ["SINGLE"], "shots": {"C": 0}},
+                {
+                    "groups": ["PAIR"],
+                    "reactivate_groups": ["PAIR"],
+                    "shots": {"A1": 0, "A2": 0},
+                },
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+            allow_storage_reactivation=True,
+        )
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(
+            result["batch_reports"][-1]["reason"],
+            "INSUFFICIENT_CONVEYOR_SPACE_FOR_REACTIVATION",
+        )
+        self.assertEqual(result["batch_reports"][-1]["required_slots"], 2)
+        self.assertEqual(result["batch_reports"][-1]["available_slots"], 1)
+        self.assertEqual(result["returned_shooters"], ["A1", "A2"])
+        self.assertEqual(result["storage_occupied"], 2)
+        self.assertEqual(result["conveyor_occupied"], 1)
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["gameplay_actions_performed"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
