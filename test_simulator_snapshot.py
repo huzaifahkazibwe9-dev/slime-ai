@@ -731,7 +731,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
             event for event in snapshot["events"]
             if event["event"] == "SHOT_RECORD_REJECTED"
         )
-        rejected["ammo"] = 2
+        rejected["ammo"] = 1
         # The request still exceeds the forged available amount, so the
         # chronological replay—not the local field check—must reject it.
         with self.assertRaisesRegex(
