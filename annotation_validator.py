@@ -137,6 +137,40 @@ def validate_annotation(data):
                                     f"asymmetric bond: {shooter_id} lists {bond} but {bond} does not list {shooter_id}"
                                 )
 
+        # Reject bonded components larger than 3 (matches confirmed-groups rule of 2 or 3)
+        # Build adjacency and find connected components among reciprocal bonds
+        from collections import defaultdict
+        adj = defaultdict(set)
+        for i, shooter in enumerate(shooters):
+            if not isinstance(shooter, dict):
+                continue
+            sid = shooter.get("id")
+            bonds = shooter.get("bonded_ids")
+            if isinstance(sid, str) and isinstance(bonds, list):
+                for bond in bonds:
+                    if isinstance(bond, str) and bond in all_ids and bond != sid:
+                        adj[sid].add(bond)
+                        adj[bond].add(sid)
+        visited = set()
+        for start in list(adj.keys()):
+            if start in visited:
+                continue
+            component = set()
+            stack = [start]
+            while stack:
+                node = stack.pop()
+                if node in visited:
+                    continue
+                visited.add(node)
+                component.add(node)
+                for neigh in adj[node]:
+                    if neigh not in visited:
+                        stack.append(neigh)
+            if len(component) > 3:
+                errors.append(
+                    f"bonded component {sorted(component)} has size {len(component)} (maximum 3)"
+                )
+
     return len(errors) == 0, errors
 
 

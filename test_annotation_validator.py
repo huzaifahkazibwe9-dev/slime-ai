@@ -197,6 +197,27 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("notes" in e for e in errors))
 
+    def test_bonded_group_of_three_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2", "s3"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1", "s3"]},
+            {"id": "s3", "color": "green", "ammo": 5, "bonded_ids": ["s1", "s2"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_bonded_group_of_four_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1", "s3"]},
+            {"id": "s3", "color": "green", "ammo": 5, "bonded_ids": ["s2", "s4"]},
+            {"id": "s4", "color": "yellow", "ammo": 3, "bonded_ids": ["s3"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("maximum 3" in e for e in errors))
 
 if __name__ == "__main__":
     unittest.main()

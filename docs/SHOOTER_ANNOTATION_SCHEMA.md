@@ -58,7 +58,7 @@ Each shooter object:
 - Snapshot ID must match the expected SHA-256 format.
 - Shooter IDs must be unique.
 - When `slot_index` is present it must be an integer in 0..11 and unique across all shooters in the package.
-- When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, that contain no internal duplicates, and that form reciprocal pairs (if A lists B then B must list A).
+- When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, that contain no internal duplicates, that form reciprocal pairs (if A lists B then B must list A), and that form connected components of size at most 3.
 - When `notes` is present it must be a string (empty allowed).
 - No field may be auto-filled by code; the validator only accepts or rejects.
 
