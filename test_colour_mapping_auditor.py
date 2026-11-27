@@ -109,6 +109,52 @@ class ColourMappingAuditorTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             audit(self.board, self.shooters, {})
 
+
+    def test_malformed_shooter_rgb_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [240, 240]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_non_numeric_shooter_rgb_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [240, 240, "x"]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_boolean_rgb_channel_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [True, 240, 240]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_malformed_board_sample_raises(self):
+        bad_board = {
+            "grid_size": [1, 1],
+            "board": [["white"]],
+            "raw_rgb": [[[255, 255]]]
+        }
+        with self.assertRaises(ValueError):
+            audit(bad_board, self.shooters, self.mappings)
+
+    def test_mismatched_board_dimensions_raise(self):
+        bad_board = {
+            "grid_size": [2, 2],
+            "board": [["white", "cyan"], ["purple", "orange"]],
+            "raw_rgb": [[[255, 255, 255]]]
+        }
+        with self.assertRaises(ValueError):
+            audit(bad_board, self.shooters, self.mappings)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 
