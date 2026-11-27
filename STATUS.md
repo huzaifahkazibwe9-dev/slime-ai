@@ -64,11 +64,12 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added five planning-gate regression tests for malformed structure handling; any malformed structure blocks otherwise-valid sibling scenarios.
 - Annotation validator now enforces the same strict capture_session_id rules used by the rest of the pipeline (alphanumeric start, limited charset, length 1..128).
 - Added regression tests for invalid annotation version, naive/malformed timestamps, empty annotator, invalid session IDs, uppercase snapshot hex, and boolean slot_index.
+- Added regression tests for session-ID length boundary (exactly 128 characters accepted, 129 rejected), empty bonded_ids lists accepted, non-string snapshot IDs rejected, and snapshot digests missing the sha256: prefix rejected.
 - Added focused regression tests for Shooter.valid() (boolean/float/negative ammo, bad direction, rotation_progress range/non-finite/boolean, self-bonds, duplicate bonds, revealed requirements) and GameState.validate() (empty/non-rectangular board, capacity exceeded, ID mismatch, invalid shooter, unknown occupied, duplicate occupation).
 - Fixed unreachable oversized bonded-group validation error: GameState.validate() now uses a size-unrestricted component walk so groups larger than 3 are reported (selection paths continue to use bonded_group() which returns empty for them).
 - Added LifeState regression tests covering available() cap, update() life gain and maximum enforcement, and seconds_until_next() timing.
 - Added GameState.validate() regression tests for inconsistent group_id values within a bonded component and for bonded groups exceeding size 3.
-- Public unit tests now 715 tests ran / 0 failures / 17 skipped (local verification after adding geometry_validation unit tests covering synthetic calibration success, unconfirmed/missing verification, invalid dimensions, duplicate/wrong IDs, out-of-bounds centres, direction mismatch, and unexpected lanes)
+- Public unit tests now 720 tests ran / 0 failures / 17 skipped (local verification after adding annotation session-ID length, empty-bond, and snapshot-format regression tests)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
@@ -98,6 +99,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~83%**
+Approximate offline-completable progress: **~84%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

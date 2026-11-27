@@ -341,5 +341,39 @@ class AnnotationValidatorTests(unittest.TestCase):
         ok, errors = validate_annotation(data)
         self.assertTrue(ok, errors)
 
+    def test_empty_bonded_ids_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "bonded_ids": []}]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_session_id_exactly_128_characters_accepted(self):
+        data = dict(VALID)
+        # 1 alphanumeric + 127 allowed chars = 128
+        data["capture_session_id"] = "A" + "b" * 127
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_session_id_129_characters_rejected(self):
+        data = dict(VALID)
+        data["capture_session_id"] = "A" + "b" * 128
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("capture_session_id" in e for e in errors))
+
+    def test_non_string_snapshot_rejected(self):
+        data = dict(VALID)
+        data["board_snapshot_id"] = 123
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("board_snapshot_id" in e for e in errors))
+
+    def test_snapshot_missing_prefix_rejected(self):
+        data = dict(VALID)
+        data["board_snapshot_id"] = "a" * 64
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("board_snapshot_id" in e for e in errors))
+
 if __name__ == "__main__":
     unittest.main()
