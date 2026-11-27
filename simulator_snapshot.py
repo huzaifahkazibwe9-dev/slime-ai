@@ -328,6 +328,50 @@ def _validate_rotation_and_lap_history(events, config, shooter_by_id):
             )
 
 
+def _validate_group_entry_event_history(events, group_members_by_id):
+    """Require each recorded bonded-group selection to enter atomically."""
+    entry_batches = {}
+    last_entry_index = {}
+    last_reactivation_index = {}
+
+    for event_index, event in enumerate(events):
+        event_type = event["event"]
+
+        if event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+            group_id = event["group_id"]
+            last_reactivation_index[group_id] = event_index
+            continue
+
+        if event_type != "SHOOTER_ENTERED":
+            continue
+
+        shooter_id = event["shooter_id"]
+        group_id = event["group_id"]
+        if group_id not in group_members_by_id:
+            raise ValueError("entry event references an unknown group")
+
+        if last_entry_index.get(group_id, -1) > last_reactivation_index.get(group_id, -1):
+            raise ValueError(
+                "bonded group has a new entry without an intervening storage reactivation"
+            )
+        last_entry_index[group_id] = event_index
+
+        key = (group_id, event["tick"])
+        batch = entry_batches.setdefault(key, set())
+        if shooter_id in batch:
+            raise ValueError(
+                "bonded group entry batch contains a duplicate shooter"
+            )
+        batch.add(shooter_id)
+
+    for (group_id, tick), entered_ids in entry_batches.items():
+        expected_ids = group_members_by_id[group_id]
+        if entered_ids != expected_ids:
+            raise ValueError(
+                "bonded group entry must include every member in the same tick"
+            )
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
@@ -627,6 +671,7 @@ def restore_simulator(snapshot):
     # Run after group-wide return-cycle checks so those established, more
     # specific diagnostics remain stable for bonded groups.
     _validate_return_point_event_history(events)
+    _validate_group_entry_event_history(events, group_members_by_id)
     _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     if failed and events[-1].get("tick") != tick_count:
