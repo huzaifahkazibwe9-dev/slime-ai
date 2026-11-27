@@ -294,14 +294,41 @@ class GameState:
                 if member not in reverse_ids:
                     return False
 
+        # Selection is also a public state transition, so fail closed when
+        # either occupancy collection is malformed, over capacity, dangling,
+        # or contains a repeated shooter reference. The higher-level simulator
+        # validates the whole state first, but callers may use this helper
+        # directly.
+        if not isinstance(self.conveyor, list) or not isinstance(self.storage, list):
+            return False
+        if (len(self.conveyor) > CONVEYOR_LIMIT
+                or len(self.storage) > STORAGE_LIMIT):
+            return False
+        occupied = self.conveyor + self.storage
+        if any(
+            not isinstance(item, str) or not item or item not in self.shooters
+            for item in occupied
+        ):
+            return False
+        if len(occupied) != len(set(occupied)):
+            return False
+
         if self.bonded_group_id(shooter_id) is None:
             return False
 
         if not self.shooters[shooter_id].accessible:
             return False
 
-        if any(member in self.conveyor or member in self.storage
-               for member in group):
+        for member in group:
+            linked_ids = getattr(self.shooters[member], "bonded_ids", ())
+            if (
+                not isinstance(linked_ids, (list, tuple))
+                or member in linked_ids
+                or len(linked_ids) != len(set(linked_ids))
+            ):
+                return False
+
+        if any(member in occupied for member in group):
             return False
 
         return self.can_add_to_conveyor(len(group))
