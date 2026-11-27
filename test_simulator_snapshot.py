@@ -828,6 +828,125 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ):
             restore_simulator(snapshot)
 
+
+    def test_round_trip_reconciles_rotation_positions_and_lap_counters(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(6))
+        continued = [
+            event["laps"] for event in sim.events
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual(continued, [1, 2])
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].position, 0)
+        self.assertEqual(restored.shooters[0].completed_laps, 2)
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_rotation_position_that_does_not_advance(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        rotations = [
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual([event["position"] for event in rotations], [1, 2])
+        rotations[1]["position"] = 0
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation history does not advance exactly one position"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_missing_intermediate_rotation_tick(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(3))
+        snapshot = snapshot_simulator(sim)
+        rotation_indices = [
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual(len(rotation_indices), 3)
+        snapshot["events"].pop(rotation_indices[1])
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation history has a missing or repeated tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_final_position_that_disagrees_with_rotation_history(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["position"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "position disagrees with rotation event history"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_completed_lap_counter_that_jumps(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        continued = [
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual([event["laps"] for event in continued], [1, 2])
+        continued[1]["laps"] = 3
+
+        with self.assertRaisesRegex(
+            ValueError, "completed lap history must increase by exactly one"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_final_completed_lap_count_that_disagrees_with_events(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["completed_laps"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "completed-lap count disagrees with event history"
+        ):
+            restore_simulator(snapshot)
+
+    def test_reactivation_resets_completed_lap_history(self):
+        sim = create_simulator(
+            [{
+                "id": "a", "ammo": 0, "selected": True,
+                "completed_laps": 3,
+            }],
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("a"))
+        self.assertEqual(sim.shooters[0].completed_laps, 0)
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].completed_laps, 0)
+        self.assertEqual(restored.events, sim.events)
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},
