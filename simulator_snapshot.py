@@ -161,6 +161,51 @@ def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
             raise ValueError("rejected shot count must exceed available ammunition")
 
 
+def _validate_ammo_event_history(events, shooter_by_id):
+    """Replay ammunition events and reconcile them with restored shooter state.
+
+    The initial ammunition for each shooter is inferred from its saved remaining
+    ammunition plus all successfully recorded shots. Every intermediate event
+    must then agree with that reconstructed history.
+    """
+    recorded_shots = {shooter_id: 0 for shooter_id in shooter_by_id}
+    for event in events:
+        if event["event"] == "AMMO_UPDATED":
+            recorded_shots[event["shooter_id"]] += event["shots_recorded"]
+
+    ammo_by_id = {
+        shooter_id: shooter.ammo + recorded_shots[shooter_id]
+        for shooter_id, shooter in shooter_by_id.items()
+    }
+
+    for event in events:
+        event_type = event["event"]
+        shooter_id = event.get("shooter_id")
+        if event_type == "AMMO_UPDATED":
+            available = ammo_by_id[shooter_id]
+            shots = event["shots_recorded"]
+            if shots > available:
+                raise ValueError(
+                    "ammunition history records more shots than were available"
+                )
+            expected_remaining = available - shots
+            if event["ammo_remaining"] != expected_remaining:
+                raise ValueError(
+                    "ammunition history does not match recorded remaining ammunition"
+                )
+            ammo_by_id[shooter_id] = expected_remaining
+        elif event_type == "SHOT_RECORD_REJECTED":
+            if event["ammo"] != ammo_by_id[shooter_id]:
+                raise ValueError(
+                    "rejected shot event ammunition disagrees with prior history"
+                )
+        elif event_type == "SHOOTER_COMPLETED":
+            if ammo_by_id[shooter_id] != 0:
+                raise ValueError(
+                    "shooter completion event requires zero remaining ammunition"
+                )
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
@@ -279,6 +324,9 @@ def restore_simulator(snapshot):
             event, config, shooter_by_id, group_members_by_id
         )
         previous_tick = event_tick
+
+    _validate_ammo_event_history(events, shooter_by_id)
+
     failure_event_indices = [
         index for index, event in enumerate(events)
         if event.get("event") == "LEVEL_FAILURE"
