@@ -36,7 +36,7 @@ A single JSON object per capture:
 | Field | Type | Constraints |
 |-------|------|-------------|
 | annotation_version | string | must be `"1.0"` |
-| capture_session_id | string | non-empty, matches existing session rules |
+| capture_session_id | string | non-empty, matches existing session rules: 1..128 chars, starts with alphanumeric, only A-Z a-z 0-9 . _ : - |
 | board_snapshot_id | string | `sha256:` + 64 hex chars |
 | annotated_at | string | aware ISO-8601 timestamp |
 | annotator | string | non-empty |
@@ -54,7 +54,9 @@ Each shooter object:
 ## Validation rules (enforced by `annotation_validator.py`)
 
 - `human_confirmed` must be the boolean `true`. Any other value (including missing, `false`, or a string) causes rejection.
-- All required top-level fields must be present and correctly typed.
+- Capture session ID must match the strict pipeline rules (alphanumeric start, limited character set, max 128 characters).
+- Timestamp must be an aware ISO-8601 value (naive timestamps are rejected).
+- Annotator must be a non-empty string.
 - Snapshot ID must match the expected SHA-256 format.
 - Shooter IDs must be unique.
 - When `slot_index` is present it must be an integer in 0..11 and unique across all shooters in the package.
