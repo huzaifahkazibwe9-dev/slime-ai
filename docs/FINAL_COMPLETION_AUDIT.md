@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-11-27  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `8830bf4b89d70a8acc89c8544588c9e5da4f5a88` (`add-bonded-reactivation-shot-rollback-test`)  
+**Audited code head:** `901a6b68ebc5d83055e6e5d764661b363fdb6241` (`add-bonded-reactivation-shot-rollback-test`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
 **Latest verified automated run in this snapshot:** [CI #1240](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45978358624)
 
