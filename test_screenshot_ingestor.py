@@ -278,10 +278,11 @@ class ScreenshotIngestorTests(unittest.TestCase):
                 hashlib.sha256(original_bytes).hexdigest(),
             )
             self.assertEqual(result["counts"], {"white": 9})
-            self.assertEqual(
-                Image.open(BytesIO(original_bytes)).size,
-                result["image_size"],
-            )
+            with Image.open(BytesIO(original_bytes)) as original_image:
+                self.assertEqual(
+                    list(original_image.size),
+                    result["image_size"],
+                )
             self.assertNotEqual(image_path.read_bytes(), original_bytes)
             self.assertFalse(result["gameplay_verified"])
             self.assertFalse(result["game_taps_enabled"])
