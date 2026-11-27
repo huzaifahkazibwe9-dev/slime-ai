@@ -324,6 +324,9 @@ def restore_simulator(snapshot):
             event, config, shooter_by_id, group_members_by_id
         )
         previous_tick = event_tick
+
+    _validate_ammo_event_history(events, shooter_by_id)
+
     failure_event_indices = [
         index for index, event in enumerate(events)
         if event.get("event") == "LEVEL_FAILURE"
