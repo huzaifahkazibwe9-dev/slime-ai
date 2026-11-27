@@ -117,6 +117,42 @@ def _candidate_capture_provenance(candidate_report, board_provenance):
 
 
 def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
+    input_validation_errors = []
+    if not isinstance(report, dict):
+        input_validation_errors.append("report must be an object")
+        report = {}
+
+    raw_positions = report.get("results", [])
+    if not isinstance(raw_positions, list):
+        input_validation_errors.append("results must be a list")
+        raw_positions = []
+
+    validated_positions = []
+    for position_index, position in enumerate(raw_positions):
+        if not isinstance(position, dict):
+            input_validation_errors.append(
+                f"results[{position_index}] must be an object"
+            )
+            continue
+
+        raw_scenarios = position.get("scenarios", [])
+        if not isinstance(raw_scenarios, list):
+            input_validation_errors.append(
+                f"results[{position_index}].scenarios must be a list"
+            )
+            continue
+
+        valid_scenarios = []
+        for scenario_index, scenario in enumerate(raw_scenarios):
+            if not isinstance(scenario, dict):
+                input_validation_errors.append(
+                    f"results[{position_index}].scenarios[{scenario_index}] must be an object"
+                )
+                continue
+            valid_scenarios.append(scenario)
+
+        validated_positions.append((position, valid_scenarios))
+
     confidence_audit = report.get("confidence_audit", {})
     board_synced = report.get("same_board_state_confirmed") is True
     freshness = report.get("capture_freshness", {})
@@ -153,11 +189,11 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
         "eligible_scenarios": 0,
     }
 
-    for position in report.get("results", []):
+    for position, scenarios in validated_positions:
         ammo = position.get("observed_ammo")
         ammo_available = type(ammo) is int and ammo > 0
 
-        for scenario in position.get("scenarios", []):
+        for scenario in scenarios:
             counts["scenarios_checked"] += 1
 
             exposed = scenario.get("exposed_matching_count", 0)
@@ -173,6 +209,10 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
 
             blockers = []
 
+            # Any malformed structure invalidates the whole planning report.
+            # Valid sibling scenarios remain visible, but cannot become eligible.
+            if input_validation_errors:
+                blockers.append("PLANNING_REPORT_STRUCTURE_INVALID")
             if not geometrically_reachable:
                 blockers.append("NO_EXPOSED_MATCHING_PIXELS")
             if not ammo_available:
@@ -297,6 +337,7 @@ def evaluate_planning(report, candidate_report=None, conveyor_calibration=None):
         "capture_freshness_verified": capture_freshness_verified,
         "confidence_snapshot_verified": confidence_snapshot_verified,
         "conveyor_timing_calibrated": conveyor_timing_calibrated,
+        "input_validation_errors": input_validation_errors,
         "counts": counts,
         "results": results,
         "decision": (
