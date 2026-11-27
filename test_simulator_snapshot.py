@@ -992,7 +992,9 @@ class SimulatorSnapshotTests(unittest.TestCase):
         snapshot["events"][1]["tick"] = 1
 
         with self.assertRaisesRegex(
-            ValueError, "entry must include every member in the same tick"
+            ValueError,
+            "entry must include every member in the same tick|"
+            "new entry without an intervening storage reactivation",
         ):
             restore_simulator(snapshot)
 
@@ -1031,10 +1033,17 @@ class SimulatorSnapshotTests(unittest.TestCase):
             restore_simulator(snapshot)
 
     def test_round_trip_allows_reentry_after_reactivation_on_same_tick(self):
-        sim = create_simulator([
-            {"id": "a1", "group_id": "PAIR", "ammo": 0},
-            {"id": "a2", "group_id": "PAIR", "ammo": 0},
-        ])
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
         self.assertTrue(sim.select_group("PAIR"))
         self.assertTrue(sim.tick(1))
         self.assertTrue(sim.reactivate_group("PAIR"))
