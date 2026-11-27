@@ -59,6 +59,20 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("ammo" in e for e in errors))
 
+    def test_boolean_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": True}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_float_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10.5}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
     def test_load_and_validate_raises_on_invalid(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bad.json"

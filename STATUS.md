@@ -57,9 +57,11 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Annotation validator now requires optional notes field to be a string when present
 - Annotation validator now requires bonded components to be of size at most 3 (matching confirmed-groups rule of 2 or 3)
 - Added regression tests for valid triple and rejected quadruple bonded groups
+- Annotation validator rejects boolean and float ammunition values (matches GameState type(ammo) is not int rule)
+- Added regression tests for boolean and float ammo rejection
 - Planning gate now validates report structure before evaluation: malformed report roots, results collections, positions, scenario collections, and scenarios are reported explicitly and fail closed.
 - Added five planning-gate regression tests for malformed structure handling; any malformed structure blocks otherwise-valid sibling scenarios.
-- Public unit tests now 635 tests ran / 0 failures / 17 skipped
+- Public unit tests now 637 tests ran / 0 failures / 17 skipped (local verification after ammo type regression tests)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up

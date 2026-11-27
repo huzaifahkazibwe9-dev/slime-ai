@@ -47,7 +47,7 @@ Each shooter object:
 
 - `id` (string, non-empty, unique within the package)
 - `color` (string, non-empty)
-- `ammo` (integer ≥ 0)
+- `ammo` (exact integer ≥ 0; boolean and float values are rejected)
 - `slot_index` (integer 0–11, optional; when present must be an exact integer in range and unique across the package)
 - `bonded_ids` (array of non-empty strings, optional; must not contain self-references, unknown IDs, or duplicates within the list; bonds must be reciprocal)
 
