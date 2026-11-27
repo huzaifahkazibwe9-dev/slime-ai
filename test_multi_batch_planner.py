@@ -730,5 +730,95 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         self.assertFalse(result["gameplay_actions_performed"])
 
+
+    def test_bonded_storage_cycle_checkpoint_resume_matches_uninterrupted(self):
+        records = [
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            {"id": "C", "group_id": "SINGLE", "ammo": 3},
+        ]
+        batches = [
+            {"groups": ["PAIR"], "shots": {"A1": 0, "A2": 0}},
+            {"groups": ["SINGLE"], "shots": {"C": 0}},
+            {
+                "groups": ["PAIR"],
+                "reactivate_groups": ["PAIR"],
+                "shots": {"A1": 0, "A2": 0},
+            },
+        ]
+        config = SimulatorConfig(
+            conveyor_capacity=3, storage_capacity=5, ticks_per_lap=1
+        )
+        partial = simulate_batch_schedule(
+            records, batches, config=config, max_batches=2,
+            allow_storage_reactivation=True,
+        )
+        self.assertTrue(partial["schedule_valid"])
+        self.assertFalse(partial["schedule_complete"])
+        self.assertEqual(partial["returned_shooters"], ["A1", "A2"])
+        self.assertEqual(partial["storage_occupied"], 2)
+
+        persisted = json.loads(json.dumps(partial["checkpoint"]))
+        resumed = simulate_batch_schedule(
+            records, batches, config=config, resume_from=persisted,
+            allow_storage_reactivation=True,
+        )
+        uninterrupted = simulate_batch_schedule(
+            records, batches, config=config,
+            allow_storage_reactivation=True,
+        )
+        self.assertTrue(resumed["schedule_valid"])
+        self.assertTrue(uninterrupted["schedule_valid"])
+        for field in (
+            "batch_reports", "events", "returned_shooters",
+            "storage_occupied", "conveyor_occupied", "tick_count",
+            "groups_scheduled",
+        ):
+            self.assertEqual(resumed[field], uninterrupted[field], field)
+        self.assertEqual(
+            resumed["events"][-1]["event"], "SHOOTER_RETURNED_TO_STORAGE"
+        )
+        self.assertEqual(
+            [e["shooter_id"] for e in resumed["events"]
+             if e["event"] == "SHOOTER_RETURNED_TO_STORAGE"],
+            ["A1", "A2", "A1", "A2"],
+        )
+
+    def test_checkpoint_rejects_partially_restored_bonded_return_cycle(self):
+        records = [
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            {"id": "C", "group_id": "SINGLE", "ammo": 3},
+        ]
+        batches = [
+            {"groups": ["PAIR"], "shots": {"A1": 0, "A2": 0}},
+            {"groups": ["SINGLE"], "shots": {"C": 0}},
+            {
+                "groups": ["PAIR"],
+                "reactivate_groups": ["PAIR"],
+                "shots": {"A1": 0, "A2": 0},
+            },
+        ]
+        config = SimulatorConfig(
+            conveyor_capacity=3, storage_capacity=5, ticks_per_lap=1
+        )
+        partial = simulate_batch_schedule(
+            records, batches, config=config, max_batches=2,
+            allow_storage_reactivation=True,
+        )
+        checkpoint = json.loads(json.dumps(partial["checkpoint"]))
+        # Forge a split return: A1 is still marked in storage, but A2 is
+        # marked active even though the recorded pair return has no reactivation.
+        checkpoint["simulator_snapshot"]["shooters"][1]["returned"] = False
+        checkpoint["simulator_snapshot"]["returned_ids"] = ["A1"]
+        resumed = simulate_batch_schedule(
+            records, batches, config=config, resume_from=checkpoint,
+            allow_storage_reactivation=True,
+        )
+        self.assertFalse(resumed["schedule_valid"])
+        self.assertIn("INVALID_CHECKPOINT", resumed["failure_reason"])
+        self.assertFalse(resumed["live_execution_allowed"])
+        self.assertFalse(resumed["gameplay_actions_performed"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
