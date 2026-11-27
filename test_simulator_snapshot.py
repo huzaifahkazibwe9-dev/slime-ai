@@ -593,7 +593,7 @@ class SimulatorSnapshotTests(unittest.TestCase):
         snapshot = snapshot_simulator(sim)
         self.assertTrue(snapshot["failed"])
         self.assertGreater(snapshot["tick_count"], 0)
-        snapshot["events"][-1]["tick"] = snapshot["tick_count"] - 1
+        snapshot["tick_count"] += 1
         with self.assertRaisesRegex(
             ValueError, "failure event tick must match the final simulator tick"
         ):
