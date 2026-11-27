@@ -180,5 +180,52 @@ class SyntheticConveyorOfflineTests(unittest.TestCase):
         ))
 
 
+    def test_auditor_rejects_colour_mismatch_for_position_track(self):
+        visual = _synthetic_visual()
+        visual["observations"][1]["colour"] = "blue"
+        timeline = build_timeline(visual)
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "unexpected colour" in error for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_cached_ammunition_summary_mismatch(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        timeline["candidate_tracks"]["white"]["ammo"] = [9, 7, 4, 3]
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "cached ammunition summary differs" in error
+            for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_non_boolean_sequence_confirmation(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        timeline["sequence_confirmed_by_user"] = "true"
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertFalse(report["sequence_confirmed_by_user"])
+        self.assertTrue(any(
+            "sequence_confirmed_by_user must be a Boolean" in error
+            for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_unexpected_source_positions(self):
+        visual = _synthetic_visual()
+        visual["observations"].append(
+            _observation("extra_position", 2, "white")
+        )
+        timeline = build_timeline(visual)
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "Unexpected source observation positions" in error
+            for error in report["errors"]
+        ))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
