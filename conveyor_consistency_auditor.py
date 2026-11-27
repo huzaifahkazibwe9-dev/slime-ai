@@ -43,20 +43,38 @@ def audit(timeline, original_data):
     if not isinstance(observations, list):
         raise ValueError("Observations are missing an observations list")
 
-    original = {
-        item["position_id"]: item
-        for item in observations
-        if isinstance(item, dict) and item.get("position_id")
-    }
-
     errors = []
     warnings = []
     results = {}
+    original = {}
+
+    for index, item in enumerate(observations):
+        if not isinstance(item, dict):
+            errors.append(f"Original observation {index} must be an object.")
+            continue
+
+        position_id = item.get("position_id")
+        if not isinstance(position_id, str) or not position_id.strip():
+            errors.append(
+                f"Original observation {index} has an invalid position_id."
+            )
+            continue
+
+        if position_id in original:
+            errors.append(
+                f"Duplicate original observation position_id: {position_id}."
+            )
+            continue
+
+        original[position_id] = item
 
     if timeline.get("sequence") != EXPECTED_ORDER:
         errors.append("Timeline stage order does not match expected order.")
 
     snapshots = timeline.get("snapshots", [])
+    if not isinstance(snapshots, list):
+        errors.append("Timeline snapshots must be a list.")
+        snapshots = []
 
     if len(snapshots) != 4:
         errors.append(
@@ -79,6 +97,12 @@ def audit(timeline, original_data):
                 break
 
             expected_side = EXPECTED_ORDER[index]
+
+            if not isinstance(step, dict):
+                errors.append(
+                    f"Timeline snapshot at position {index + 1} must be an object."
+                )
+                continue
 
             if step.get("side") != expected_side:
                 errors.append(

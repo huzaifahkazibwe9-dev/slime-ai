@@ -148,5 +148,37 @@ class SyntheticConveyorOfflineTests(unittest.TestCase):
         self.assertFalse(report["identity_verified"])
 
 
+    def test_duplicate_position_is_rejected(self):
+        visual = _synthetic_visual()
+        duplicate = dict(visual["observations"][0], ammo=3)
+        visual["observations"].append(duplicate)
+        with self.assertRaisesRegex(ValueError, "Duplicate observation"):
+            build_timeline(visual)
+
+    def test_boolean_ammunition_is_rejected(self):
+        visual = _synthetic_visual()
+        visual["observations"][0]["ammo"] = True
+        with self.assertRaisesRegex(ValueError, "non-negative integer ammo"):
+            build_timeline(visual)
+
+    def test_confirmation_requires_a_boolean(self):
+        with self.assertRaisesRegex(ValueError, "must be a Boolean"):
+            build_timeline(
+                _synthetic_visual(),
+                sequence_confirmed_by_user="yes",
+            )
+
+    def test_auditor_reports_duplicate_source_positions(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        visual["observations"].append(dict(visual["observations"][0]))
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "Duplicate original observation position_id" in error
+            for error in report["errors"]
+        ))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

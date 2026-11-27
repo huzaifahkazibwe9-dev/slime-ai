@@ -1,0 +1,30 @@
+{
+  "mapping_version": 1,
+  "verified_by_gameplay": false,
+  "mappings": {
+    "top_1": {
+      "shooter_colour": "white",
+      "board_colour": "white",
+      "rgb_distance": 25.98,
+      "status": "visual_candidate"
+    },
+    "top_2": {
+      "shooter_colour": "cyan",
+      "board_colour": "cyan",
+      "rgb_distance": 28.48,
+      "status": "visual_candidate"
+    },
+    "top_3": {
+      "shooter_colour": "magenta",
+      "board_colour": "purple",
+      "rgb_distance": 22.87,
+      "status": "visual_candidate"
+    },
+    "top_4": {
+      "shooter_colour": "brown",
+      "board_colour": "orange",
+      "rgb_distance": 17.03,
+      "status": "visual_candidate"
+    }
+  }
+}

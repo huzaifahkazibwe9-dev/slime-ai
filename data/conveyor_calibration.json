@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "image_size": [747, 1536],
+  "board_grid": [35, 35],
+  "verified_by_user": true,
+  "directions": {
+    "bottom": "up",
+    "right": "left",
+    "top": "down",
+    "left": "right"
+  },
+  "shooters": [
+    {"id": "bottom_1", "segment": "bottom", "center": [274, 866]},
+    {"id": "bottom_2", "segment": "bottom", "center": [369, 863]},
+    {"id": "right_1", "segment": "right", "center": [674, 467]},
+    {"id": "right_2", "segment": "right", "center": [674, 559]},
+    {"id": "top_1", "segment": "top", "center": [505, 179]},
+    {"id": "top_2", "segment": "top", "center": [595, 183]},
+    {"id": "left_1", "segment": "left", "center": [75, 329]},
+    {"id": "left_2", "segment": "left", "center": [75, 425]}
+  ]
+}
