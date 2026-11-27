@@ -148,5 +148,84 @@ class SyntheticConveyorOfflineTests(unittest.TestCase):
         self.assertFalse(report["identity_verified"])
 
 
+    def test_duplicate_position_is_rejected(self):
+        visual = _synthetic_visual()
+        duplicate = dict(visual["observations"][0], ammo=3)
+        visual["observations"].append(duplicate)
+        with self.assertRaisesRegex(ValueError, "Duplicate observation"):
+            build_timeline(visual)
+
+    def test_boolean_ammunition_is_rejected(self):
+        visual = _synthetic_visual()
+        visual["observations"][0]["ammo"] = True
+        with self.assertRaisesRegex(ValueError, "non-negative integer ammo"):
+            build_timeline(visual)
+
+    def test_confirmation_requires_a_boolean(self):
+        with self.assertRaisesRegex(ValueError, "must be a Boolean"):
+            build_timeline(
+                _synthetic_visual(),
+                sequence_confirmed_by_user="yes",
+            )
+
+    def test_auditor_reports_duplicate_source_positions(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        visual["observations"].append(dict(visual["observations"][0]))
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "Duplicate original observation position_id" in error
+            for error in report["errors"]
+        ))
+
+
+    def test_auditor_rejects_colour_mismatch_for_position_track(self):
+        visual = _synthetic_visual()
+        visual["observations"][1]["colour"] = "blue"
+        timeline = build_timeline(visual)
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "unexpected colour" in error for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_cached_ammunition_summary_mismatch(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        timeline["candidate_tracks"]["white"]["ammo"] = [9, 7, 4, 3]
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "cached ammunition summary differs" in error
+            for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_non_boolean_sequence_confirmation(self):
+        visual = _synthetic_visual()
+        timeline = build_timeline(visual)
+        timeline["sequence_confirmed_by_user"] = "true"
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertFalse(report["sequence_confirmed_by_user"])
+        self.assertTrue(any(
+            "sequence_confirmed_by_user must be a Boolean" in error
+            for error in report["errors"]
+        ))
+
+    def test_auditor_rejects_unexpected_source_positions(self):
+        visual = _synthetic_visual()
+        visual["observations"].append(
+            _observation("extra_position", 2, "white")
+        )
+        timeline = build_timeline(visual)
+        report = audit(timeline, visual)
+        self.assertEqual(report["overall_status"], "INCONSISTENCIES_FOUND")
+        self.assertTrue(any(
+            "Unexpected source observation positions" in error
+            for error in report["errors"]
+        ))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

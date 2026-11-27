@@ -237,6 +237,56 @@ class ScreenshotIngestorTests(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_ingest_binds_hash_and_pixels_to_one_immutable_byte_snapshot(self):
+        import hashlib
+        from io import BytesIO
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            alternate_path = root / "alternate.png"
+            baseline_path = root / "baseline.json"
+            output_path = root / "observation.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            Image.new("RGB", (30, 30), (230, 30, 30)).save(alternate_path)
+            original_bytes = image_path.read_bytes()
+            alternate_bytes = alternate_path.read_bytes()
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+            }))
+
+            from screenshot_ingestor import extract_board as real_extract_board
+
+            def replace_source_then_extract(image_source, calibration):
+                self.assertIsInstance(image_source, bytes)
+                self.assertEqual(image_source, original_bytes)
+                image_path.write_bytes(alternate_bytes)
+                return real_extract_board(image_source, calibration)
+
+            with patch(
+                "screenshot_ingestor.extract_board",
+                side_effect=replace_source_then_extract,
+            ):
+                ingest(image_path, baseline_path, output_path)
+
+            result = json.loads(output_path.read_text())
+            self.assertEqual(
+                result["source_sha256"],
+                hashlib.sha256(original_bytes).hexdigest(),
+            )
+            self.assertEqual(result["counts"], {"white": 9})
+            with Image.open(BytesIO(original_bytes)) as original_image:
+                self.assertEqual(
+                    list(original_image.size),
+                    result["image_size"],
+                )
+            self.assertNotEqual(image_path.read_bytes(), original_bytes)
+            self.assertFalse(result["gameplay_verified"])
+            self.assertFalse(result["game_taps_enabled"])
+
     def test_rejects_malformed_calibration_shapes(self):
         path = Path("data/test_ingestor_bad_calibration.png")
         path.parent.mkdir(exist_ok=True)

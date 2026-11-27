@@ -1,0 +1,92 @@
+{
+  "sequence": [
+    "bottom",
+    "right",
+    "top",
+    "left"
+  ],
+  "sequence_confirmed_by_user": false,
+  "timestamps_known": false,
+  "identity_verified": false,
+  "gameplay_taps_enabled": false,
+  "candidate_tracks": {
+    "white": {
+      "candidate_shooter": "top_1",
+      "ammo": [
+        38,
+        33,
+        26,
+        26
+      ],
+      "non_increasing": true
+    },
+    "blue_cyan": {
+      "candidate_shooter": "top_2",
+      "ammo": [
+        40,
+        27,
+        18,
+        0
+      ],
+      "non_increasing": true
+    }
+  },
+  "snapshots": [
+    {
+      "sequence": 1,
+      "side": "bottom",
+      "white_candidate": {
+        "position_id": "bottom_1",
+        "colour": "white",
+        "ammo": 38
+      },
+      "blue_cyan_candidate": {
+        "position_id": "bottom_2",
+        "colour": "blue",
+        "ammo": 40
+      }
+    },
+    {
+      "sequence": 2,
+      "side": "right",
+      "white_candidate": {
+        "position_id": "right_2",
+        "colour": "white",
+        "ammo": 33
+      },
+      "blue_cyan_candidate": {
+        "position_id": "right_1",
+        "colour": "blue",
+        "ammo": 27
+      }
+    },
+    {
+      "sequence": 3,
+      "side": "top",
+      "white_candidate": {
+        "position_id": "top_2",
+        "colour": "white",
+        "ammo": 26
+      },
+      "blue_cyan_candidate": {
+        "position_id": "top_1",
+        "colour": "blue",
+        "ammo": 18
+      }
+    },
+    {
+      "sequence": 4,
+      "side": "left",
+      "white_candidate": {
+        "position_id": "left_1",
+        "colour": "white",
+        "ammo": 26
+      },
+      "blue_cyan_candidate": {
+        "position_id": "left_2",
+        "colour": "blue",
+        "ammo": 0
+      }
+    }
+  ]
+}

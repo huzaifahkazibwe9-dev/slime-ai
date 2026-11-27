@@ -30,11 +30,29 @@ def build_timeline(visual, *, sequence_confirmed_by_user=False):
     if not isinstance(observations_list, list):
         raise ValueError("Visual observations are missing an observations list")
 
+    if type(sequence_confirmed_by_user) is not bool:
+        raise ValueError("sequence_confirmed_by_user must be a Boolean")
+
     observations = {}
-    for item in observations_list:
-        if not isinstance(item, dict) or not item.get("position_id"):
-            raise ValueError("Each observation needs a position_id")
-        observations[item["position_id"]] = item
+    for index, item in enumerate(observations_list):
+        if not isinstance(item, dict):
+            raise ValueError(f"Observation {index} must be an object")
+
+        position_id = item.get("position_id")
+        if not isinstance(position_id, str) or not position_id.strip():
+            raise ValueError(
+                f"Observation {index} needs a non-empty string position_id"
+            )
+        if position_id in observations:
+            raise ValueError(f"Duplicate observation position_id: {position_id}")
+
+        ammo = item.get("ammo")
+        if type(ammo) is not int or ammo < 0:
+            raise ValueError(
+                f"Observation {position_id} needs a non-negative integer ammo"
+            )
+
+        observations[position_id] = item
 
     timeline = []
 
@@ -64,7 +82,7 @@ def build_timeline(visual, *, sequence_confirmed_by_user=False):
 
     return {
         "sequence": list(ORDER),
-        "sequence_confirmed_by_user": bool(sequence_confirmed_by_user),
+        "sequence_confirmed_by_user": sequence_confirmed_by_user,
         "timestamps_known": False,
         "identity_verified": False,
         "gameplay_taps_enabled": False,

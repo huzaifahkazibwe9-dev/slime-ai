@@ -1,0 +1,202 @@
+{
+  "image_dimensions": [
+    830,
+    540
+  ],
+  "visible_shooters": [
+    {
+      "id": "top_1",
+      "color": {
+        "name": "white",
+        "rgb": [
+          240,
+          240,
+          240
+        ],
+        "hex": "#F0F0F0",
+        "hsv": [
+          0.0,
+          0.0,
+          94.1
+        ],
+        "hue_group": null
+      },
+      "ammo": 40,
+      "screen_center": [
+        181,
+        118
+      ],
+      "screen_box": [
+        127,
+        81,
+        235,
+        154
+      ],
+      "screen_sample": [
+        178,
+        149
+      ],
+      "status": "visible",
+      "verified": false,
+      "bonded_ids": [
+        "top_2"
+      ]
+    },
+    {
+      "id": "top_2",
+      "color": {
+        "name": "cyan",
+        "rgb": [
+          104,
+          195,
+          233
+        ],
+        "hex": "#68C3E9",
+        "hsv": [
+          197.7,
+          55.4,
+          91.4
+        ],
+        "hue_group": 195
+      },
+      "ammo": 40,
+      "screen_center": [
+        340,
+        118
+      ],
+      "screen_box": [
+        286,
+        81,
+        394,
+        154
+      ],
+      "screen_sample": [
+        338,
+        149
+      ],
+      "status": "visible",
+      "verified": false,
+      "bonded_ids": [
+        "top_1"
+      ]
+    },
+    {
+      "id": "top_3",
+      "color": {
+        "name": "magenta",
+        "rgb": [
+          225,
+          43,
+          237
+        ],
+        "hex": "#E12BED",
+        "hsv": [
+          296.3,
+          81.9,
+          92.9
+        ],
+        "hue_group": 300
+      },
+      "ammo": 20,
+      "screen_center": [
+        505,
+        118
+      ],
+      "screen_box": [
+        451,
+        81,
+        559,
+        154
+      ],
+      "screen_sample": [
+        503,
+        149
+      ],
+      "status": "visible",
+      "verified": false,
+      "bonded_ids": [
+        "top_4"
+      ]
+    },
+    {
+      "id": "top_4",
+      "color": {
+        "name": "brown",
+        "rgb": [
+          193,
+          121,
+          63
+        ],
+        "hex": "#C1793F",
+        "hsv": [
+          26.8,
+          67.4,
+          75.7
+        ],
+        "hue_group": 30
+      },
+      "ammo": 20,
+      "screen_center": [
+        667,
+        118
+      ],
+      "screen_box": [
+        613,
+        81,
+        721,
+        154
+      ],
+      "screen_sample": [
+        665,
+        149
+      ],
+      "status": "visible",
+      "verified": false,
+      "bonded_ids": [
+        "top_3"
+      ]
+    }
+  ],
+  "bonded_groups": [
+    [
+      "top_1",
+      "top_2"
+    ],
+    [
+      "top_3",
+      "top_4"
+    ]
+  ],
+  "bonding_source": "user_confirmed",
+  "unrevealed_shooters": [
+    {
+      "id": "question_1",
+      "color": null,
+      "ammo": null,
+      "status": "unrevealed"
+    },
+    {
+      "id": "question_2",
+      "color": null,
+      "ammo": null,
+      "status": "unrevealed"
+    },
+    {
+      "id": "question_3",
+      "color": null,
+      "ammo": null,
+      "status": "unrevealed"
+    },
+    {
+      "id": "question_4",
+      "color": null,
+      "ammo": null,
+      "status": "unrevealed"
+    }
+  ],
+  "lower_shooters": {
+    "status": "partially_occluded",
+    "color": null,
+    "ammo": null
+  }
+}

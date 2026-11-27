@@ -14,12 +14,14 @@ TRACKS = {
         "keys": [
             "bottom_1", "right_2", "top_2", "left_1"
         ],
+        "colours": {"white"},
     },
     "blue_cyan": {
         "shooter": "top_2",
         "keys": [
             "bottom_2", "right_1", "top_1", "left_2"
         ],
+        "colours": {"blue", "cyan"},
     },
 }
 
@@ -43,20 +45,60 @@ def audit(timeline, original_data):
     if not isinstance(observations, list):
         raise ValueError("Observations are missing an observations list")
 
-    original = {
-        item["position_id"]: item
-        for item in observations
-        if isinstance(item, dict) and item.get("position_id")
-    }
-
     errors = []
     warnings = []
     results = {}
+    original = {}
+
+    for index, item in enumerate(observations):
+        if not isinstance(item, dict):
+            errors.append(f"Original observation {index} must be an object.")
+            continue
+
+        position_id = item.get("position_id")
+        if not isinstance(position_id, str) or not position_id.strip():
+            errors.append(
+                f"Original observation {index} has an invalid position_id."
+            )
+            continue
+
+        if position_id in original:
+            errors.append(
+                f"Duplicate original observation position_id: {position_id}."
+            )
+            continue
+
+        original[position_id] = item
+
+    expected_ids = {
+        position_id
+        for config in TRACKS.values()
+        for position_id in config["keys"]
+    }
+    missing_ids = sorted(expected_ids - set(original))
+    unexpected_ids = sorted(set(original) - expected_ids)
+    if missing_ids:
+        errors.append(
+            "Missing expected source observations: " + ", ".join(missing_ids) + "."
+        )
+    if unexpected_ids:
+        errors.append(
+            "Unexpected source observation positions: "
+            + ", ".join(unexpected_ids) + "."
+        )
 
     if timeline.get("sequence") != EXPECTED_ORDER:
         errors.append("Timeline stage order does not match expected order.")
 
+    sequence_confirmed = timeline.get("sequence_confirmed_by_user", False)
+    if type(sequence_confirmed) is not bool:
+        errors.append("sequence_confirmed_by_user must be a Boolean.")
+        sequence_confirmed = False
+
     snapshots = timeline.get("snapshots", [])
+    if not isinstance(snapshots, list):
+        errors.append("Timeline snapshots must be a list.")
+        snapshots = []
 
     if len(snapshots) != 4:
         errors.append(
@@ -79,6 +121,12 @@ def audit(timeline, original_data):
                 break
 
             expected_side = EXPECTED_ORDER[index]
+
+            if not isinstance(step, dict):
+                errors.append(
+                    f"Timeline snapshot at position {index + 1} must be an object."
+                )
+                continue
 
             if step.get("side") != expected_side:
                 errors.append(
@@ -116,6 +164,13 @@ def audit(timeline, original_data):
             if not preserved:
                 errors.append(
                     f"{track_name}: {position_id} differs from original data."
+                )
+
+            observed_colour = item.get("colour")
+            if observed_colour not in config["colours"]:
+                errors.append(
+                    f"{track_name}: unexpected colour {observed_colour!r} "
+                    f"at {position_id}."
                 )
 
             ammo = item.get("ammo")
@@ -172,18 +227,43 @@ def audit(timeline, original_data):
         else:
             depletion = "zero_ammunition_not_observed"
 
+        expected_non_increasing = (
+            len(ammo_values) > 0
+            and all(
+                b <= a for a, b in zip(ammo_values, ammo_values[1:])
+            )
+        )
+        candidate_tracks = timeline.get("candidate_tracks")
+        if not isinstance(candidate_tracks, dict):
+            errors.append("Timeline candidate_tracks must be an object.")
+            candidate_summary = None
+        else:
+            candidate_summary = candidate_tracks.get(track_name)
+
+        if not isinstance(candidate_summary, dict):
+            errors.append(
+                f"Timeline candidate_tracks.{track_name} must be an object."
+            )
+        else:
+            if candidate_summary.get("candidate_shooter") != config["shooter"]:
+                errors.append(
+                    f"{track_name}: cached candidate shooter does not match audit configuration."
+                )
+            if candidate_summary.get("ammo") != ammo_values:
+                errors.append(
+                    f"{track_name}: cached ammunition summary differs from snapshot observations."
+                )
+            if candidate_summary.get("non_increasing") is not expected_non_increasing:
+                errors.append(
+                    f"{track_name}: cached non-increasing flag differs from snapshot observations."
+                )
+
         results[track_name] = {
             "candidate_shooter": config["shooter"],
             "positions": positions,
             "ammunition": ammo_values,
             "ammunition_changes": deltas,
-            "non_increasing": (
-                len(ammo_values) > 0
-                and all(
-                    b <= a
-                    for a, b in zip(ammo_values, ammo_values[1:])
-                )
-            ),
+            "non_increasing": expected_non_increasing,
             "unchanged_stages": unchanged,
             "increases": increases,
             "depletion_status": depletion,
@@ -197,10 +277,9 @@ def audit(timeline, original_data):
     return {
         "report_type": "conveyor_consistency_audit",
         "sequence": EXPECTED_ORDER,
-        "sequence_confirmed_by_user": timeline.get(
-            "sequence_confirmed_by_user", False
-        ),
-        "timestamps_known": timeline.get("timestamps_known", False),
+        "sequence_confirmed_by_user": sequence_confirmed,
+        # No source timestamp evidence is validated by this position-series audit.
+        "timestamps_known": False,
         "identity_verified": False,
         "gameplay_taps_enabled": False,
         "candidate_tracks": results,

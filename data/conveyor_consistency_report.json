@@ -1,0 +1,122 @@
+{
+  "report_type": "conveyor_consistency_audit",
+  "sequence": [
+    "bottom",
+    "right",
+    "top",
+    "left"
+  ],
+  "sequence_confirmed_by_user": false,
+  "timestamps_known": false,
+  "identity_verified": false,
+  "gameplay_taps_enabled": false,
+  "candidate_tracks": {
+    "white": {
+      "candidate_shooter": "top_1",
+      "positions": [
+        "bottom_1",
+        "right_2",
+        "top_2",
+        "left_1"
+      ],
+      "ammunition": [
+        38,
+        33,
+        26,
+        26
+      ],
+      "ammunition_changes": [
+        {
+          "from_stage": "bottom",
+          "to_stage": "right",
+          "ammo_before": 38,
+          "ammo_after": 33,
+          "ammo_spent": 5
+        },
+        {
+          "from_stage": "right",
+          "to_stage": "top",
+          "ammo_before": 33,
+          "ammo_after": 26,
+          "ammo_spent": 7
+        },
+        {
+          "from_stage": "top",
+          "to_stage": "left",
+          "ammo_before": 26,
+          "ammo_after": 26,
+          "ammo_spent": 0
+        }
+      ],
+      "non_increasing": true,
+      "unchanged_stages": [
+        "left"
+      ],
+      "increases": [],
+      "depletion_status": "zero_ammunition_not_observed",
+      "original_observations_preserved": true,
+      "identity_status": "candidate_only_unverified"
+    },
+    "blue_cyan": {
+      "candidate_shooter": "top_2",
+      "positions": [
+        "bottom_2",
+        "right_1",
+        "top_1",
+        "left_2"
+      ],
+      "ammunition": [
+        40,
+        27,
+        18,
+        0
+      ],
+      "ammunition_changes": [
+        {
+          "from_stage": "bottom",
+          "to_stage": "right",
+          "ammo_before": 40,
+          "ammo_after": 27,
+          "ammo_spent": 13
+        },
+        {
+          "from_stage": "right",
+          "to_stage": "top",
+          "ammo_before": 27,
+          "ammo_after": 18,
+          "ammo_spent": 9
+        },
+        {
+          "from_stage": "top",
+          "to_stage": "left",
+          "ammo_before": 18,
+          "ammo_after": 0,
+          "ammo_spent": 18
+        }
+      ],
+      "non_increasing": true,
+      "unchanged_stages": [],
+      "increases": [],
+      "depletion_status": "zero_ammunition_observed",
+      "original_observations_preserved": true,
+      "identity_status": "candidate_only_unverified"
+    }
+  },
+  "checks": {
+    "timeline_has_four_stages": true,
+    "stage_order_valid": true,
+    "original_observations_preserved": true,
+    "no_ammunition_increases": true
+  },
+  "errors": [],
+  "warnings": [
+    "white: unchanged ammunition at left. This is not automatically an error."
+  ],
+  "overall_status": "CONSISTENT_CANDIDATE_DATA",
+  "limitations": [
+    "Screenshot timestamps are unknown.",
+    "Shooter identity has not been independently verified.",
+    "Ammunition consistency alone cannot prove physical identity.",
+    "No live gameplay or firing behaviour was tested."
+  ]
+}
