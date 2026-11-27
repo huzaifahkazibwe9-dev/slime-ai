@@ -375,5 +375,31 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("board_snapshot_id" in e for e in errors))
 
+    def test_two_separate_bonded_pairs_accepted(self):
+        """Two independent size-2 bonded components must be accepted."""
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1"]},
+            {"id": "s3", "color": "green", "ammo": 5, "bonded_ids": ["s4"]},
+            {"id": "s4", "color": "yellow", "ammo": 3, "bonded_ids": ["s3"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+        self.assertEqual(errors, [])
+
+    def test_size_three_component_plus_isolated_shooter_accepted(self):
+        """A valid size-3 bonded component plus an unbonded shooter must be accepted."""
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2", "s3"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1", "s3"]},
+            {"id": "s3", "color": "green", "ammo": 5, "bonded_ids": ["s1", "s2"]},
+            {"id": "s4", "color": "yellow", "ammo": 3},  # isolated, no bonds
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+        self.assertEqual(errors, [])
+
 if __name__ == "__main__":
     unittest.main()

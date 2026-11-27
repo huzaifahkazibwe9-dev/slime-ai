@@ -40,7 +40,7 @@ Local verification after adding colour-mapping auditor non-finite RGB (inf/nan) 
 
 Local verification after adding conveyor geometry unit tests for calculate_firing_geometry (known segments, position flag, invalid segment/coordinates/dimensions/grid, clamping, and safety flags): **705 tests ran, 0 failures, 17 skipped**.
 
-Local verification after adding annotation session-ID length boundary, empty bonded_ids, and snapshot-format regression tests: **720 tests ran, 0 failures, 17 skipped**.
+Local verification after adding multi-component bonded-group regression tests (two independent pairs; size-3 plus isolated shooter): **722 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
