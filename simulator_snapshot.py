@@ -350,21 +350,25 @@ def _validate_group_entry_event_history(events, group_members_by_id):
         if group_id not in group_members_by_id:
             raise ValueError("entry event references an unknown group")
 
-        if last_entry_index.get(group_id, -1) > last_reactivation_index.get(group_id, -1):
-            raise ValueError(
-                "bonded group has a new entry without an intervening storage reactivation"
-            )
-        last_entry_index[group_id] = event_index
+        reactivation_index = last_reactivation_index.get(group_id, -1)
+        batch_key = (group_id, event["tick"], reactivation_index)
 
-        key = (group_id, event["tick"])
-        batch = entry_batches.setdefault(key, set())
+        if batch_key not in entry_batches:
+            if last_entry_index.get(group_id, -1) > reactivation_index:
+                raise ValueError(
+                    "bonded group has a new entry without an intervening storage reactivation"
+                )
+            entry_batches[batch_key] = set()
+            last_entry_index[group_id] = event_index
+
+        batch = entry_batches[batch_key]
         if shooter_id in batch:
             raise ValueError(
                 "bonded group entry batch contains a duplicate shooter"
             )
         batch.add(shooter_id)
 
-    for (group_id, tick), entered_ids in entry_batches.items():
+    for (group_id, tick, reactivation_index), entered_ids in entry_batches.items():
         expected_ids = group_members_by_id[group_id]
         if entered_ids != expected_ids:
             raise ValueError(
