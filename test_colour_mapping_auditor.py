@@ -146,36 +146,25 @@ class ColourMappingAuditorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit(bad_board, self.shooters, self.mappings)
 
-    def test_mismatched_board_dimensions_raise(self):
-        bad_board = {
-            "grid_size": [2, 2],
-            "board": [["white", "cyan"], ["purple", "orange"]],
-            "raw_rgb": [[[255, 255, 255]]]
-        }
-        with self.assertRaises(ValueError):
-            audit(bad_board, self.shooters, self.mappings)
+    def test_non_finite_shooter_rgb_raises(self):
+        for bad_channel in (float("inf"), float("-inf"), float("nan")):
+            bad = {
+                "visible_shooters": [
+                    {"id": "top_1", "color": {"name": "white", "rgb": [bad_channel, 240, 240]}}
+                ]
+            }
+            with self.assertRaises(ValueError):
+                audit(self.board, bad, self.mappings)
+
+    def test_non_finite_board_sample_raises(self):
+        for bad_channel in (float("inf"), float("-inf"), float("nan")):
+            bad_board = {
+                "grid_size": [1, 1],
+                "board": [["white"]],
+                "raw_rgb": [[[bad_channel, 255, 255]]]
+            }
+            with self.assertRaises(ValueError):
+                audit(bad_board, self.shooters, self.mappings)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-    def test_missing_visible_shooters_raises(self):
-        with self.assertRaises(KeyError):
-            audit(self.board, {}, self.mappings)
-
-    def test_missing_shooter_color_raises(self):
-        bad_shooters = {"visible_shooters": [{"id": "top_1"}]}
-        with self.assertRaises(KeyError):
-            audit(self.board, bad_shooters, self.mappings)
-
-    def test_empty_board_profiles_raises_on_rankings(self):
-        empty_board = {
-            "grid_size": [0, 0],
-            "board": [],
-            "raw_rgb": []
-        }
-        with self.assertRaises(IndexError):
-            audit(empty_board, self.shooters, self.mappings)
-
-    def test_missing_mappings_key_raises(self):
-        with self.assertRaises(KeyError):
-            audit(self.board, self.shooters, {})

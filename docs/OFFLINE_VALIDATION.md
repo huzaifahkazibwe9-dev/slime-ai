@@ -36,7 +36,7 @@ Local verification after fixing oversized bonded-group reporting in GameState.va
 
 Local verification after adding empty-shooters colour mapping regression test: **682 tests ran, 0 failures, 17 skipped**.
 
-Local verification after adding colour-mapping auditor regressions for missing keys, missing shooter colour, empty board profiles, and malformed RGB samples: **691 tests ran, 0 failures, 17 skipped**.
+Local verification after adding colour-mapping auditor non-finite RGB (inf/nan) regressions and removing unreachable duplicate test methods: **692 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 

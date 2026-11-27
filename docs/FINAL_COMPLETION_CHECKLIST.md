@@ -41,7 +41,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 - Subsystem: Screenshot capture
 - Files: `screenshot_ingestor.py`, `capture_provenance.py`, `capture_pipeline.py`
 - Status: **IN_PROGRESS**
-- Remaining: additional negative / malformed-input tests
+- Remaining: additional negative / malformed-input tests (colour-mapping auditor now covers non-finite RGB)
 - Blocker: none for offline structural work
 
 ### VISION-002 — Board colour classification accuracy
