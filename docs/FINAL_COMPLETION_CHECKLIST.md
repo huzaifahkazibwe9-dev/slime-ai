@@ -58,7 +58,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 - Subsystem: Shooter validation
 - Status: **IN_PROGRESS**
 - Acceptance: Schema + instructions that do not invent labels; unique IDs; unique optional slot_index; bonded_ids constraints (no self, unknown, or duplicate references)
-- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests (unique IDs, unique slots, bond uniqueness/references)
+- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests (unique IDs, unique slots, bond uniqueness/references, ammo type, slot range, timezone, version, one-way bonds accepted)
 
 ### CONVEYOR-001 — Conveyor identity and snapshot synchronization
 - Subsystem: Conveyor

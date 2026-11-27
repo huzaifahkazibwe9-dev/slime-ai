@@ -162,5 +162,51 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertTrue(ok, errors)
 
 
+
+    def test_ammo_boolean_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": True}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_slot_index_out_of_range_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": 12}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("slot_index" in e for e in errors))
+
+    def test_slot_index_negative_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": -1}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+
+    def test_timestamp_without_timezone_rejected(self):
+        data = dict(VALID)
+        data["annotated_at"] = "2026-11-26T12:00:00"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotated_at" in e for e in errors))
+
+    def test_wrong_annotation_version_rejected(self):
+        data = dict(VALID)
+        data["annotation_version"] = "2.0"
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotation_version" in e for e in errors))
+
+    def test_one_way_bond_accepted(self):
+        """Schema does not require mutual bonds; one-way is valid if other constraints hold."""
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+
 if __name__ == "__main__":
     unittest.main()

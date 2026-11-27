@@ -26,7 +26,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 
 - Detection pipeline, sample-quality checks, and low-confidence filtering exist
 - Measurement reporting is present
-- Human-review annotation package is not yet complete
+- Human-review annotation package schema + fail-closed validator is present; additional edge-case tests added (ammo type, slot range, timezone, version, one-way bonds)
 - **Blocked on**: Human-reviewed ground-truth labels for shooter identities, colours, and ammunition values
 - Never invent ground-truth labels
 
@@ -46,7 +46,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
-- Latest public unit-test run (this environment, 2026-11-27): **621 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Latest public unit-test run (this environment, 2026-11-27): **627 tests ran, 0 failures, 17 skipped** (added 6 edge-case tests for annotation validator) (skips are for private evidence not shipped in the public repo)
 - Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
 - Added fail-closed regression tests: coordinate() leaves no observation/report artefacts when extraction fails or grid size mismatches baseline
 - Added fail-closed regression tests for screenshot ingestor: zero-byte, garbage-byte, and truncated-PNG inputs raise UnidentifiedImageError and leave no observation artefacts
