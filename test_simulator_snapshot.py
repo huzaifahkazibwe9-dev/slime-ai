@@ -623,5 +623,82 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 restore_simulator(snapshot)
 
 
+
+    def test_rejects_event_missing_required_payload_field(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "SHOOTER_ROTATED", "shooter_id": "a"}
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "SHOOTER_ROTATED event is missing required fields: position"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_boolean_event_position(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": True,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "invalid position"):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_position_outside_configured_lap(self):
+        snapshot = snapshot_simulator(create_simulator(
+            [{"id": "a", "ammo": 3}],
+            config=SimulatorConfig(ticks_per_lap=2),
+        ))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": 2,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "position is outside the lap"):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_group_that_conflicts_with_shooter(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "group_id": "PAIR", "ammo": 3}
+        ]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ENTERED",
+                "shooter_id": "a",
+                "group_id": "OTHER",
+                "position": 0,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "group does not match shooter"):
+            restore_simulator(snapshot)
+
+    def test_rejects_unexpected_event_payload_fields(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": 0,
+                "unreviewed_metadata": "not part of schema",
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "unsupported fields"):
+            restore_simulator(snapshot)
+
+    def test_round_trip_preserves_selection_rejection_for_unknown_group(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        self.assertFalse(sim.select_group("missing"))
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
