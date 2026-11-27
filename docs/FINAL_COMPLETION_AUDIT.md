@@ -2,9 +2,9 @@
 
 **Audit date:** 2026-11-27  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `e43dd44b933eb1e9f725bcc662b003c8925de919` (`add-bonded-reactivation-shot-rollback-test`)  
+**Audited code head:** `8830bf4b89d70a8acc89c8544588c9e5da4f5a88` (`add-bonded-reactivation-shot-rollback-test`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1218](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45968939375)
+**Latest verified automated run in this snapshot:** [CI #1221](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45969946511)
 
 ## Executive finding
 
@@ -45,7 +45,7 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#162](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/162) | Refresh completion evidence through bonded storage transitions | [#1204](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45965360231), 1,249 tests/version | Open draft, unmerged |
 | [#163](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/163) | Test bonded-group checkpoint resume and partial-cycle rejection | [#1206](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45966255732), 1,251 tests/version | Open draft, unmerged |
 | [#164](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/164) | Refresh completion evidence through bonded checkpoint tests | [#1207](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45966544408), 1,251 tests/version | Open draft, unmerged |
-| [#165](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/165) | Test rollback after bonded storage reactivation and partial tick failure semantics | [#1218](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45968939375), 1,254 tests/version | Open draft, unmerged |
+| [#165](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/165) | Test rollback after bonded storage reactivation and partial tick failure semantics | [#1221](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45969946511), 1,255 tests/version | Open draft, unmerged |
 | [#166](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/166) | Refresh completion evidence through bonded rollback tests | [#1209](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45967272932), 1,252 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
