@@ -2,13 +2,13 @@
 
 **Audit date:** 2026-11-27  
 **Repository:** [`huzaifahkazibwe9-dev/slime-ai`](https://github.com/huzaifahkazibwe9-dev/slime-ai)  
-**Audited code head:** `9d853c1e16d28517a84d743cb28a24d09b874f6b` (`add-bonded-group-reference-corpus`)  
+**Audited code head:** `14918a5023ba01d1850a050e1765be6867cf12a4` (`add-invalid-bonded-group-reference-cases`)  
 **Main at audit time:** `d0247a2b94ab1cd269c9485bca93b55439cab50f`  
-**Latest verified automated run in this snapshot:** [CI #1195](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45961071353)
+**Latest verified automated run in this snapshot:** [CI #1197](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962009864)
 
 ## Executive finding
 
-Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,233 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A five-case dry-run outcome corpus covers board-clearing, no-selectable-group, unsolved/blocked, unverified-provenance and malformed-state outcomes. A separate three-case bonded-group corpus covers two-member sequential interactions, shared-target depletion and atomic selection of a three-member group.
+Slime AI has a substantial offline screenshot-ingestion, observation-validation, evidence-preflight and solver-diagnostic codebase. The recent PR stack has strengthened screenshot provenance, schema validation, sample geometry, pixel-audit binding, capture serialization and the standalone board loader. The current CI evidence registry records a green four-version matrix with 1,235 tests per Python version. The direct shot simulator has eleven table-driven reference cases covering all four cardinal directions, with strict fixture-schema checks. A five-case dry-run outcome corpus covers board-clearing, no-selectable-group, unsolved/blocked, unverified-provenance and malformed-state outcomes. A three-case bonded-group corpus covers two-member sequential interactions, shared-target depletion and atomic three-member selection. A separate six-case negative bonded-group corpus covers asymmetric links, dangling references, malformed bond metadata, conflicting group IDs and over-limit components.
 
 **The project is not 100% complete.** Automated unit tests cannot establish the true colour of game tiles, shooter identity/visibility accuracy, real conveyor timing, device compatibility, or correct behaviour on a live game state. Those require original device captures, independent human review and a real Termux acceptance run. The project is still an offline/advisory system; no gameplay taps or purchases are enabled.
 
@@ -36,6 +36,8 @@ The main branch remained at `d0247a2b94ab1cd269c9485bca93b55439cab50f` during th
 | [#153](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/153) | Deterministic bounded dry-run candidate ordering | [#1193](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45899730048), 1,231 tests/version | Open draft, unmerged |
 | [#154](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/154) | Refresh evidence through deterministic candidate ordering | [#1194](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45899947769), 1,231 tests/version | Open draft, unmerged |
 | [#155](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/155) | Bonded-group sequential simulation reference corpus | [#1195](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45961071353), 1,233 tests/version | Open draft, unmerged |
+| [#156](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/156) | Refresh evidence through bonded-group reference coverage | [#1196](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45961404389), 1,233 tests/version | Open draft, unmerged |
+| [#157](https://github.com/huzaifahkazibwe9-dev/slime-ai/pull/157) | Fail-closed malformed and asymmetric bonded-group reference cases | [#1197](https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962009864), 1,235 tests/version | Open draft, unmerged |
 
 The base PRs in the stack are also open draft changes; review and merge order must be respected. The CI runs above test their respective feature-branch commits, not the untouched `main` branch.
 
@@ -52,6 +54,7 @@ The base PRs in the stack are also open draft changes; review and merge order mu
 - Bounded dry-run candidate traversal now sorts eligible groups by canonical shooter IDs before enumeration. A regression test reverses shooter dictionary insertion order and confirms that a one-candidate budget selects the same first candidate; bounded search remains potentially truncated and is not an optimality proof.
 - The dry-run outcome fixture distinguishes a modeled board-clearing candidate, a valid candidate simulation that leaves the board unsolved, no selectable group, an explicit provenance block and structural input rejection. The tests do not treat `SIMULATED` or an empty simulated board as proof of a live-game win.
 - A three-case bonded-group reference corpus pins sequential member simulation, first-member removal of a shared target before the next member fires, and atomic selection of a three-member group; exact fixture schema, per-member shot steps, ammunition, final board, source immutability and safety flags are checked. These are synthetic code-contract cases, not live-game evidence.
+- A six-case negative bonded-group corpus checks non-reciprocal edges, unknown linked IDs, malformed bond containers and member types, conflicting explicit group IDs and a component larger than the current three-member cap. Validation diagnostics, group lookup/identity, selection refusal, simulator rejection and source-state immutability are asserted. These are malformed-input contract tests, not live-game evidence.
 - Recent CI runs passed the full unit suite on Python 3.10, 3.11, 3.12 and 3.14, plus Python compilation and shell syntax checks.
 
 The authoritative run list and test counts are in [`evidence/final/ci_runs.json`](../evidence/final/ci_runs.json).
