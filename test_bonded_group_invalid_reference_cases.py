@@ -112,6 +112,7 @@ class InvalidBondedGroupReferenceCasesTests(unittest.TestCase):
                 self.assertNotIn(shooter["id"], shooter["bonded_ids"] or [])
 
             self.assertEqual(len(shooter_ids), len(set(shooter_ids)))
+            self.assertIsInstance(case["start_shooter_id"], str)
             self.assertIn(case["start_shooter_id"], shooter_ids)
             errors = case["expected_validation_errors"]
             self.assertIsInstance(errors, list)
