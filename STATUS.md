@@ -68,7 +68,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Fixed unreachable oversized bonded-group validation error: GameState.validate() now uses a size-unrestricted component walk so groups larger than 3 are reported (selection paths continue to use bonded_group() which returns empty for them).
 - Added LifeState regression tests covering available() cap, update() life gain and maximum enforcement, and seconds_until_next() timing.
 - Added GameState.validate() regression tests for inconsistent group_id values within a bonded component and for bonded groups exceeding size 3.
-- Public unit tests now 692 tests ran / 0 failures / 17 skipped (local verification after colour-mapping auditor non-finite RGB regressions and dead-code cleanup in the test module)
+- Public unit tests now 697 tests ran / 0 failures / 17 skipped (local verification after RGB transition audit non-finite/boolean/non-numeric sample regressions)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
@@ -98,6 +98,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~80%**
+Approximate offline-completable progress: **~81%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

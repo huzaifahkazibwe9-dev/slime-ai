@@ -60,6 +60,37 @@ class RGBTransitionTests(unittest.TestCase):
         self.assertFalse(result["tile_removals_verified"])
         self.assertFalse(result["game_taps_enabled"])
 
+    def test_boolean_rgb_channel_raises(self):
+        bad = [[cell[:] for cell in row] for row in self.board]
+        bad[1][1] = [True, 255, 255]
+        with self.assertRaises(ValueError):
+            audit_rgb(observation(self.board), observation(bad))
+
+    def test_non_numeric_rgb_channel_raises(self):
+        bad = [[cell[:] for cell in row] for row in self.board]
+        bad[1][1] = [255, "x", 255]
+        with self.assertRaises(ValueError):
+            audit_rgb(observation(self.board), observation(bad))
+
+    def test_non_finite_rgb_channel_raises(self):
+        for bad_channel in (float("inf"), float("-inf"), float("nan")):
+            bad = [[cell[:] for cell in row] for row in self.board]
+            bad[2][2] = [bad_channel, 255, 255]
+            with self.assertRaises(ValueError):
+                audit_rgb(observation(self.board), observation(bad))
+
+    def test_wrong_length_rgb_raises(self):
+        bad = [[cell[:] for cell in row] for row in self.board]
+        bad[0][0] = [255, 255]
+        with self.assertRaises(ValueError):
+            audit_rgb(observation(self.board), observation(bad))
+
+    def test_non_list_rgb_sample_raises(self):
+        bad = [[cell[:] for cell in row] for row in self.board]
+        bad[3][3] = "not-a-list"
+        with self.assertRaises(ValueError):
+            audit_rgb(observation(self.board), observation(bad))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
