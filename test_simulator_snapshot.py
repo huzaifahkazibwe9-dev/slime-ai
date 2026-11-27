@@ -623,5 +623,26 @@ class SimulatorSnapshotTests(unittest.TestCase):
                 restore_simulator(snapshot)
 
 
+
+    def test_rejects_unsupported_fields_in_known_event(self):
+        sim = create_simulator([{"id": "a", "ammo": 2}])
+        self.assertTrue(sim.select_group("a"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"][0]["unverified_claim"] = True
+        with self.assertRaisesRegex(
+            ValueError, "snapshot event contains unsupported fields"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_fields_from_a_different_event_kind(self):
+        sim = create_simulator([{"id": "a", "ammo": 2}])
+        self.assertTrue(sim.select_group("a"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"][0]["members"] = ["a"]
+        with self.assertRaisesRegex(
+            ValueError, "snapshot event contains unsupported fields"
+        ):
+            restore_simulator(snapshot)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
