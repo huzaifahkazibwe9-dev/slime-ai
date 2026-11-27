@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T08:04:13Z",
+  "generated_at_utc": "2026-11-27T08:24:00Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -235,6 +235,16 @@
       "unit_tests_per_python_version": 1237,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962779320"
+    },
+    {
+      "run_number": 1203,
+      "run_id": 45965015311,
+      "pull_request": 161,
+      "branch": "add-bonded-storage-transition-regressions",
+      "commit_sha": "5eab32828fbafcee321bfcbc0b51a209bf52b002",
+      "unit_tests_per_python_version": 1249,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45965015311"
     }
   ],
   "superseded_failures": [
@@ -261,6 +271,22 @@
       "branch": "harden-game-state-validation",
       "conclusion": "failure",
       "resolution": "A test misclassified a dictionary-valued cell as a non-list row; the case was corrected and run #1173 passed."
+    },
+    {
+      "run_number": 1201,
+      "run_id": 45964809856,
+      "pull_request": 161,
+      "branch": "add-bonded-storage-transition-regressions",
+      "conclusion": "failure",
+      "resolution": "A new multi-batch reactivation test expected the later batch-transition diagnostic, but the scheduler correctly rejected earlier at its per-group reactivation-capacity preflight. The assertion was corrected to the actual fail-fast reason and verified by run #1203."
+    },
+    {
+      "run_number": 1202,
+      "run_id": 45964906687,
+      "pull_request": 161,
+      "branch": "add-bonded-storage-transition-regressions",
+      "conclusion": "failure",
+      "resolution": "A text replacement changed an older test's batch-transition expectation instead of only the new reactivation test, leaving two assertion failures. The prior assertion was restored and the new test was updated in isolation; run #1203 passed."
     }
   ]
 }
