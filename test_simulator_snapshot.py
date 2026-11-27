@@ -127,6 +127,46 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.storage_occupied, 5)
         self.assertEqual(restored.events, sim.events)
 
+    def test_round_trip_preserves_bonded_returns_before_later_group_tick_failure(self):
+        sim = create_simulator(
+            [
+                {"id": "pair-a", "group_id": "PAIR", "ammo": 0},
+                {"id": "pair-b", "group_id": "PAIR", "ammo": 0},
+                {"id": "solo", "group_id": "SOLO", "ammo": 0},
+            ],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=3, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.select_group("SOLO"))
+        self.assertFalse(sim.tick(1))
+
+        self.assertTrue(sim.failed)
+        self.assertEqual(sim.returned_ids, ["pair-a", "pair-b"])
+        self.assertEqual(sim.storage_occupied, 3)
+        self.assertEqual(sim.tick_count, 1)
+        return_events = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        self.assertEqual(
+            [event["shooter_id"] for event in return_events],
+            ["pair-a", "pair-b"],
+        )
+        self.assertEqual(sim.events[-1]["event"], "LEVEL_FAILURE")
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertTrue(restored.failed)
+        self.assertEqual(restored.failure_reason, sim.failure_reason)
+        self.assertEqual(restored.tick_count, sim.tick_count)
+        self.assertEqual(restored.returned_ids, sim.returned_ids)
+        self.assertEqual(restored.storage_occupied, sim.storage_occupied)
+        self.assertEqual(restored.events, sim.events)
+        self.assertEqual(
+            [(s.shooter_id, s.selected, s.returned) for s in restored.shooters],
+            [(s.shooter_id, s.selected, s.returned) for s in sim.shooters],
+        )
+
     def test_snapshot_is_detached_from_later_mutations(self):
         sim = create_simulator([{"id": "a", "ammo": 3}])
         snapshot = snapshot_simulator(sim)
