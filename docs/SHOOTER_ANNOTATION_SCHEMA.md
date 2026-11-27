@@ -49,7 +49,7 @@ Each shooter object:
 - `color` (string, non-empty)
 - `ammo` (integer ≥ 0)
 - `slot_index` (integer 0–11, optional; when present must be an exact integer in range and unique across the package)
-- `bonded_ids` (array of non-empty strings, optional; must not contain self-references, unknown IDs, or duplicates within the list)
+- `bonded_ids` (array of non-empty strings, optional; must not contain self-references, unknown IDs, or duplicates within the list; bonds must be reciprocal)
 
 ## Validation rules (enforced by `annotation_validator.py`)
 
@@ -58,7 +58,7 @@ Each shooter object:
 - Snapshot ID must match the expected SHA-256 format.
 - Shooter IDs must be unique.
 - When `slot_index` is present it must be an integer in 0..11 and unique across all shooters in the package.
-- When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, and that contain no internal duplicates.
+- When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, that contain no internal duplicates, and that form reciprocal pairs (if A lists B then B must list A).
 - When `notes` is present it must be a string (empty allowed).
 - No field may be auto-filled by code; the validator only accepts or rejects.
 

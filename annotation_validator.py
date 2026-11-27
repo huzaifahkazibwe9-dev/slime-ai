@@ -116,16 +116,26 @@ def validate_annotation(data):
                         else:
                             seen_bonds.add(bond)
 
-        # After collecting all IDs, verify bonded references exist (if any)
+        # After collecting all IDs, verify bonded references exist and are reciprocal
         all_ids = {s.get("id") for s in shooters if isinstance(s, dict) and isinstance(s.get("id"), str)}
         for i, shooter in enumerate(shooters):
             if not isinstance(shooter, dict):
                 continue
+            shooter_id = shooter.get("id")
             bonds = shooter.get("bonded_ids")
-            if isinstance(bonds, list):
+            if isinstance(bonds, list) and isinstance(shooter_id, str):
                 for bond in bonds:
                     if isinstance(bond, str) and bond not in all_ids:
                         errors.append(f"shooter[{i}].bonded_ids references unknown id '{bond}'")
+                    elif isinstance(bond, str):
+                        # Require reciprocity: the other shooter must list this one
+                        other = next((s for s in shooters if isinstance(s, dict) and s.get("id") == bond), None)
+                        if other is not None:
+                            other_bonds = other.get("bonded_ids")
+                            if not isinstance(other_bonds, list) or shooter_id not in other_bonds:
+                                errors.append(
+                                    f"asymmetric bond: {shooter_id} lists {bond} but {bond} does not list {shooter_id}"
+                                )
 
     return len(errors) == 0, errors
 

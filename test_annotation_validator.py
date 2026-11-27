@@ -111,6 +111,16 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("unknown id" in e for e in errors))
 
+    def test_asymmetric_bonded_ids_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("asymmetric bond" in e for e in errors))
+
     def test_valid_bonded_pair_accepted(self):
         data = dict(VALID)
         data["shooters"] = [
