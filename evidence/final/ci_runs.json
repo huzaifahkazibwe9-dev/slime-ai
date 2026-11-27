@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T08:24:00Z",
+  "generated_at_utc": "2026-11-27T08:35:00Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -245,6 +245,16 @@
       "unit_tests_per_python_version": 1249,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45965015311"
+    },
+    {
+      "run_number": 1206,
+      "run_id": 45966255732,
+      "pull_request": 163,
+      "branch": "add-bonded-checkpoint-resume-rollback-tests",
+      "commit_sha": "570ac165370b6772e945f363ab0106b937bc6e66",
+      "unit_tests_per_python_version": 1251,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45966255732"
     }
   ],
   "superseded_failures": [
@@ -287,6 +297,14 @@
       "branch": "add-bonded-storage-transition-regressions",
       "conclusion": "failure",
       "resolution": "A text replacement changed an older test's batch-transition expectation instead of only the new reactivation test, leaving two assertion failures. The prior assertion was restored and the new test was updated in isolation; run #1203 passed."
+    },
+    {
+      "run_number": 1205,
+      "run_id": 45966135615,
+      "pull_request": 163,
+      "branch": "add-bonded-checkpoint-resume-rollback-tests",
+      "conclusion": "failure",
+      "resolution": "The new checkpoint-resume equivalence case incorrectly assumed the final simulator event would be a storage-return event. The scheduler correctly appended a later rotation event for another active shooter. The test was corrected to assert the ordered bonded return events directly; run #1206 passed."
     }
   ]
 }
