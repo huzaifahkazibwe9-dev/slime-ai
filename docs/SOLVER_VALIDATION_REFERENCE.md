@@ -27,6 +27,9 @@ Run the standard unit suite to exercise the structural regression cases:
 - `test_execution_engine.py`: dry-run state immutability, bonded-group
   integrity, ammunition constraints, candidate limits and simulation-only
   execution restrictions.
+- `test_bonded_group_reference_cases.py`: exact-schema, table-driven checks for
+  two- and three-member bonded groups, sequential board mutation, shared-target
+  depletion, atomic selection, per-member ammunition and source immutability.
 
 These tests are hand-checkable examples of the repository's declared
 simulation contract. They are **not** independent evidence that the actual
@@ -102,3 +105,10 @@ evidence is unverified and live execution/gameplay actions are disabled.
 Before enumerating dry-run candidate prefixes, `run_dry_simulation()` sorts eligible accessible groups by their canonical sorted shooter-ID tuple. This makes the traversal order independent of the insertion order of the shooter's mapping in an otherwise equivalent `GameState`. The table-driven regression test `test_bounded_search_uses_canonical_group_order` builds equivalent states with reversed shooter insertion order and confirms that a one-candidate budget selects the same first group in both states.
 
 This guarantee concerns repeatable traversal under a fixed state and candidate budget. It does not expand the budget, eliminate truncation, change scoring, validate unobserved game mechanics or prove global solver optimality. Live gameplay actions remain disabled.
+
+
+## Bonded-group reference corpus
+
+`data/bonded_group_reference_cases.json` contains three synthetic, hand-checkable outcomes for `simulate_bonded_group()`. The paired cases cover members firing sequentially against the same evolving board, including a shared target that the first member removes before the second member is simulated. A third case covers atomic selection and ordered simulation of a complete three-member group. `test_bonded_group_reference_cases.py` validates exact fixture field sets and primitive types, then compares group membership, conveyor selection, per-member shot steps and ammunition, total pixel counts, final board, source-state immutability and the simulation-only safety flags.
+
+These fixtures pin the current software contract; they are not captured gameplay examples and do not prove that the live game uses the same bonded-group rules, firing order or board mechanics. Independent game evidence and device validation remain outstanding. Live gameplay actions remain disabled.
