@@ -161,7 +161,7 @@ def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
             raise ValueError("rejected shot count must exceed available ammunition")
 
 
-def _validate_ammo_event_history(events, shooter_by_id):
+def _validate_ammo_event_history(events, shooter_by_id, group_members_by_id):
     """Replay ammunition events and reconcile them with restored shooter state.
 
     The initial ammunition for each shooter is inferred from its saved remaining
@@ -169,6 +169,11 @@ def _validate_ammo_event_history(events, shooter_by_id):
     must then agree with that reconstructed history.
     """
     recorded_shots = {shooter_id: 0 for shooter_id in shooter_by_id}
+    continuations_by_tick = {
+        (event["tick"], event["shooter_id"])
+        for event in events
+        if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+    }
     for event in events:
         if event["event"] == "AMMO_UPDATED":
             recorded_shots[event["shooter_id"]] += event["shots_recorded"]
@@ -209,6 +214,237 @@ def _validate_ammo_event_history(events, shooter_by_id):
                 raise ValueError(
                     "shooter completion event requires zero remaining ammunition"
                 )
+        elif event_type == "SHOOTER_WAITING_FOR_BONDED_GROUP":
+            if ammo_by_id[shooter_id] != 0:
+                raise ValueError(
+                    "waiting event requires zero remaining ammunition"
+                )
+
+            group_id = shooter_by_id[shooter_id].group_id
+            bonded_members = group_members_by_id[group_id]
+            positive_mates = [
+                member_id for member_id in bonded_members
+                if member_id != shooter_id and ammo_by_id[member_id] > 0
+            ]
+            if not positive_mates:
+                raise ValueError(
+                    "waiting event requires another bonded member with ammunition"
+                )
+            if not any(
+                (event["tick"], member_id) in continuations_by_tick
+                for member_id in positive_mates
+            ):
+                raise ValueError(
+                    "waiting event requires a bonded member to continue rotating on the same tick"
+                )
+        elif event_type == "SHOOTER_RETURNED_TO_STORAGE":
+            if ammo_by_id[shooter_id] != 0:
+                raise ValueError(
+                    "return event requires zero remaining ammunition"
+                )
+
+
+def _validate_return_point_event_history(events):
+    """Require each lap-arrival event to follow that shooter's zero-position rotation."""
+    rotated_to_return = set()
+    resolved_arrivals = set()
+    arrival_events = {
+        "SHOOTER_CONTINUES_ROTATING",
+        "SHOOTER_WAITING_FOR_BONDED_GROUP",
+        "SHOOTER_RETURNED_TO_STORAGE",
+    }
+
+    for event in events:
+        event_type = event["event"]
+        key = (event["tick"], event.get("shooter_id"))
+
+        if event_type == "SHOOTER_ROTATED" and event["position"] == 0:
+            rotated_to_return.add(key)
+            continue
+
+        if event_type not in arrival_events:
+            continue
+
+        if key not in rotated_to_return:
+            raise ValueError(
+                "arrival event must follow a same-tick rotation to the return point"
+            )
+        if key in resolved_arrivals:
+            raise ValueError(
+                "shooter has duplicate return-point arrival resolution events"
+            )
+        resolved_arrivals.add(key)
+
+
+def _validate_rotation_and_lap_history(events, config, shooter_by_id):
+    """Reconcile rotation positions and completed-lap counters with event order."""
+    last_position = {}
+    last_rotation_tick = {}
+    last_laps = {}
+    lap_history_known = set()
+    final_position_known = set()
+    final_laps_known = set()
+
+    for event in events:
+        event_type = event["event"]
+
+        if event_type == "SHOOTER_ENTERED":
+            shooter_id = event["shooter_id"]
+            last_position[shooter_id] = 0
+            final_position_known.add(shooter_id)
+            last_rotation_tick.pop(shooter_id, None)
+
+        elif event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+            for shooter_id in event["members"]:
+                last_position[shooter_id] = 0
+                final_position_known.add(shooter_id)
+                last_rotation_tick.pop(shooter_id, None)
+                last_laps[shooter_id] = 0
+                lap_history_known.add(shooter_id)
+                final_laps_known.add(shooter_id)
+
+        elif event_type == "SHOOTER_ROTATED":
+            shooter_id = event["shooter_id"]
+            position = event["position"]
+            previous_position = last_position.get(shooter_id)
+            previous_tick = last_rotation_tick.get(shooter_id)
+
+            if previous_tick is not None and event["tick"] != previous_tick + 1:
+                raise ValueError(
+                    "active shooter rotation history has a missing or repeated tick"
+                )
+
+            if previous_position is not None:
+                expected_position = (
+                    previous_position + 1
+                ) % config.ticks_per_lap
+                if position != expected_position:
+                    raise ValueError(
+                        "rotation history does not advance exactly one position"
+                    )
+
+            last_position[shooter_id] = position
+            last_rotation_tick[shooter_id] = event["tick"]
+            final_position_known.add(shooter_id)
+
+        elif event_type == "SHOOTER_CONTINUES_ROTATING":
+            shooter_id = event["shooter_id"]
+            laps = event["laps"]
+            if shooter_id in last_laps and laps != last_laps[shooter_id] + 1:
+                raise ValueError(
+                    "completed lap history must increase by exactly one"
+                )
+            last_laps[shooter_id] = laps
+            lap_history_known.add(shooter_id)
+            final_laps_known.add(shooter_id)
+
+    for shooter_id in final_position_known:
+        if shooter_by_id[shooter_id].position != last_position[shooter_id]:
+            raise ValueError(
+                "restored shooter position disagrees with rotation event history"
+            )
+
+    for shooter_id in final_laps_known:
+        if shooter_by_id[shooter_id].completed_laps != last_laps[shooter_id]:
+            raise ValueError(
+                "restored completed-lap count disagrees with event history"
+            )
+
+
+def _validate_group_entry_event_history(
+    events, group_members_by_id, shooter_by_id
+):
+    """Require each recorded bonded-group selection to enter atomically."""
+    entry_batches = {}
+    last_entry_index = {}
+    last_reactivation_index = {}
+
+    for event_index, event in enumerate(events):
+        event_type = event["event"]
+
+        if event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+            group_id = event["group_id"]
+            last_reactivation_index[group_id] = event_index
+            continue
+
+        if event_type != "SHOOTER_ENTERED":
+            continue
+
+        shooter_id = event["shooter_id"]
+        group_id = event["group_id"]
+        if group_id not in group_members_by_id:
+            raise ValueError("entry event references an unknown group")
+
+        reactivation_index = last_reactivation_index.get(group_id, -1)
+        batch_key = (group_id, event["tick"], reactivation_index)
+
+        if batch_key not in entry_batches:
+            if last_entry_index.get(group_id, -1) > reactivation_index:
+                raise ValueError(
+                    "bonded group has a new entry without an intervening storage reactivation"
+                )
+            entry_batches[batch_key] = set()
+            last_entry_index[group_id] = event_index
+
+        batch = entry_batches[batch_key]
+        if shooter_id in batch:
+            raise ValueError(
+                "bonded group entry batch contains a duplicate shooter"
+            )
+        batch.add(shooter_id)
+
+    for (group_id, tick, reactivation_index), entered_ids in entry_batches.items():
+        expected_ids = group_members_by_id[group_id]
+        if entered_ids != expected_ids:
+            raise ValueError(
+                "bonded group entry must include every member in the same tick"
+            )
+
+    # If a group is active at restore time after a storage reactivation, the
+    # history must contain a complete subsequent entry batch. Initial active
+    # groups remain valid even when they were selected before event recording.
+    for group_id, member_ids in group_members_by_id.items():
+        group_is_active = all(
+            shooter_by_id[member_id].selected
+            and not shooter_by_id[member_id].returned
+            for member_id in member_ids
+        )
+        if not group_is_active:
+            continue
+
+        reactivation_index = last_reactivation_index.get(group_id, -1)
+        latest_entry_index = last_entry_index.get(group_id, -1)
+        if reactivation_index >= 0 and latest_entry_index <= reactivation_index:
+            raise ValueError(
+                "active bonded group after reactivation requires a complete entry batch"
+            )
+
+
+def _validate_group_rotation_batches(events, group_members_by_id, shooter_by_id):
+    """Require every member of an active bonded group to rotate on the same tick."""
+    rotations_by_group_tick = {}
+
+    for event in events:
+        if event["event"] != "SHOOTER_ROTATED":
+            continue
+
+        shooter_id = event["shooter_id"]
+        group_id = shooter_by_id[shooter_id].group_id
+        key = (group_id, event["tick"])
+        rotated_ids = rotations_by_group_tick.setdefault(key, set())
+
+        if shooter_id in rotated_ids:
+            raise ValueError(
+                "bonded group rotation batch contains a duplicate shooter"
+            )
+        rotated_ids.add(shooter_id)
+
+    for (group_id, tick), rotated_ids in rotations_by_group_tick.items():
+        expected_ids = group_members_by_id[group_id]
+        if rotated_ids != expected_ids:
+            raise ValueError(
+                "bonded group rotation must include every member in the same tick"
+            )
 
 
 def snapshot_simulator(sim):
@@ -330,7 +566,9 @@ def restore_simulator(snapshot):
         )
         previous_tick = event_tick
 
-    _validate_ammo_event_history(events, shooter_by_id)
+    _validate_ammo_event_history(
+        events, shooter_by_id, group_members_by_id
+    )
 
     failure_event_indices = [
         index for index, event in enumerate(events)
@@ -506,6 +744,17 @@ def restore_simulator(snapshot):
     ]
     if event_order != expected_event_order:
         raise ValueError("return event order conflicts with returned_ids")
+
+    # Run after group-wide return-cycle checks so those established, more
+    # specific diagnostics remain stable for bonded groups.
+    _validate_return_point_event_history(events)
+    _validate_group_entry_event_history(
+        events, group_members_by_id, shooter_by_id
+    )
+    _validate_group_rotation_batches(
+        events, group_members_by_id, shooter_by_id
+    )
+    _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     if failed and events[-1].get("tick") != tick_count:
         raise ValueError("failure event tick must match the final simulator tick")

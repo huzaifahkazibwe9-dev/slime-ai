@@ -736,6 +736,536 @@ class SimulatorSnapshotTests(unittest.TestCase):
             ):
                 restore_simulator(snapshot)
 
+
+    def test_rejects_continuation_without_same_tick_return_point_rotation(self):
+        snapshot = snapshot_simulator(self._continuation_history_fixture())
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        rotation_index = next(
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["tick"] == continuation["tick"]
+            and event["shooter_id"] == continuation["shooter_id"]
+        )
+        snapshot["events"].pop(rotation_index)
+
+        with self.assertRaisesRegex(
+            ValueError, "same-tick rotation to the return point"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_continuation_after_non_return_point_rotation(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 4, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=2),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["tick"] == continuation["tick"]
+            and event["shooter_id"] == continuation["shooter_id"]
+        )
+        rotation["position"] = 1
+
+        with self.assertRaisesRegex(
+            ValueError, "same-tick rotation to the return point"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_waiting_event_when_shooter_has_ammunition(self):
+        sim = create_simulator(
+            [
+                {"id": "a", "group_id": "pair", "ammo": 0, "selected": True},
+                {"id": "b", "group_id": "pair", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["ammo"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "waiting event requires zero remaining ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_storage_return_event_when_shooter_has_ammunition(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0, "selected": True}],
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["ammo"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "return event requires zero remaining ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_return_point_resolution_for_one_shooter_tick(self):
+        snapshot = snapshot_simulator(self._continuation_history_fixture())
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        continuation_index = snapshot["events"].index(continuation)
+        snapshot["events"].insert(
+            continuation_index + 1,
+            copy.deepcopy(continuation),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError, "duplicate return-point arrival resolution"
+        ):
+            restore_simulator(snapshot)
+
+
+    def test_round_trip_reconciles_rotation_positions_and_lap_counters(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(6))
+        continued = [
+            event["laps"] for event in sim.events
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual(continued, [1, 2])
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].position, 0)
+        self.assertEqual(restored.shooters[0].completed_laps, 2)
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_rotation_position_that_does_not_advance(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        rotations = [
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual([event["position"] for event in rotations], [1, 2])
+        rotations[1]["position"] = 0
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation history does not advance exactly one position"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_missing_intermediate_rotation_tick(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(3))
+        snapshot = snapshot_simulator(sim)
+        rotation_indices = [
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual(len(rotation_indices), 3)
+        snapshot["events"].pop(rotation_indices[1])
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation history has a missing or repeated tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_final_position_that_disagrees_with_rotation_history(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=3),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["position"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "position disagrees with rotation event history"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_completed_lap_counter_that_jumps(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        continued = [
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual([event["laps"] for event in continued], [1, 2])
+        continued[1]["laps"] = 3
+
+        with self.assertRaisesRegex(
+            ValueError, "completed lap history must increase by exactly one"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_final_completed_lap_count_that_disagrees_with_events(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 3, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["completed_laps"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "completed-lap count disagrees with event history"
+        ):
+            restore_simulator(snapshot)
+
+    def test_reactivation_resets_completed_lap_history(self):
+        sim = create_simulator(
+            [{
+                "id": "a", "ammo": 0, "selected": True,
+                "completed_laps": 3,
+            }],
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("a"))
+        self.assertEqual(sim.shooters[0].completed_laps, 0)
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].completed_laps, 0)
+        self.assertEqual(restored.events, sim.events)
+
+
+    def test_round_trip_preserves_atomic_bonded_group_entry(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        restored = restore_simulator(snapshot_simulator(sim))
+        entered = [
+            event for event in restored.events
+            if event["event"] == "SHOOTER_ENTERED"
+        ]
+        self.assertEqual(
+            {(event["shooter_id"], event["tick"]) for event in entered},
+            {("a1", 0), ("a2", 0)},
+        )
+
+    def test_rejects_partial_bonded_group_entry_history(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if event.get("shooter_id") != "a2"
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "entry must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_group_entry_events_split_across_ticks(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"][1]["tick"] = 1
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "entry must include every member in the same tick|"
+            "new entry without an intervening storage reactivation",
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_shooter_in_bonded_entry_batch(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"].insert(
+            1, copy.deepcopy(snapshot["events"][0])
+        )
+
+        with self.assertRaisesRegex(
+            ValueError, "entry batch contains a duplicate shooter"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_repeated_group_entry_without_storage_reactivation(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"].extend([
+            dict(event, tick=1)
+            for event in snapshot["events"][:2]
+        ])
+
+        with self.assertRaisesRegex(
+            ValueError, "new entry without an intervening storage reactivation"
+        ):
+            restore_simulator(snapshot)
+
+    def test_round_trip_allows_reentry_after_reactivation_on_same_tick(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertTrue(sim.select_group("PAIR"))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        entry_events = [
+            event for event in restored.events
+            if event["event"] == "SHOOTER_ENTERED"
+        ]
+        self.assertEqual([event["tick"] for event in entry_events], [0, 0, 1, 1])
+
+
+
+    def _bonded_zero_ammo_pair(self, selected=False):
+        return create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": selected},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0, "selected": selected},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+
+    def test_round_trip_allows_reactivated_group_before_selection(self):
+        sim = self._bonded_zero_ammo_pair()
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertFalse(any(
+            shooter.selected or shooter.returned for shooter in sim.shooters
+        ))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        self.assertTrue(all(not s.selected and not s.returned for s in restored.shooters))
+
+    def test_round_trip_allows_initially_active_group_without_entry_event(self):
+        sim = self._bonded_zero_ammo_pair(selected=True)
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        self.assertTrue(all(s.selected and not s.returned for s in restored.shooters))
+
+    def test_rejects_active_group_after_reactivation_without_new_entry_batch(self):
+        sim = self._bonded_zero_ammo_pair()
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertTrue(sim.select_group("PAIR"))
+
+        snapshot = snapshot_simulator(sim)
+        reactivation_index = next(
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "GROUP_REACTIVATED_FROM_STORAGE"
+        )
+        snapshot["events"] = [
+            event for index, event in enumerate(snapshot["events"])
+            if not (
+                index > reactivation_index
+                and event["event"] == "SHOOTER_ENTERED"
+            )
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "active bonded group after reactivation requires a complete entry batch",
+        ):
+            restore_simulator(snapshot)
+
+
+    def _bonded_rotation_fixture(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 2, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=2,
+            ),
+        )
+        self.assertTrue(sim.tick(1))
+        return sim
+
+    def test_round_trip_preserves_same_tick_bonded_group_rotation(self):
+        sim = self._bonded_rotation_fixture()
+        rotations = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual(
+            {(event["shooter_id"], event["tick"]) for event in rotations},
+            {("a1", 1), ("a2", 1)},
+        )
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_bonded_group_rotation_missing_member(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if not (
+                event["event"] == "SHOOTER_ROTATED"
+                and event["shooter_id"] == "a2"
+            )
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_group_rotations_split_across_ticks(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 2
+        rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["shooter_id"] == "a2"
+        )
+        rotation["tick"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_member_rotation_on_same_tick(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        first_rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["shooter_id"] == "a1"
+        )
+        snapshot["events"].insert(1, copy.deepcopy(first_rotation))
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation batch contains a duplicate shooter"
+        ):
+            restore_simulator(snapshot)
+
+    def _bonded_waiting_fixture(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+        self.assertTrue(sim.tick(1))
+        return sim
+
+    def test_round_trip_preserves_valid_bonded_wait_and_continuation(self):
+        sim = self._bonded_waiting_fixture()
+        waiting = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_WAITING_FOR_BONDED_GROUP"
+        ]
+        continuing = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual(len(waiting), 1)
+        self.assertEqual(len(continuing), 1)
+        self.assertEqual(waiting[0]["tick"], continuing[0]["tick"])
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_bonded_wait_when_no_member_has_remaining_ammunition(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"] = [
+            {"tick": 1, "event": "SHOOTER_ROTATED",
+             "shooter_id": "a1", "position": 0},
+            {"tick": 1, "event": "SHOOTER_ROTATED",
+             "shooter_id": "a2", "position": 0},
+            {"tick": 1, "event": "SHOOTER_WAITING_FOR_BONDED_GROUP",
+             "shooter_id": "a1", "group_id": "PAIR"},
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "waiting event requires another bonded member with ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_wait_without_same_tick_mate_continuation(self):
+        sim = self._bonded_waiting_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if event["event"] != "SHOOTER_CONTINUES_ROTATING"
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "waiting event requires a bonded member to continue rotating",
+        ):
+            restore_simulator(snapshot)
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},
