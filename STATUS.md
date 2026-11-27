@@ -46,14 +46,14 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
-- Latest public unit-test run (this environment, 2026-11-26): **618 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Latest public unit-test run (this environment, 2026-11-27): **621 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
 - Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
 - Added fail-closed regression tests: coordinate() leaves no observation/report artefacts when extraction fails or grid size mismatches baseline
 - Added fail-closed regression tests for screenshot ingestor: zero-byte, garbage-byte, and truncated-PNG inputs raise UnidentifiedImageError and leave no observation artefacts
 - Added fail-closed regression tests: coordinate() leaves no artefacts on missing baseline, invalid baseline JSON, or calibration bounds mismatch
 - Added fail-closed regression test: coordinate() leaves no artefacts on invalid capture_session_id
 - Added human-review annotation schema and fail-closed validator (`docs/SHOOTER_ANNOTATION_SCHEMA.md`, `annotation_validator.py`)
-- Strengthened annotation validator: unique shooter IDs, range-checked optional slot_index, and bonded_ids that reject self-references and unknown IDs
+- Strengthened annotation validator: unique shooter IDs, range-checked and unique optional slot_index, and bonded_ids that reject self-references, unknown IDs, and internal duplicates
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Remaining work:
@@ -81,6 +81,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~69%**
+Approximate offline-completable progress: **~70%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

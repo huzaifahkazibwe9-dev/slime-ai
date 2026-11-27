@@ -68,6 +68,7 @@ def validate_annotation(data):
         errors.append("shooters must be a list")
     else:
         seen_ids = set()
+        seen_slots = set()
         for i, shooter in enumerate(shooters):
             if not isinstance(shooter, dict):
                 errors.append(f"shooter[{i}] must be an object")
@@ -90,17 +91,26 @@ def validate_annotation(data):
                 slot = shooter["slot_index"]
                 if type(slot) is not int or not (0 <= slot <= 11):
                     errors.append(f"shooter[{i}].slot_index must be an integer in 0..11 when present")
+                elif slot in seen_slots:
+                    errors.append(f"shooter[{i}].slot_index {slot} is duplicated")
+                else:
+                    seen_slots.add(slot)
 
             if "bonded_ids" in shooter:
                 bonds = shooter["bonded_ids"]
                 if not isinstance(bonds, list):
                     errors.append(f"shooter[{i}].bonded_ids must be a list when present")
                 else:
+                    seen_bonds = set()
                     for j, bond in enumerate(bonds):
                         if not isinstance(bond, str) or not bond.strip():
                             errors.append(f"shooter[{i}].bonded_ids[{j}] must be a non-empty string")
                         elif bond == shooter_id:
                             errors.append(f"shooter[{i}].bonded_ids must not contain self-reference '{bond}'")
+                        elif bond in seen_bonds:
+                            errors.append(f"shooter[{i}].bonded_ids contains duplicate '{bond}'")
+                        else:
+                            seen_bonds.add(bond)
 
         # After collecting all IDs, verify bonded references exist (if any)
         all_ids = {s.get("id") for s in shooters if isinstance(s, dict) and isinstance(s.get("id"), str)}

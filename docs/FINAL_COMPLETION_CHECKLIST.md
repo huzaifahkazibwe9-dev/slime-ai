@@ -57,8 +57,8 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 ### SHOOTER-002 — Annotation package and human-review format
 - Subsystem: Shooter validation
 - Status: **IN_PROGRESS**
-- Acceptance: Schema + instructions that do not invent labels; unique IDs; optional-field constraints
-- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests (unique IDs, slot range, bonded references)
+- Acceptance: Schema + instructions that do not invent labels; unique IDs; unique optional slot_index; bonded_ids constraints (no self, unknown, or duplicate references)
+- Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests (unique IDs, unique slots, bond uniqueness/references)
 
 ### CONVEYOR-001 — Conveyor identity and snapshot synchronization
 - Subsystem: Conveyor
@@ -114,7 +114,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 | BLOCKED      | 3     |
 | NOT_STARTED  | 2     |
 
-**Honest offline engineering completion (current):** approximately 57–69%  
+**Honest offline engineering completion (current):** approximately 58–70%  
 **External validation completion:** near 0% (device + human labels still required)
 
 This checklist will be updated after every meaningful milestone.

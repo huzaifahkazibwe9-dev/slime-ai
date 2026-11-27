@@ -132,6 +132,35 @@ class AnnotationValidatorTests(unittest.TestCase):
         ok, errors = validate_annotation(data)
         self.assertFalse(ok)
 
+    def test_duplicate_slot_index_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "slot_index": 0},
+            {"id": "s2", "color": "blue", "ammo": 5, "slot_index": 0},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("duplicated" in e and "slot_index" in e for e in errors))
+
+    def test_duplicate_bonded_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2", "s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("duplicate" in e and "bonded_ids" in e for e in errors))
+
+    def test_unique_slots_and_bonds_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "slot_index": 0, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "slot_index": 1, "bonded_ids": ["s1"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
 
 if __name__ == "__main__":
     unittest.main()
