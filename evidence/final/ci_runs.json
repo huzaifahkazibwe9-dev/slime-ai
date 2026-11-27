@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T07:58:30.433Z",
+  "generated_at_utc": "2026-11-27T08:04:13Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -225,6 +225,16 @@
       "unit_tests_per_python_version": 1235,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962009864"
+    },
+    {
+      "run_number": 1199,
+      "run_id": 45962779320,
+      "pull_request": 159,
+      "branch": "add-bonded-group-selectability-regressions",
+      "commit_sha": "5df0cf290d18551ae75d94ba8a4f24051e582a7b",
+      "unit_tests_per_python_version": 1237,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962779320"
     }
   ],
   "superseded_failures": [
