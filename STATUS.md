@@ -62,7 +62,9 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added regression tests for zero ammunition (accepted), empty shooters list (accepted), whitespace-only colour (rejected), and non-list/missing shooters (rejected)
 - Planning gate now validates report structure before evaluation: malformed report roots, results collections, positions, scenario collections, and scenarios are reported explicitly and fail closed.
 - Added five planning-gate regression tests for malformed structure handling; any malformed structure blocks otherwise-valid sibling scenarios.
-- Public unit tests now 642 tests ran / 0 failures / 17 skipped (local verification after annotation edge-case regression tests)
+- Annotation validator now enforces the same strict capture_session_id rules used by the rest of the pipeline (alphanumeric start, limited charset, length 1..128).
+- Added regression tests for invalid annotation version, naive/malformed timestamps, empty annotator, invalid session IDs, uppercase snapshot hex, and boolean slot_index.
+- Public unit tests now 653 tests ran / 0 failures / 17 skipped (local verification after session-id and field-edge regression tests)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
@@ -92,6 +94,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~74%**
+Approximate offline-completable progress: **~75%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
