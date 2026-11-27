@@ -582,6 +582,23 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ):
             restore_simulator(snapshot)
 
+    def test_rejects_failure_event_tick_before_final_simulator_tick(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertFalse(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        self.assertTrue(snapshot["failed"])
+        self.assertGreater(snapshot["tick_count"], 0)
+        snapshot["events"][-1]["tick"] = snapshot["tick_count"] - 1
+        with self.assertRaisesRegex(
+            ValueError, "failure event tick must match the final simulator tick"
+        ):
+            restore_simulator(snapshot)
+
     def test_rejects_failed_flag_without_failure_reason(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
         snapshot["failed"] = True
