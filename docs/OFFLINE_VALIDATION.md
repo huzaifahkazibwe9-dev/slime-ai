@@ -22,11 +22,13 @@ python -m compileall -q .
 python -m unittest discover -v
 ```
 
-Latest verified public-repository outcome (GitHub Actions run #1233, 2026-11-27):
-- 634 tests ran on Python 3.12 and 3.14
+Latest verified public-repository outcome (GitHub Actions run #1239, 2026-11-27):
+- 635 tests ran on Python 3.12 and 3.14
 - 0 failures / 0 errors
 - 17 skipped (private Level 39 vision, conveyor consistency, conveyor timeline, and reachability evidence fixtures are not present in the public repository)
 - The 17 skipped tests are not counted as passing, and their private fixtures are not represented as public evidence.
+
+The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
 
