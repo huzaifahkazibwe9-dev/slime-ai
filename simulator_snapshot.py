@@ -30,6 +30,24 @@ SUPPORTED_EVENT_TYPES = frozenset({
     "STORAGE_REACTIVATION_REJECTED",
 })
 
+# Event records are versioned data too: reject fields that this simulator
+# version never emits for a given event kind.
+SUPPORTED_EVENT_FIELDS = {
+    "AMMO_UPDATED": {"tick", "event", "shooter_id", "shots_recorded", "ammo_remaining"},
+    "GROUP_REACTIVATED_FROM_STORAGE": {"tick", "event", "group_id", "members", "storage_occupied"},
+    "LEVEL_FAILURE": {"tick", "event", "reason"},
+    "SELECTION_REJECTED": {"tick", "event", "group_id", "group_size", "free_slots", "reason"},
+    "SHOOTER_COMPLETED": {"tick", "event", "shooter_id"},
+    "SHOOTER_CONTINUES_ROTATING": {"tick", "event", "shooter_id", "laps", "ammo_remaining"},
+    "SHOOTER_ENTERED": {"tick", "event", "shooter_id", "group_id", "position"},
+    "SHOOTER_RETURNED_TO_STORAGE": {"tick", "event", "shooter_id", "storage_occupied", "storage_free"},
+    "SHOOTER_ROTATED": {"tick", "event", "shooter_id", "position"},
+    "SHOOTER_WAITING_FOR_BONDED_GROUP": {"tick", "event", "shooter_id", "group_id"},
+    "SHOT_RECORD_REJECTED": {"tick", "event", "shooter_id", "requested", "ammo"},
+    "STORAGE_REACTIVATION_REJECTED": {"tick", "event", "group_id", "reason"},
+}
+
+
 
 def _require_json_compatible(value):
     """Reject values that JSON cannot preserve without changing their shape."""
@@ -149,6 +167,8 @@ def restore_simulator(snapshot):
             raise ValueError("event has invalid or out-of-order tick/type")
         if event_type not in SUPPORTED_EVENT_TYPES:
             raise ValueError("snapshot contains an unsupported event type")
+        if set(event) - SUPPORTED_EVENT_FIELDS[event_type]:
+            raise ValueError("snapshot event contains unsupported fields")
         previous_tick = event_tick
     failure_event_indices = [
         index for index, event in enumerate(events)
