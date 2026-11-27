@@ -700,5 +700,59 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.events, sim.events)
 
 
+    def _ammo_history_fixture(self):
+        sim = create_simulator([
+            {"id": "a", "ammo": 3, "selected": True},
+        ])
+        self.assertTrue(sim.record_shots("a", 1))
+        self.assertFalse(sim.record_shots("a", 3))
+        self.assertTrue(sim.record_shots("a", 2))
+        return sim
+
+    def test_round_trip_validates_ordered_ammunition_event_history(self):
+        sim = self._ammo_history_fixture()
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.shooters[0].ammo, 0)
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_ammo_update_remaining_that_conflicts_with_history(self):
+        snapshot = snapshot_simulator(self._ammo_history_fixture())
+        update = next(
+            event for event in snapshot["events"]
+            if event["event"] == "AMMO_UPDATED"
+        )
+        update["ammo_remaining"] = 1
+        with self.assertRaisesRegex(ValueError, "ammunition history"):
+            restore_simulator(snapshot)
+
+    def test_rejects_rejected_shot_ammo_that_conflicts_with_prior_updates(self):
+        snapshot = snapshot_simulator(self._ammo_history_fixture())
+        rejected = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOT_RECORD_REJECTED"
+        )
+        rejected["ammo"] = 2
+        # The request still exceeds the forged available amount, so the
+        # chronological replay—not the local field check—must reject it.
+        with self.assertRaisesRegex(
+            ValueError, "rejected shot event ammunition disagrees"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_completion_event_before_ammo_reaches_zero(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "ammo": 2, "selected": True},
+        ]))
+        snapshot["events"].append({
+            "tick": 0,
+            "event": "SHOOTER_COMPLETED",
+            "shooter_id": "a",
+        })
+        with self.assertRaisesRegex(
+            ValueError, "completion event requires zero remaining ammunition"
+        ):
+            restore_simulator(snapshot)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
