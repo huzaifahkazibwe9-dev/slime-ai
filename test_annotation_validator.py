@@ -187,6 +187,27 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("notes" in e for e in errors))
 
+    def test_empty_annotator_rejected(self):
+        data = dict(VALID)
+        data["annotator"] = ""
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotator" in e for e in errors))
+
+    def test_whitespace_only_annotator_rejected(self):
+        data = dict(VALID)
+        data["annotator"] = "   \t  "
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotator" in e for e in errors))
+
+    def test_missing_annotator_rejected(self):
+        data = dict(VALID)
+        del data["annotator"]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("annotator" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()
