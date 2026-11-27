@@ -253,6 +253,81 @@ def _validate_return_point_event_history(events):
         resolved_arrivals.add(key)
 
 
+def _validate_rotation_and_lap_history(events, config, shooter_by_id):
+    """Reconcile rotation positions and completed-lap counters with event order."""
+    last_position = {}
+    last_rotation_tick = {}
+    last_laps = {}
+    lap_history_known = set()
+    final_position_known = set()
+    final_laps_known = set()
+
+    for event in events:
+        event_type = event["event"]
+
+        if event_type == "SHOOTER_ENTERED":
+            shooter_id = event["shooter_id"]
+            last_position[shooter_id] = 0
+            final_position_known.add(shooter_id)
+            last_rotation_tick.pop(shooter_id, None)
+
+        elif event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+            for shooter_id in event["members"]:
+                last_position[shooter_id] = 0
+                final_position_known.add(shooter_id)
+                last_rotation_tick.pop(shooter_id, None)
+                last_laps[shooter_id] = 0
+                lap_history_known.add(shooter_id)
+                final_laps_known.add(shooter_id)
+
+        elif event_type == "SHOOTER_ROTATED":
+            shooter_id = event["shooter_id"]
+            position = event["position"]
+            previous_position = last_position.get(shooter_id)
+
+            if previous_position is not None:
+                expected_position = (
+                    previous_position + 1
+                ) % config.ticks_per_lap
+                if position != expected_position:
+                    raise ValueError(
+                        "rotation history does not advance exactly one position"
+                    )
+
+            previous_tick = last_rotation_tick.get(shooter_id)
+            if previous_tick is not None and event["tick"] != previous_tick + 1:
+                raise ValueError(
+                    "active shooter rotation history has a missing or repeated tick"
+                )
+
+            last_position[shooter_id] = position
+            last_rotation_tick[shooter_id] = event["tick"]
+            final_position_known.add(shooter_id)
+
+        elif event_type == "SHOOTER_CONTINUES_ROTATING":
+            shooter_id = event["shooter_id"]
+            laps = event["laps"]
+            if shooter_id in last_laps and laps != last_laps[shooter_id] + 1:
+                raise ValueError(
+                    "completed lap history must increase by exactly one"
+                )
+            last_laps[shooter_id] = laps
+            lap_history_known.add(shooter_id)
+            final_laps_known.add(shooter_id)
+
+    for shooter_id in final_position_known:
+        if shooter_by_id[shooter_id].position != last_position[shooter_id]:
+            raise ValueError(
+                "restored shooter position disagrees with rotation event history"
+            )
+
+    for shooter_id in final_laps_known:
+        if shooter_by_id[shooter_id].completed_laps != last_laps[shooter_id]:
+            raise ValueError(
+                "restored completed-lap count disagrees with event history"
+            )
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
@@ -373,6 +448,7 @@ def restore_simulator(snapshot):
         previous_tick = event_tick
 
     _validate_ammo_event_history(events, shooter_by_id)
+    _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     failure_event_indices = [
         index for index, event in enumerate(events)
