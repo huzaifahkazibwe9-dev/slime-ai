@@ -99,7 +99,8 @@ class BondedGroupReferenceCasesTests(unittest.TestCase):
                 self.assertNotIn(shooter["id"], shooter["bonded_ids"])
 
             self.assertEqual(len(shooter_ids), len(set(shooter_ids)))
-            self.assertTrue(set(case["start_shooter_id"] for _ in [0]).issubset(set(shooter_ids)))
+            self.assertIsInstance(case["start_shooter_id"], str)
+            self.assertIn(case["start_shooter_id"], shooter_ids)
             self.assertIsInstance(case["conveyor"], list)
             self.assertTrue(all(
                 isinstance(item, str) and item in shooter_ids
@@ -143,7 +144,25 @@ class BondedGroupReferenceCasesTests(unittest.TestCase):
                 expected["remaining_pixels"] + expected["pixels_removed"],
             )
             self.assertIsInstance(expected["final_board"], list)
+            self.assertEqual(len(expected["final_board"]), len(board))
+            self.assertTrue(all(
+                isinstance(row, list) and len(row) == width
+                for row in expected["final_board"]
+            ))
+            for row in expected["final_board"]:
+                for cell in row:
+                    self.assertTrue(
+                        cell is None or (
+                            isinstance(cell, str) and bool(cell.strip())
+                        )
+                    )
             self.assertIsInstance(expected["remaining_ammo"], dict)
+            self.assertTrue(all(
+                isinstance(key, str)
+                and type(value) is int
+                and value >= 0
+                for key, value in expected["remaining_ammo"].items()
+            ))
             self.assertIsInstance(expected["member_reports"], list)
             self.assertEqual(expected["shooter_ids"], sorted(expected["shooter_ids"]))
             self.assertEqual(
