@@ -119,3 +119,22 @@ These fixtures pin the current software contract; they are not captured gameplay
 
 The asymmetric case intentionally distinguishes graph discovery from permission to select: the connected component can be discovered, but a missing reciprocal edge causes validation failure and selection is refused. The fixtures are synthetic input-contract examples, not evidence about live game grouping. The maximum group size and reciprocal-link requirements are the current code contract, not claims about externally confirmed game rules.
 
+## Bonded-group selectability boundary corpus
+
+`data/bonded_group_selectability_cases.json` contains eight synthetic states
+for `GameState.can_select_group()` and `select_group()`. The cases cover a
+two-member group with one conveyor slot free, an exact-fit capacity boundary,
+a group member already in conveyor or storage, duplicate occupancy IDs within
+the conveyor and across conveyor/storage, duplicate bonded references, and a
+self-referential bond. The exact-schema table-driven test compares validation
+diagnostics, component membership and identity, selectability, selection
+results, final occupancy and source-state immutability.
+
+The direct selection helper now rejects malformed occupancy containers,
+over-capacity occupancy, unknown or repeated occupied IDs, duplicate bonded
+references and self-links. This closes a direct-call bypass where repeated
+bond metadata could pass component traversal even though `Shooter.valid()`
+and `GameState.validate()` reject it. These cases document the current
+software contract only; they are synthetic and do not verify live-game
+conveyor rules or timing. Gameplay actions remain disabled.
+
