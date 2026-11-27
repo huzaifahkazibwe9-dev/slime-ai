@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T08:51:58Z",
+  "generated_at_utc": "2026-11-27T08:59:43Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -305,6 +305,16 @@
       "unit_tests_per_python_version": 1254,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45968939375"
+    },
+    {
+      "run_number": 1221,
+      "run_id": 45969946511,
+      "pull_request": 165,
+      "branch": "add-bonded-reactivation-shot-rollback-test",
+      "commit_sha": "8830bf4b89d70a8acc89c8544588c9e5da4f5a88",
+      "unit_tests_per_python_version": 1255,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45969946511"
     }
   ],
   "superseded_failures": [
