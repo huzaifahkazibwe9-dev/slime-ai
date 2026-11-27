@@ -330,6 +330,8 @@ def restore_simulator(snapshot):
     if event_order != expected_event_order:
         raise ValueError("return event order conflicts with returned_ids")
 
+    if failed and events[-1].get("tick") != tick_count:
+        raise ValueError("failure event tick must match the final simulator tick")
     if failed and events[-1].get("reason") != failure_reason:
         raise ValueError("failure event reason does not match simulator state")
 
