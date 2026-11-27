@@ -1,0 +1,534 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic GameState selectability boundaries for conveyor capacity, current occupancy, and duplicate shooter references. These cases are code-contract tests, not live-game evidence.",
+  "cases": [
+    {
+      "id": "pair_group_needs_two_slots_but_only_one_is_free",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "C1",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        },
+        {
+          "id": "C2",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        },
+        {
+          "id": "C3",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        },
+        {
+          "id": "C4",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        }
+      ],
+      "conveyor": [
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [
+        "C1",
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "expected_storage_after_selection": []
+    },
+    {
+      "id": "pair_group_fits_exactly_two_free_slots",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "C1",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        },
+        {
+          "id": "C2",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        },
+        {
+          "id": "C3",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        }
+      ],
+      "conveyor": [
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": true,
+      "expected_selection_succeeds": true,
+      "expected_conveyor_after_selection": [
+        "C1",
+        "C2",
+        "C3",
+        "A",
+        "B"
+      ],
+      "expected_storage_after_selection": []
+    },
+    {
+      "id": "bonded_member_already_on_conveyor",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        }
+      ],
+      "conveyor": [
+        "A"
+      ],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [
+        "A"
+      ],
+      "expected_storage_after_selection": []
+    },
+    {
+      "id": "bonded_member_already_in_storage",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "storage": [
+        "B"
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [],
+      "expected_storage_after_selection": [
+        "B"
+      ]
+    },
+    {
+      "id": "duplicate_conveyor_occupancy_reference",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "C1",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        }
+      ],
+      "conveyor": [
+        "C1",
+        "C1"
+      ],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "A shooter occupies multiple positions"
+      ],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [
+        "C1",
+        "C1"
+      ],
+      "expected_storage_after_selection": []
+    },
+    {
+      "id": "duplicate_reference_across_conveyor_and_storage",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "C1",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": null,
+          "bonded_ids": []
+        }
+      ],
+      "conveyor": [
+        "C1"
+      ],
+      "storage": [
+        "C1"
+      ],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "A shooter occupies multiple positions"
+      ],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [
+        "C1"
+      ],
+      "expected_storage_after_selection": [
+        "C1"
+      ]
+    },
+    {
+      "id": "repeated_bonded_shooter_reference",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "B",
+            "B"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": false,
+          "group_id": "PAIR",
+          "bonded_ids": [
+            "A"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Invalid shooter: A"
+      ],
+      "expected_group": [
+        "A",
+        "B"
+      ],
+      "expected_group_id": "PAIR",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [],
+      "expected_storage_after_selection": []
+    },
+    {
+      "id": "self_referential_bonded_shooter_reference",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 3,
+          "direction": "up",
+          "x": 0,
+          "y": 0,
+          "accessible": true,
+          "group_id": null,
+          "bonded_ids": [
+            "A"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "storage": [],
+      "start_shooter_id": "A",
+      "expected_validation_errors": [
+        "Invalid shooter: A"
+      ],
+      "expected_group": [
+        "A"
+      ],
+      "expected_group_id": "A",
+      "expected_selectable": false,
+      "expected_selection_succeeds": false,
+      "expected_conveyor_after_selection": [],
+      "expected_storage_after_selection": []
+    }
+  ]
+}
