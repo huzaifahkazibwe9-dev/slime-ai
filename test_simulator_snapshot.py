@@ -700,6 +700,42 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.events, sim.events)
 
 
+    def _continuation_history_fixture(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 4, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.record_shots("a", 1))
+        self.assertTrue(sim.tick(1))
+        return sim
+
+    def test_round_trip_validates_ammunition_on_continuation_events(self):
+        sim = self._continuation_history_fixture()
+        continued = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual(
+            [4, 3], [event["ammo_remaining"] for event in continued]
+        )
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_continuation_ammo_inconsistent_with_prior_history(self):
+        for event_index, incorrect_ammo in ((0, 3), (1, 4)):
+            snapshot = snapshot_simulator(self._continuation_history_fixture())
+            continued = [
+                event for event in snapshot["events"]
+                if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+            ]
+            continued[event_index]["ammo_remaining"] = incorrect_ammo
+            with self.subTest(event_index=event_index), self.assertRaisesRegex(
+                ValueError, "continuation event ammunition"
+            ):
+                restore_simulator(snapshot)
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},
