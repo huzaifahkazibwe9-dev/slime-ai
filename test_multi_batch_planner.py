@@ -109,7 +109,7 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(r["schedule_valid"])
         self.assertEqual(
             r["batch_reports"][-1]["reason"],
-            "INSUFFICIENT_CONVEYOR_SPACE_FOR_BATCH_TRANSITION",
+            "INSUFFICIENT_CONVEYOR_SPACE_FOR_REACTIVATION",
         )
         self.assertEqual(r["returned_shooters"], ["A1", "A2", "B1", "B2"])
 
