@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T09:06:24Z",
+  "generated_at_utc": "2026-11-27T10:00:25Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -325,6 +325,16 @@
       "unit_tests_per_python_version": 1256,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45970848811"
+    },
+    {
+      "run_number": 1240,
+      "run_id": 45978358624,
+      "pull_request": 165,
+      "branch": "add-bonded-reactivation-shot-rollback-test",
+      "commit_sha": "901a6b68ebc5d83055e6e5d764661b363fdb6241",
+      "unit_tests_per_python_version": 1262,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45978358624"
     }
   ],
   "superseded_failures": [
@@ -375,6 +385,15 @@
       "branch": "add-bonded-checkpoint-resume-rollback-tests",
       "conclusion": "failure",
       "resolution": "The new checkpoint-resume equivalence case incorrectly assumed the final simulator event would be a storage-return event. The scheduler correctly appended a later rotation event for another active shooter. The test was corrected to assert the ordered bonded return events directly; run #1206 passed."
+    },
+    {
+      "run_number": 1237,
+      "run_id": 45978178301,
+      "pull_request": 165,
+      "branch": "add-bonded-reactivation-shot-rollback-test",
+      "commit_sha": "575dafa67194b577dd4ffd6c30110d5579887d90",
+      "conclusion": "failure",
+      "resolution": "The event payload validator initially changed established storage-history error messages, causing five diagnostic-regex test failures. Validation was adjusted to preserve the established diagnostics while retaining strict payload checks; run #1240 passed."
     }
   ]
 }
