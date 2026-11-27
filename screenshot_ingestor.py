@@ -2,8 +2,10 @@
 import argparse
 import colorsys
 import hashlib
+import io
 import json
 import math
+import os
 import statistics
 import time
 
@@ -55,13 +57,18 @@ def median_rgb(img, x, y):
     )
 
 
-def extract_board(image_path, calibration):
+def extract_board(image_source, calibration):
+    """Extract a board from a path or an immutable screenshot byte snapshot."""
     started = time.perf_counter()
-    image_path = Path(image_path)
-    if not image_path.is_file():
-        raise FileNotFoundError(image_path)
+    if isinstance(image_source, (bytes, bytearray, memoryview)):
+        image_source = io.BytesIO(bytes(image_source))
+    else:
+        image_path = Path(image_source)
+        if not image_path.is_file():
+            raise FileNotFoundError(image_path)
+        image_source = image_path
 
-    with Image.open(image_path) as original:
+    with Image.open(image_source) as original:
         img = original.convert("RGB")
         width, height = img.size
 
@@ -196,15 +203,32 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
     if not isinstance(baseline, dict):
         raise ValueError("Calibration must be a JSON object")
 
-    # Hash exact bytes, not a perceptual approximation. Calibration is
-    # fingerprinted separately so any edit invalidates cached extraction.
-    digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    # Read once and bind hashing, dimensions, EXIF, and pixel extraction to
+    # the exact same immutable byte snapshot. Detect writes during the read.
+    with image_path.open("rb") as source_file:
+        stat_before = os.fstat(source_file.fileno())
+        source_bytes = source_file.read()
+        stat_after = os.fstat(source_file.fileno())
+
+    if (
+        stat_before.st_dev != stat_after.st_dev
+        or stat_before.st_ino != stat_after.st_ino
+        or stat_before.st_size != stat_after.st_size
+        or stat_before.st_mtime_ns != stat_after.st_mtime_ns
+        or stat_before.st_ctime_ns != stat_after.st_ctime_ns
+        or len(source_bytes) != stat_after.st_size
+    ):
+        raise RuntimeError(
+            "Screenshot changed while it was being read; retry with a stable file"
+        )
+
+    digest = hashlib.sha256(source_bytes).hexdigest()
     calibration_bytes = json.dumps(
         baseline, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode("utf-8")
     calibration_digest = hashlib.sha256(calibration_bytes).hexdigest()
 
-    with Image.open(image_path) as source_image:
+    with Image.open(io.BytesIO(source_bytes)) as source_image:
         image_size = source_image.size
 
     cached = None
@@ -226,12 +250,11 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         extracted["processing_seconds"] = 0.0
         cache_status = "EXACT_MATCH_REUSED"
     else:
-        extracted = extract_board(image_path, baseline)
+        extracted = extract_board(source_bytes, baseline)
         cache_status = "FULL_ANALYSIS"
 
-    stat = image_path.stat()
     file_time = datetime.fromtimestamp(
-        stat.st_mtime, timezone.utc
+        stat_after.st_mtime, timezone.utc
     ).isoformat()
 
     from capture_provenance import (
@@ -239,7 +262,7 @@ def ingest(image_path, baseline_path=BASELINE, output_path=OUTPUT, capture_sessi
         parse_exif_capture_time,
         validate_capture_session_id,
     )
-    with Image.open(image_path) as img:
+    with Image.open(io.BytesIO(source_bytes)) as img:
         exif_time = parse_exif_capture_time(img.getexif())
     exif_time = (
         parse_aware_capture_timestamp(captured_at)
