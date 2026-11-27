@@ -817,7 +817,11 @@ class SimulatorSnapshotTests(unittest.TestCase):
             event for event in snapshot["events"]
             if event["event"] == "SHOOTER_CONTINUES_ROTATING"
         )
-        snapshot["events"].append(copy.deepcopy(continuation))
+        continuation_index = snapshot["events"].index(continuation)
+        snapshot["events"].insert(
+            continuation_index + 1,
+            copy.deepcopy(continuation),
+        )
 
         with self.assertRaisesRegex(
             ValueError, "duplicate return-point arrival resolution"
