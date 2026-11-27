@@ -150,8 +150,20 @@ def restore_simulator(snapshot):
         if event_type not in SUPPORTED_EVENT_TYPES:
             raise ValueError("snapshot contains an unsupported event type")
         previous_tick = event_tick
-    if not failed and events and events[-1].get("event") == "LEVEL_FAILURE":
-        raise ValueError("non-failed snapshot cannot end with LEVEL_FAILURE")
+    failure_event_indices = [
+        index for index, event in enumerate(events)
+        if event.get("event") == "LEVEL_FAILURE"
+    ]
+    if failed:
+        if (len(failure_event_indices) != 1
+                or failure_event_indices[0] != len(events) - 1):
+            raise ValueError(
+                "failed snapshot must contain exactly one final LEVEL_FAILURE event"
+            )
+    elif failure_event_indices:
+        raise ValueError(
+            "non-failed snapshot cannot contain a LEVEL_FAILURE event"
+        )
 
     returned_ids = snapshot.get("returned_ids")
     if not isinstance(returned_ids, list) or any(
@@ -318,8 +330,6 @@ def restore_simulator(snapshot):
     if event_order != expected_event_order:
         raise ValueError("return event order conflicts with returned_ids")
 
-    if failed and (not events or events[-1].get("event") != "LEVEL_FAILURE"):
-        raise ValueError("failed snapshot must end with a LEVEL_FAILURE event")
     if failed and events[-1].get("reason") != failure_reason:
         raise ValueError("failure event reason does not match simulator state")
 
