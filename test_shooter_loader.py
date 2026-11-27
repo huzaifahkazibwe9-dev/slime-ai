@@ -300,5 +300,56 @@ class ShooterLoaderStructureTests(unittest.TestCase):
         }
         self.assertEqual(set(self.load_payload(payload)), {"A"})
 
+
+    def test_actual_level39_fixture_loads_four_visible_shooters(self):
+        shooters = load_shooters()
+        self.assertEqual(set(shooters), {"top_1", "top_2", "top_3", "top_4"})
+        self.assertEqual(
+            {key: (value.color, value.ammo) for key, value in shooters.items()},
+            {
+                "top_1": ("white", 40),
+                "top_2": ("cyan", 40),
+                "top_3": ("magenta", 20),
+                "top_4": ("brown", 20),
+            },
+        )
+
+    def test_actual_level39_bonded_groups_are_reciprocal_and_explicit(self):
+        shooters = load_shooters()
+        self.assertEqual(shooters["top_1"].group_id, "bond_1")
+        self.assertEqual(shooters["top_2"].group_id, "bond_1")
+        self.assertEqual(shooters["top_3"].group_id, "bond_2")
+        self.assertEqual(shooters["top_4"].group_id, "bond_2")
+        self.assertEqual(shooters["top_1"].bonded_ids, ["top_2"])
+        self.assertEqual(shooters["top_2"].bonded_ids, ["top_1"])
+        self.assertEqual(shooters["top_3"].bonded_ids, ["top_4"])
+        self.assertEqual(shooters["top_4"].bonded_ids, ["top_3"])
+
+    def test_actual_level39_panel_coordinates_do_not_become_conveyor_coordinates(self):
+        shooters = load_shooters()
+        self.assertEqual(shooters["top_1"].panel_center, (181, 118))
+        self.assertEqual(shooters["top_2"].panel_center, (340, 118))
+        self.assertEqual(shooters["top_3"].panel_center, (505, 118))
+        self.assertEqual(shooters["top_4"].panel_center, (667, 118))
+        for shooter in shooters.values():
+            with self.subTest(shooter=shooter.id):
+                self.assertIsNone(shooter.screen_center)
+                self.assertIsNone(shooter.screen_box)
+                self.assertFalse(shooter.screen_center_verified)
+                self.assertFalse(shooter.accessible)
+
+    def test_actual_level39_unrevealed_and_occluded_slots_stay_unknown(self):
+        detection = json.loads(Path("data/shooter_detection.json").read_text())
+        self.assertEqual(len(detection["unrevealed_shooters"]), 4)
+        self.assertTrue(all(
+            item["color"] is None and item["ammo"] is None
+            and item["status"] == "unrevealed"
+            for item in detection["unrevealed_shooters"]
+        ))
+        self.assertEqual(detection["lower_shooters"]["status"], "partially_occluded")
+        self.assertIsNone(detection["lower_shooters"]["color"])
+        self.assertIsNone(detection["lower_shooters"]["ammo"])
+        self.assertEqual(set(load_shooters()), {"top_1", "top_2", "top_3", "top_4"})
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
