@@ -52,5 +52,19 @@ class BondedGroupIntegrityTests(unittest.TestCase):
         self.assertTrue(any("Unknown bonded shooter" in e for e in state.validate()))
 
 
+    def test_asymmetric_bond_is_reported_as_error(self):
+        a = Shooter("A", "red", 1, accessible=True, bonded_ids=["B"])
+        b = Shooter("B", "blue", 1, bonded_ids=[])
+        state = GameState(board=[["red"]], shooters={"A": a, "B": b})
+        errors = state.validate()
+        self.assertTrue(
+            any("Asymmetric bond: A and B" in error for error in errors),
+            errors,
+        )
+        # Direct group construction still sees the one-way link; higher gates
+        # must reject via validate() before any selection is accepted.
+        self.assertEqual(state.bonded_group("A"), ["A", "B"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

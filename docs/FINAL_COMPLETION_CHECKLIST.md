@@ -2,7 +2,7 @@
 
 Repository: huzaifahkazibwe9-dev/slime-ai  
 Branch: reliability-offline-hardening-2026-11  
-Last updated: 2026-11-26
+Last updated: 2026-11-27
 
 Status values: `NOT_STARTED` | `IN_PROGRESS` | `BLOCKED` | `VERIFIED`
 
@@ -64,6 +64,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 - Subsystem: Conveyor
 - Status: **IN_PROGRESS**
 - Remaining: more mismatched-evidence fail-closed tests
+- Recent: asymmetric bonded-shooter pairs now have an explicit regression assertion in GameState.validate
 
 ### PLAN-001 — Planning gate evidence enforcement
 - Subsystem: Planning
