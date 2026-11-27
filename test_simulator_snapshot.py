@@ -1117,6 +1117,82 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ):
             restore_simulator(snapshot)
 
+
+    def _bonded_rotation_fixture(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 2, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=2,
+            ),
+        )
+        self.assertTrue(sim.tick(1))
+        return sim
+
+    def test_round_trip_preserves_same_tick_bonded_group_rotation(self):
+        sim = self._bonded_rotation_fixture()
+        rotations = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_ROTATED"
+        ]
+        self.assertEqual(
+            {(event["shooter_id"], event["tick"]) for event in rotations},
+            {("a1", 1), ("a2", 1)},
+        )
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_bonded_group_rotation_missing_member(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if not (
+                event["event"] == "SHOOTER_ROTATED"
+                and event["shooter_id"] == "a2"
+            )
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_group_rotations_split_across_ticks(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 2
+        rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["shooter_id"] == "a2"
+        )
+        rotation["tick"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_member_rotation_on_same_tick(self):
+        sim = self._bonded_rotation_fixture()
+        snapshot = snapshot_simulator(sim)
+        first_rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["shooter_id"] == "a1"
+        )
+        snapshot["events"].insert(1, copy.deepcopy(first_rotation))
+
+        with self.assertRaisesRegex(
+            ValueError, "rotation batch contains a duplicate shooter"
+        ):
+            restore_simulator(snapshot)
+
     def _bonded_waiting_fixture(self):
         sim = create_simulator(
             [

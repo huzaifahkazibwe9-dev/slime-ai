@@ -420,6 +420,33 @@ def _validate_group_entry_event_history(
             )
 
 
+def _validate_group_rotation_batches(events, group_members_by_id, shooter_by_id):
+    """Require every member of an active bonded group to rotate on the same tick."""
+    rotations_by_group_tick = {}
+
+    for event in events:
+        if event["event"] != "SHOOTER_ROTATED":
+            continue
+
+        shooter_id = event["shooter_id"]
+        group_id = shooter_by_id[shooter_id].group_id
+        key = (group_id, event["tick"])
+        rotated_ids = rotations_by_group_tick.setdefault(key, set())
+
+        if shooter_id in rotated_ids:
+            raise ValueError(
+                "bonded group rotation batch contains a duplicate shooter"
+            )
+        rotated_ids.add(shooter_id)
+
+    for (group_id, tick), rotated_ids in rotations_by_group_tick.items():
+        expected_ids = group_members_by_id[group_id]
+        if rotated_ids != expected_ids:
+            raise ValueError(
+                "bonded group rotation must include every member in the same tick"
+            )
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
@@ -722,6 +749,9 @@ def restore_simulator(snapshot):
     # specific diagnostics remain stable for bonded groups.
     _validate_return_point_event_history(events)
     _validate_group_entry_event_history(
+        events, group_members_by_id, shooter_by_id
+    )
+    _validate_group_rotation_batches(
         events, group_members_by_id, shooter_by_id
     )
     _validate_rotation_and_lap_history(events, config, shooter_by_id)
