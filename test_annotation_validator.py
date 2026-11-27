@@ -233,5 +233,38 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("maximum 3" in e for e in errors))
 
+    def test_zero_ammo_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 0}]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_empty_shooters_list_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = []
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_whitespace_only_color_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "   ", "ammo": 10}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("color" in e for e in errors))
+
+    def test_non_list_shooters_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = {"id": "s1"}
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("shooters must be a list" in e for e in errors))
+
+    def test_missing_shooters_key_rejected(self):
+        data = dict(VALID)
+        del data["shooters"]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("shooters must be a list" in e for e in errors))
+
 if __name__ == "__main__":
     unittest.main()

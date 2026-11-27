@@ -60,6 +60,8 @@ Each shooter object:
 - When `slot_index` is present it must be an integer in 0..11 and unique across all shooters in the package.
 - When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, that contain no internal duplicates, that form reciprocal pairs (if A lists B then B must list A), and that form connected components of size at most 3.
 - When `notes` is present it must be a string (empty allowed).
+- Zero ammunition is accepted. An empty `shooters` list is accepted when `human_confirmed` is true.
+- Whitespace-only colour values are rejected. The `shooters` field must be a list (missing or non-list values are rejected).
 - No field may be auto-filled by code; the validator only accepts or rejects.
 
 ## Status
