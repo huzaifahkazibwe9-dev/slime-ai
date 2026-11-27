@@ -127,6 +127,46 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.storage_occupied, 5)
         self.assertEqual(restored.events, sim.events)
 
+    def test_round_trip_preserves_bonded_returns_before_later_group_tick_failure(self):
+        sim = create_simulator(
+            [
+                {"id": "pair-a", "group_id": "PAIR", "ammo": 0},
+                {"id": "pair-b", "group_id": "PAIR", "ammo": 0},
+                {"id": "solo", "group_id": "SOLO", "ammo": 0},
+            ],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=3, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.select_group("SOLO"))
+        self.assertFalse(sim.tick(1))
+
+        self.assertTrue(sim.failed)
+        self.assertEqual(sim.returned_ids, ["pair-a", "pair-b"])
+        self.assertEqual(sim.storage_occupied, 3)
+        self.assertEqual(sim.tick_count, 1)
+        return_events = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        self.assertEqual(
+            [event["shooter_id"] for event in return_events],
+            ["pair-a", "pair-b"],
+        )
+        self.assertEqual(sim.events[-1]["event"], "LEVEL_FAILURE")
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertTrue(restored.failed)
+        self.assertEqual(restored.failure_reason, sim.failure_reason)
+        self.assertEqual(restored.tick_count, sim.tick_count)
+        self.assertEqual(restored.returned_ids, sim.returned_ids)
+        self.assertEqual(restored.storage_occupied, sim.storage_occupied)
+        self.assertEqual(restored.events, sim.events)
+        self.assertEqual(
+            [(s.shooter_id, s.selected, s.returned) for s in restored.shooters],
+            [(s.shooter_id, s.selected, s.returned) for s in sim.shooters],
+        )
+
     def test_snapshot_is_detached_from_later_mutations(self):
         sim = create_simulator([{"id": "a", "ammo": 3}])
         snapshot = snapshot_simulator(sim)
@@ -510,10 +550,53 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
-    def test_rejects_nonfailed_snapshot_ending_in_failure_event(self):
+    def test_rejects_failure_event_inside_nonfailed_snapshot_history(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
-        snapshot["events"] = [{"tick": 0, "event": "LEVEL_FAILURE", "reason": "x"}]
-        with self.assertRaises(ValueError):
+        snapshot["events"] = [
+            {"tick": 0, "event": "LEVEL_FAILURE", "reason": "premature"},
+            {"tick": 0, "event": "SHOOTER_ENTERED",
+             "shooter_id": "a", "group_id": "a", "position": 0},
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "non-failed snapshot cannot contain a LEVEL_FAILURE event"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_or_nonterminal_failure_event(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertFalse(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        self.assertTrue(snapshot["failed"])
+        snapshot["events"].insert(
+            len(snapshot["events"]) - 1,
+            copy.deepcopy(snapshot["events"][-1]),
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "failed snapshot must contain exactly one final LEVEL_FAILURE event",
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_failure_event_tick_before_final_simulator_tick(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertFalse(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        self.assertTrue(snapshot["failed"])
+        self.assertGreater(snapshot["tick_count"], 0)
+        snapshot["tick_count"] += 1
+        with self.assertRaisesRegex(
+            ValueError, "failure event tick must match the final simulator tick"
+        ):
             restore_simulator(snapshot)
 
     def test_rejects_failed_flag_without_failure_reason(self):
@@ -538,6 +621,83 @@ class SimulatorSnapshotTests(unittest.TestCase):
             snapshot[key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):
                 restore_simulator(snapshot)
+
+
+
+    def test_rejects_event_missing_required_payload_field(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {"tick": 0, "event": "SHOOTER_ROTATED", "shooter_id": "a"}
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "SHOOTER_ROTATED event is missing required fields: position"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_boolean_event_position(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": True,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "invalid position"):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_position_outside_configured_lap(self):
+        snapshot = snapshot_simulator(create_simulator(
+            [{"id": "a", "ammo": 3}],
+            config=SimulatorConfig(ticks_per_lap=2),
+        ))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": 2,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "position is outside the lap"):
+            restore_simulator(snapshot)
+
+    def test_rejects_event_group_that_conflicts_with_shooter(self):
+        snapshot = snapshot_simulator(create_simulator([
+            {"id": "a", "group_id": "PAIR", "ammo": 3}
+        ]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ENTERED",
+                "shooter_id": "a",
+                "group_id": "OTHER",
+                "position": 0,
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "group does not match shooter"):
+            restore_simulator(snapshot)
+
+    def test_rejects_unexpected_event_payload_fields(self):
+        snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
+        snapshot["events"] = [
+            {
+                "tick": 0,
+                "event": "SHOOTER_ROTATED",
+                "shooter_id": "a",
+                "position": 0,
+                "unreviewed_metadata": "not part of schema",
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "unsupported fields"):
+            restore_simulator(snapshot)
+
+    def test_round_trip_preserves_selection_rejection_for_unknown_group(self):
+        sim = create_simulator([{"id": "a", "ammo": 3}])
+        self.assertFalse(sim.select_group("missing"))
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
 
 
 if __name__ == "__main__":

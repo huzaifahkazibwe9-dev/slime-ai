@@ -42,6 +42,125 @@ def _require_json_compatible(value):
         raise ValueError("snapshot data would change during JSON serialization")
 
 
+def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
+    """Validate the versioned payload schema for one simulator event."""
+    event_type = event["event"]
+    schemas = {
+        "AMMO_UPDATED": ({"shooter_id", "shots_recorded", "ammo_remaining"}, set()),
+        "GROUP_REACTIVATED_FROM_STORAGE": (
+            {"group_id", "members", "storage_occupied"}, set()
+        ),
+        "LEVEL_FAILURE": ({"reason"}, set()),
+        "SELECTION_REJECTED": (
+            {"group_id", "reason"}, {"group_size", "free_slots"}
+        ),
+        "SHOOTER_COMPLETED": ({"shooter_id"}, set()),
+        "SHOOTER_CONTINUES_ROTATING": (
+            {"shooter_id", "laps", "ammo_remaining"}, set()
+        ),
+        "SHOOTER_ENTERED": ({"shooter_id", "group_id", "position"}, set()),
+        "SHOOTER_RETURNED_TO_STORAGE": (
+            {"shooter_id", "storage_occupied", "storage_free"}, set()
+        ),
+        "SHOOTER_ROTATED": ({"shooter_id", "position"}, set()),
+        "SHOOTER_WAITING_FOR_BONDED_GROUP": (
+            {"shooter_id", "group_id"}, set()
+        ),
+        "SHOT_RECORD_REJECTED": (
+            {"shooter_id", "requested", "ammo"}, set()
+        ),
+        "STORAGE_REACTIVATION_REJECTED": ({"group_id", "reason"}, set()),
+    }
+    required, optional = schemas[event_type]
+    allowed = {"tick", "event"} | required | optional
+    missing = required - set(event)
+    unexpected = set(event) - allowed
+    if missing:
+        raise ValueError(
+            event_type + " event is missing required fields: "
+            + ", ".join(sorted(missing))
+        )
+    if unexpected:
+        raise ValueError(
+            event_type + " event contains unsupported fields: "
+            + ", ".join(sorted(unexpected))
+        )
+
+    def require_string(field):
+        value = event[field]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(event_type + " event has invalid " + field)
+
+    def require_integer(field, minimum=0):
+        value = event[field]
+        if type(value) is not int or value < minimum:
+            raise ValueError(event_type + " event has invalid " + field)
+
+    if "shooter_id" in required:
+        require_string("shooter_id")
+        shooter = shooter_by_id.get(event["shooter_id"])
+        if shooter is None:
+            raise ValueError("event references an unknown shooter")
+    else:
+        shooter = None
+
+    for field in ("group_id", "reason"):
+        if field in required:
+            require_string(field)
+
+    if event_type in {
+        "SHOOTER_ENTERED", "SHOOTER_WAITING_FOR_BONDED_GROUP"
+    } and event["group_id"] != shooter.group_id:
+        raise ValueError(event_type + " event group does not match shooter")
+
+    if event_type in {"SHOOTER_ENTERED", "SHOOTER_ROTATED"}:
+        require_integer("position")
+        if event["position"] >= config.ticks_per_lap:
+            raise ValueError(event_type + " event position is outside the lap")
+
+    if event_type == "AMMO_UPDATED":
+        require_integer("shots_recorded")
+        require_integer("ammo_remaining")
+    elif event_type == "GROUP_REACTIVATED_FROM_STORAGE":
+        members = event["members"]
+        if (not isinstance(members, list) or not members
+                or any(not isinstance(member, str) or not member.strip()
+                       for member in members)
+                or len(members) != len(set(members))):
+            raise ValueError(
+                "reactivation event must list its group members as unique non-empty strings"
+            )
+        if set(members) != group_members_by_id.get(event["group_id"], set()):
+            raise ValueError("reactivation event must contain the complete group")
+        require_integer("storage_occupied")
+        if event["storage_occupied"] > config.storage_capacity:
+            raise ValueError("reactivation event storage occupancy is out of range")
+    elif event_type == "SELECTION_REJECTED":
+        present = {"group_size", "free_slots"} & set(event)
+        if present and present != {"group_size", "free_slots"}:
+            raise ValueError("selection rejection capacity fields must appear together")
+        if present:
+            require_integer("group_size", 1)
+            require_integer("free_slots")
+            if event["group_size"] <= event["free_slots"]:
+                raise ValueError("selection rejection capacity values are inconsistent")
+    elif event_type == "SHOOTER_CONTINUES_ROTATING":
+        require_integer("laps", 1)
+        require_integer("ammo_remaining", 1)
+    elif event_type == "SHOOTER_RETURNED_TO_STORAGE":
+        if (type(event["storage_occupied"]) is not int
+                or event["storage_occupied"] < 1):
+            raise ValueError("invalid storage occupancy in return event")
+        if (type(event["storage_free"]) is not int
+                or event["storage_free"] < 0):
+            raise ValueError("return event storage_free is inconsistent")
+    elif event_type == "SHOT_RECORD_REJECTED":
+        require_integer("requested")
+        require_integer("ammo")
+        if event["requested"] <= event["ammo"]:
+            raise ValueError("rejected shot count must exceed available ammunition")
+
+
 def snapshot_simulator(sim):
     """Return a detached JSON-compatible snapshot of a simulator."""
     if not isinstance(sim, ConveyorSimulator):
@@ -121,6 +240,13 @@ def restore_simulator(snapshot):
     except (TypeError, ValueError, KeyError) as exc:
         raise ValueError("invalid restored shooter state: " + str(exc)) from exc
 
+    shooter_by_id = {shooter.shooter_id: shooter for shooter in sim.shooters}
+    group_members_by_id = {}
+    for shooter in sim.shooters:
+        group_members_by_id.setdefault(shooter.group_id, set()).add(
+            shooter.shooter_id
+        )
+
     tick_count = snapshot.get("tick_count")
     if type(tick_count) is not int or tick_count < 0:
         raise ValueError("tick_count must be a non-negative integer")
@@ -149,9 +275,24 @@ def restore_simulator(snapshot):
             raise ValueError("event has invalid or out-of-order tick/type")
         if event_type not in SUPPORTED_EVENT_TYPES:
             raise ValueError("snapshot contains an unsupported event type")
+        _validate_event_payload(
+            event, config, shooter_by_id, group_members_by_id
+        )
         previous_tick = event_tick
-    if not failed and events and events[-1].get("event") == "LEVEL_FAILURE":
-        raise ValueError("non-failed snapshot cannot end with LEVEL_FAILURE")
+    failure_event_indices = [
+        index for index, event in enumerate(events)
+        if event.get("event") == "LEVEL_FAILURE"
+    ]
+    if failed:
+        if (len(failure_event_indices) != 1
+                or failure_event_indices[0] != len(events) - 1):
+            raise ValueError(
+                "failed snapshot must contain exactly one final LEVEL_FAILURE event"
+            )
+    elif failure_event_indices:
+        raise ValueError(
+            "non-failed snapshot cannot contain a LEVEL_FAILURE event"
+        )
 
     returned_ids = snapshot.get("returned_ids")
     if not isinstance(returned_ids, list) or any(
@@ -165,15 +306,10 @@ def restore_simulator(snapshot):
             or set(returned_ids) != returned_from_shooters):
         raise ValueError("returned_ids do not match returned shooter flags")
 
-    known_shooter_ids = {shooter.shooter_id for shooter in sim.shooters}
+    known_shooter_ids = set(shooter_by_id)
     shooter_group_by_id = {
         shooter.shooter_id: shooter.group_id for shooter in sim.shooters
     }
-    group_members_by_id = {}
-    for shooter in sim.shooters:
-        group_members_by_id.setdefault(shooter.group_id, set()).add(
-            shooter.shooter_id
-        )
     initial_storage = snapshot.get("initial_storage_occupied")
     if (type(initial_storage) is not int
             or not 0 <= initial_storage <= config.storage_capacity):
@@ -318,8 +454,8 @@ def restore_simulator(snapshot):
     if event_order != expected_event_order:
         raise ValueError("return event order conflicts with returned_ids")
 
-    if failed and (not events or events[-1].get("event") != "LEVEL_FAILURE"):
-        raise ValueError("failed snapshot must end with a LEVEL_FAILURE event")
+    if failed and events[-1].get("tick") != tick_count:
+        raise ValueError("failure event tick must match the final simulator tick")
     if failed and events[-1].get("reason") != failure_reason:
         raise ValueError("failure event reason does not match simulator state")
 
