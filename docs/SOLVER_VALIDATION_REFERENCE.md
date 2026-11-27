@@ -138,3 +138,28 @@ and `GameState.validate()` reject it. These cases document the current
 software contract only; they are synthetic and do not verify live-game
 conveyor rules or timing. Gameplay actions remain disabled.
 
+## Bonded-group storage transition boundaries
+
+The low-level `GameState.can_return_from_storage()` and
+`transfer_from_storage()` helpers now treat a bonded component as one
+indivisible storage-to-conveyor transition. A transfer is allowed only when
+every member is present in storage, the component links and group identity are
+consistent, occupancy IDs are known and unique, container capacities are
+valid, and the conveyor has room for the entire component. A successful
+transfer moves all members in stable order and resets each member's
+`rotation_progress`; rejected operations leave the state unchanged.
+
+`test_game_state_storage_transitions.py` covers exact-fit and one-slot-short
+conveyor capacity, partially stored groups, groups split across storage and
+conveyor, duplicate storage occupancy, unbonded single-shooter compatibility
+and malformed shooter identifiers. `test_conveyor_simulator.py` adds exact-fit
+and insufficient storage return cases, plus no-mutation checks for
+reactivation when conveyor space or recorded storage occupancy is insufficient.
+`test_multi_batch_planner.py` covers whole-batch preflight when a returned
+pair needs two conveyor slots but only one remains.
+
+These are synthetic state-transition contract tests. They do not establish
+live-game storage capacity, timing or reactivation rules; real device evidence
+and independent mechanics review remain outstanding. All transitions remain
+offline simulations; live actions stay disabled.
+
