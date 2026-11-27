@@ -54,6 +54,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added fail-closed regression test: coordinate() leaves no artefacts on invalid capture_session_id
 - Added human-review annotation schema and fail-closed validator (`docs/SHOOTER_ANNOTATION_SCHEMA.md`, `annotation_validator.py`)
 - Strengthened annotation validator: unique shooter IDs, range-checked and unique optional slot_index, and bonded_ids that reject self-references, unknown IDs, and internal duplicates
+- Annotation validator now requires optional notes field to be a string when present
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Remaining work:
@@ -81,6 +82,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~70%**
+Approximate offline-completable progress: **~71%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

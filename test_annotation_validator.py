@@ -161,6 +161,32 @@ class AnnotationValidatorTests(unittest.TestCase):
         ok, errors = validate_annotation(data)
         self.assertTrue(ok, errors)
 
+    def test_notes_string_accepted(self):
+        data = dict(VALID)
+        data["notes"] = "human observation"
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_notes_empty_string_accepted(self):
+        data = dict(VALID)
+        data["notes"] = ""
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_notes_non_string_rejected(self):
+        data = dict(VALID)
+        data["notes"] = 123
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("notes" in e for e in errors))
+
+    def test_notes_none_rejected(self):
+        data = dict(VALID)
+        data["notes"] = None
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("notes" in e for e in errors))
+
 
 if __name__ == "__main__":
     unittest.main()

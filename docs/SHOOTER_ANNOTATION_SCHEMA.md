@@ -59,6 +59,7 @@ Each shooter object:
 - Shooter IDs must be unique.
 - When `slot_index` is present it must be an integer in 0..11 and unique across all shooters in the package.
 - When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself, that refer only to other shooters listed in the same package, and that contain no internal duplicates.
+- When `notes` is present it must be a string (empty allowed).
 - No field may be auto-filled by code; the validator only accepts or rejects.
 
 ## Status

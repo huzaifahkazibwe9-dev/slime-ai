@@ -63,6 +63,10 @@ def validate_annotation(data):
     if data.get("human_confirmed") is not True:
         errors.append("human_confirmed must be exactly boolean true")
 
+    # Optional notes: if present, must be a string
+    if "notes" in data and not isinstance(data["notes"], str):
+        errors.append("notes must be a string when present")
+
     shooters = data.get("shooters")
     if not isinstance(shooters, list):
         errors.append("shooters must be a list")
