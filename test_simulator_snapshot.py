@@ -1057,6 +1057,80 @@ class SimulatorSnapshotTests(unittest.TestCase):
         ]
         self.assertEqual([event["tick"] for event in entry_events], [0, 0, 1, 1])
 
+
+    def _bonded_waiting_fixture(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+        self.assertTrue(sim.tick(1))
+        return sim
+
+    def test_round_trip_preserves_valid_bonded_wait_and_continuation(self):
+        sim = self._bonded_waiting_fixture()
+        waiting = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_WAITING_FOR_BONDED_GROUP"
+        ]
+        continuing = [
+            event for event in sim.events
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        ]
+        self.assertEqual(len(waiting), 1)
+        self.assertEqual(len(continuing), 1)
+        self.assertEqual(waiting[0]["tick"], continuing[0]["tick"])
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+
+    def test_rejects_bonded_wait_when_no_member_has_remaining_ammunition(self):
+        sim = create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": True},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0, "selected": True},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"] = [
+            {"tick": 1, "event": "SHOOTER_ROTATED",
+             "shooter_id": "a1", "position": 0},
+            {"tick": 1, "event": "SHOOTER_ROTATED",
+             "shooter_id": "a2", "position": 0},
+            {"tick": 1, "event": "SHOOTER_WAITING_FOR_BONDED_GROUP",
+             "shooter_id": "a1", "group_id": "PAIR"},
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "waiting event requires another bonded member with ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_wait_without_same_tick_mate_continuation(self):
+        sim = self._bonded_waiting_fixture()
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if event["event"] != "SHOOTER_CONTINUES_ROTATING"
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "waiting event requires a bonded member to continue rotating",
+        ):
+            restore_simulator(snapshot)
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},

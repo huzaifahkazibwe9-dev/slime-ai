@@ -161,7 +161,7 @@ def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
             raise ValueError("rejected shot count must exceed available ammunition")
 
 
-def _validate_ammo_event_history(events, shooter_by_id):
+def _validate_ammo_event_history(events, shooter_by_id, group_members_by_id):
     """Replay ammunition events and reconcile them with restored shooter state.
 
     The initial ammunition for each shooter is inferred from its saved remaining
@@ -169,6 +169,11 @@ def _validate_ammo_event_history(events, shooter_by_id):
     must then agree with that reconstructed history.
     """
     recorded_shots = {shooter_id: 0 for shooter_id in shooter_by_id}
+    continuations_by_tick = {
+        (event["tick"], event["shooter_id"])
+        for event in events
+        if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+    }
     for event in events:
         if event["event"] == "AMMO_UPDATED":
             recorded_shots[event["shooter_id"]] += event["shots_recorded"]
@@ -213,6 +218,24 @@ def _validate_ammo_event_history(events, shooter_by_id):
             if ammo_by_id[shooter_id] != 0:
                 raise ValueError(
                     "waiting event requires zero remaining ammunition"
+                )
+
+            group_id = shooter_by_id[shooter_id].group_id
+            bonded_members = group_members_by_id[group_id]
+            positive_mates = [
+                member_id for member_id in bonded_members
+                if member_id != shooter_id and ammo_by_id[member_id] > 0
+            ]
+            if not positive_mates:
+                raise ValueError(
+                    "waiting event requires another bonded member with ammunition"
+                )
+            if not any(
+                (event["tick"], member_id) in continuations_by_tick
+                for member_id in positive_mates
+            ):
+                raise ValueError(
+                    "waiting event requires a bonded member to continue rotating on the same tick"
                 )
         elif event_type == "SHOOTER_RETURNED_TO_STORAGE":
             if ammo_by_id[shooter_id] != 0:
@@ -495,7 +518,9 @@ def restore_simulator(snapshot):
         )
         previous_tick = event_tick
 
-    _validate_ammo_event_history(events, shooter_by_id)
+    _validate_ammo_event_history(
+        events, shooter_by_id, group_members_by_id
+    )
 
     failure_event_indices = [
         index for index, event in enumerate(events)
