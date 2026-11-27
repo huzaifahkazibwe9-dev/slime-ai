@@ -187,6 +187,25 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(any("notes" in e for e in errors))
 
+    def test_non_mutual_bond_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("not mutual" in e for e in errors))
+
+    def test_mutual_bonds_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
 
 if __name__ == "__main__":
     unittest.main()

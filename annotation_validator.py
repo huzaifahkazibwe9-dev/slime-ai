@@ -117,15 +117,29 @@ def validate_annotation(data):
                             seen_bonds.add(bond)
 
         # After collecting all IDs, verify bonded references exist (if any)
+        # and that bonds are mutual (if A lists B, B must list A).
         all_ids = {s.get("id") for s in shooters if isinstance(s, dict) and isinstance(s.get("id"), str)}
+        bond_map = {}
         for i, shooter in enumerate(shooters):
             if not isinstance(shooter, dict):
                 continue
+            shooter_id = shooter.get("id")
             bonds = shooter.get("bonded_ids")
-            if isinstance(bonds, list):
+            if isinstance(bonds, list) and isinstance(shooter_id, str):
+                bond_map[shooter_id] = set(b for b in bonds if isinstance(b, str))
                 for bond in bonds:
                     if isinstance(bond, str) and bond not in all_ids:
                         errors.append(f"shooter[{i}].bonded_ids references unknown id '{bond}'")
+
+        # Mutual bond check
+        for shooter_id, partners in bond_map.items():
+            for partner in partners:
+                partner_bonds = bond_map.get(partner, set())
+                if shooter_id not in partner_bonds:
+                    errors.append(
+                        f"bonded group is not mutual: '{shooter_id}' lists '{partner}' "
+                        f"but '{partner}' does not list '{shooter_id}'"
+                    )
 
     return len(errors) == 0, errors
 

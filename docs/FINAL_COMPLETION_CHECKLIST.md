@@ -57,7 +57,7 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 ### SHOOTER-002 — Annotation package and human-review format
 - Subsystem: Shooter validation
 - Status: **IN_PROGRESS**
-- Acceptance: Schema + instructions that do not invent labels; unique IDs; unique optional slot_index; bonded_ids constraints (no self, unknown, or duplicate references); optional notes must be a string when present
+- Acceptance: Schema + instructions that do not invent labels; unique IDs; unique optional slot_index; bonded_ids constraints (no self, unknown, or duplicate references; bonds must be mutual); optional notes must be a string when present
 - Implementation: docs/SHOOTER_ANNOTATION_SCHEMA.md + annotation_validator.py + unit tests (unique IDs, unique slots, bond uniqueness/references)
 
 ### CONVEYOR-001 — Conveyor identity and snapshot synchronization
