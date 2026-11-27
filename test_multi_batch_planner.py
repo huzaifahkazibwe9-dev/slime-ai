@@ -879,5 +879,55 @@ class MultiBatchTests(unittest.TestCase):
         self.assertFalse(result["live_execution_allowed"])
         self.assertFalse(result["gameplay_actions_performed"])
 
+
+    def test_bonded_tick_failure_preserves_prior_same_tick_events(self):
+        records = [
+            {"id": "A1", "group_id": "PAIR", "ammo": 0},
+            {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            {"id": "C", "group_id": "C", "ammo": 0},
+            {"id": "D", "group_id": "D", "ammo": 0},
+            {"id": "E1", "group_id": "TRIPLE", "ammo": 0},
+            {"id": "E2", "group_id": "TRIPLE", "ammo": 0},
+            {"id": "E3", "group_id": "TRIPLE", "ammo": 0},
+        ]
+        batches = [
+            {"groups": ["PAIR"], "shots": {"A1": 0, "A2": 0}},
+            {"groups": ["C"], "shots": {"C": 0}},
+            {"groups": ["D"], "shots": {"D": 0}},
+            {
+                "groups": ["PAIR", "TRIPLE"],
+                "reactivate_groups": ["PAIR"],
+                "shots": {"A1": 0, "A2": 0, "E1": 0, "E2": 0, "E3": 0},
+            },
+        ]
+        result = simulate_batch_schedule(
+            records,
+            batches,
+            config=SimulatorConfig(
+                conveyor_capacity=5, storage_capacity=4, ticks_per_lap=1
+            ),
+            allow_storage_reactivation=True,
+        )
+
+        self.assertFalse(result["schedule_valid"])
+        self.assertEqual(result["batches_completed"], 3)
+        self.assertEqual(result["batch_reports"][-1]["ticks_used"], 1)
+        self.assertTrue(result["batch_reports"][-1]["failed"])
+        self.assertIn("STORAGE_IS_FULL", result["failure_reason"])
+        # The reactivated pair returns first in this tick. Its committed
+        # events remain even though the following three-member return fails.
+        returned = [
+            event["shooter_id"] for event in result["events"]
+            if event["event"] == "SHOOTER_RETURNED_TO_STORAGE"
+        ]
+        self.assertEqual(returned, ["A1", "A2", "C", "D", "A1", "A2"])
+        self.assertEqual(result["storage_occupied"], 4)
+        self.assertEqual(result["conveyor_occupied"], 3)
+        self.assertEqual(result["tick_count"], 4)
+        event_names = [event["event"] for event in result["events"]]
+        self.assertEqual(event_names[-1], "LEVEL_FAILURE")
+        self.assertFalse(result["live_execution_allowed"])
+        self.assertFalse(result["gameplay_actions_performed"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
