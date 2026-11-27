@@ -332,5 +332,110 @@ class ConveyorSimulatorTests(unittest.TestCase):
         self.assertEqual(sim.returned_ids, ["custom_a"])
         self.assertEqual(sim.report()["ticks_per_lap"], 3)
 
+
+    def test_bonded_group_storage_return_requires_all_capacity_slots(self):
+        sim = create_simulator(
+            [
+                {"id": "A1", "group_id": "PAIR", "ammo": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            ],
+            storage_occupied=4,
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertFalse(sim.tick(1))
+        self.assertTrue(sim.failed)
+        self.assertEqual(sim.storage_occupied, 4)
+        self.assertEqual(sim.returned_ids, [])
+        self.assertTrue(all(not shooter.returned for shooter in sim.shooters))
+        self.assertTrue(all(shooter.position == 0 for shooter in sim.shooters))
+        self.assertFalse(any(
+            event["event"] == "SHOOTER_RETURNED_TO_STORAGE"
+            for event in sim.events
+        ))
+
+    def test_bonded_group_storage_return_succeeds_at_exact_capacity(self):
+        sim = create_simulator(
+            [
+                {"id": "A1", "group_id": "PAIR", "ammo": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            ],
+            storage_occupied=3,
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertEqual(sim.storage_occupied, 5)
+        self.assertEqual(sim.returned_ids, ["A1", "A2"])
+        self.assertTrue(all(shooter.returned for shooter in sim.shooters))
+
+    def test_pair_reactivation_rejects_one_free_conveyor_slot_without_mutation(self):
+        sim = create_simulator(
+            [
+                {"id": "A1", "group_id": "PAIR", "ammo": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0},
+                {"id": "C", "group_id": "SINGLE", "ammo": 2},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.select_group("SINGLE"))
+        before = (
+            sim.storage_occupied,
+            list(sim.returned_ids),
+            [(s.shooter_id, s.returned, s.selected, s.position, s.ammo)
+             for s in sim.shooters],
+        )
+        self.assertFalse(sim.reactivate_group("PAIR"))
+        after = (
+            sim.storage_occupied,
+            list(sim.returned_ids),
+            [(s.shooter_id, s.returned, s.selected, s.position, s.ammo)
+             for s in sim.shooters],
+        )
+        self.assertEqual(after, before)
+        self.assertEqual(
+            sim.events[-1]["reason"], "INSUFFICIENT_CONVEYOR_SPACE"
+        )
+
+    def test_pair_reactivation_rejects_insufficient_storage_occupancy(self):
+        sim = create_simulator(
+            [
+                {"id": "A1", "group_id": "PAIR", "ammo": 0},
+                {"id": "A2", "group_id": "PAIR", "ammo": 0},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2, storage_capacity=5, ticks_per_lap=1
+            ),
+        )
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        # Simulate an inconsistent occupancy observation after restoration.
+        sim.storage_occupied = 1
+        before = (
+            sim.storage_occupied,
+            list(sim.returned_ids),
+            [(s.shooter_id, s.returned, s.selected, s.position, s.ammo)
+             for s in sim.shooters],
+        )
+        self.assertFalse(sim.reactivate_group("PAIR"))
+        after = (
+            sim.storage_occupied,
+            list(sim.returned_ids),
+            [(s.shooter_id, s.returned, s.selected, s.position, s.ammo)
+             for s in sim.shooters],
+        )
+        self.assertEqual(after, before)
+        self.assertEqual(
+            sim.events[-1]["reason"], "INSUFFICIENT_STORAGE_OCCUPANCY"
+        )
+
 if __name__ == "__main__":
     unittest.main()
