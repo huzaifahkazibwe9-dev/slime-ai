@@ -947,6 +947,107 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual(restored.shooters[0].completed_laps, 0)
         self.assertEqual(restored.events, sim.events)
 
+
+    def test_round_trip_preserves_atomic_bonded_group_entry(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        restored = restore_simulator(snapshot_simulator(sim))
+        entered = [
+            event for event in restored.events
+            if event["event"] == "SHOOTER_ENTERED"
+        ]
+        self.assertEqual(
+            {(event["shooter_id"], event["tick"]) for event in entered},
+            {("a1", 0), ("a2", 0)},
+        )
+
+    def test_rejects_partial_bonded_group_entry_history(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"] = [
+            event for event in snapshot["events"]
+            if event.get("shooter_id") != "a2"
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError, "entry must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_bonded_group_entry_events_split_across_ticks(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"][1]["tick"] = 1
+
+        with self.assertRaisesRegex(
+            ValueError, "entry must include every member in the same tick"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_shooter_in_bonded_entry_batch(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["events"].insert(
+            1, copy.deepcopy(snapshot["events"][0])
+        )
+
+        with self.assertRaisesRegex(
+            ValueError, "entry batch contains a duplicate shooter"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_repeated_group_entry_without_storage_reactivation(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 2},
+            {"id": "a2", "group_id": "PAIR", "ammo": 2},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        snapshot = snapshot_simulator(sim)
+        snapshot["tick_count"] = 1
+        snapshot["events"].extend([
+            dict(event, tick=1)
+            for event in snapshot["events"][:2]
+        ])
+
+        with self.assertRaisesRegex(
+            ValueError, "new entry without an intervening storage reactivation"
+        ):
+            restore_simulator(snapshot)
+
+    def test_round_trip_allows_reentry_after_reactivation_on_same_tick(self):
+        sim = create_simulator([
+            {"id": "a1", "group_id": "PAIR", "ammo": 0},
+            {"id": "a2", "group_id": "PAIR", "ammo": 0},
+        ])
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertTrue(sim.select_group("PAIR"))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        entry_events = [
+            event for event in restored.events
+            if event["event"] == "SHOOTER_ENTERED"
+        ]
+        self.assertEqual([event["tick"] for event in entry_events], [0, 0, 1, 1])
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},
