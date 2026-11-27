@@ -86,5 +86,50 @@ class ColourMappingAuditorTests(unittest.TestCase):
         self.assertFalse(result["gameplay_taps_enabled"])
         self.assertIn("warning", result)
 
+
+    def test_missing_visible_shooters_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, {}, self.mappings)
+
+    def test_missing_shooter_color_raises(self):
+        bad_shooters = {"visible_shooters": [{"id": "top_1"}]}
+        with self.assertRaises(KeyError):
+            audit(self.board, bad_shooters, self.mappings)
+
+    def test_empty_board_profiles_raises_on_rankings(self):
+        empty_board = {
+            "grid_size": [0, 0],
+            "board": [],
+            "raw_rgb": []
+        }
+        with self.assertRaises(IndexError):
+            audit(empty_board, self.shooters, self.mappings)
+
+    def test_missing_mappings_key_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, self.shooters, {})
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+    def test_missing_visible_shooters_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, {}, self.mappings)
+
+    def test_missing_shooter_color_raises(self):
+        bad_shooters = {"visible_shooters": [{"id": "top_1"}]}
+        with self.assertRaises(KeyError):
+            audit(self.board, bad_shooters, self.mappings)
+
+    def test_empty_board_profiles_raises_on_rankings(self):
+        empty_board = {
+            "grid_size": [0, 0],
+            "board": [],
+            "raw_rgb": []
+        }
+        with self.assertRaises(IndexError):
+            audit(empty_board, self.shooters, self.mappings)
+
+    def test_missing_mappings_key_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, self.shooters, {})
