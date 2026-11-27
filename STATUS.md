@@ -46,7 +46,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Safety flags (game taps disabled) are consistently enforced
 - Data-integrity and fail-closed behaviour is strong in many modules
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
-- Latest public unit-test run (this environment, 2026-11-27): **629 tests ran, 0 failures, 17 skipped** (skips are for private evidence not shipped in the public repo)
+- Latest verified public CI run #1233 (2026-11-27): **634 tests ran, 0 failures, 17 skipped** on Python 3.12 and 3.14 (skips are for private evidence not shipped in the public repo)
 - Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
 - Added fail-closed regression tests: coordinate() leaves no observation/report artefacts when extraction fails or grid size mismatches baseline
 - Added fail-closed regression tests for screenshot ingestor: zero-byte, garbage-byte, and truncated-PNG inputs raise UnidentifiedImageError and leave no observation artefacts
@@ -57,7 +57,9 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Annotation validator now requires optional notes field to be a string when present
 - Annotation validator now requires bonded components to be of size at most 3 (matching confirmed-groups rule of 2 or 3)
 - Added regression tests for valid triple and rejected quadruple bonded groups
-- Public unit tests now 629 passed / 17 skipped
+- Planning gate now validates report structure before evaluation: malformed report roots, results collections, positions, scenario collections, and scenarios are reported explicitly and fail closed.
+- Added five planning-gate regression tests for malformed structure handling; any malformed structure blocks otherwise-valid sibling scenarios.
+- Public unit tests now 634 passed / 17 skipped
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Remaining work:
