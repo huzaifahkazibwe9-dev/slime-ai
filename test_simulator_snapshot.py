@@ -736,6 +736,94 @@ class SimulatorSnapshotTests(unittest.TestCase):
             ):
                 restore_simulator(snapshot)
 
+
+    def test_rejects_continuation_without_same_tick_return_point_rotation(self):
+        snapshot = snapshot_simulator(self._continuation_history_fixture())
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        rotation_index = next(
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["tick"] == continuation["tick"]
+            and event["shooter_id"] == continuation["shooter_id"]
+        )
+        snapshot["events"].pop(rotation_index)
+
+        with self.assertRaisesRegex(
+            ValueError, "same-tick rotation to the return point"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_continuation_after_non_return_point_rotation(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 4, "selected": True}],
+            config=SimulatorConfig(ticks_per_lap=2),
+        )
+        self.assertTrue(sim.tick(2))
+        snapshot = snapshot_simulator(sim)
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        rotation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_ROTATED"
+            and event["tick"] == continuation["tick"]
+            and event["shooter_id"] == continuation["shooter_id"]
+        )
+        rotation["position"] = 1
+
+        with self.assertRaisesRegex(
+            ValueError, "same-tick rotation to the return point"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_waiting_event_when_shooter_has_ammunition(self):
+        sim = create_simulator(
+            [
+                {"id": "a", "group_id": "pair", "ammo": 0, "selected": True},
+                {"id": "b", "group_id": "pair", "ammo": 2, "selected": True},
+            ],
+            config=SimulatorConfig(ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["ammo"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "waiting event requires zero remaining ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_storage_return_event_when_shooter_has_ammunition(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0, "selected": True}],
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        snapshot["shooters"][0]["ammo"] = 2
+
+        with self.assertRaisesRegex(
+            ValueError, "return event requires zero remaining ammunition"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_return_point_resolution_for_one_shooter_tick(self):
+        snapshot = snapshot_simulator(self._continuation_history_fixture())
+        continuation = next(
+            event for event in snapshot["events"]
+            if event["event"] == "SHOOTER_CONTINUES_ROTATING"
+        )
+        snapshot["events"].append(copy.deepcopy(continuation))
+
+        with self.assertRaisesRegex(
+            ValueError, "duplicate return-point arrival resolution"
+        ):
+            restore_simulator(snapshot)
+
     def _ammo_history_fixture(self):
         sim = create_simulator([
             {"id": "a", "ammo": 3, "selected": True},

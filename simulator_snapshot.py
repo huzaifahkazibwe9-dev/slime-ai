@@ -209,6 +209,48 @@ def _validate_ammo_event_history(events, shooter_by_id):
                 raise ValueError(
                     "shooter completion event requires zero remaining ammunition"
                 )
+        elif event_type == "SHOOTER_WAITING_FOR_BONDED_GROUP":
+            if ammo_by_id[shooter_id] != 0:
+                raise ValueError(
+                    "waiting event requires zero remaining ammunition"
+                )
+        elif event_type == "SHOOTER_RETURNED_TO_STORAGE":
+            if ammo_by_id[shooter_id] != 0:
+                raise ValueError(
+                    "return event requires zero remaining ammunition"
+                )
+
+
+def _validate_return_point_event_history(events):
+    """Require each lap-arrival event to follow that shooter's zero-position rotation."""
+    rotated_to_return = set()
+    resolved_arrivals = set()
+    arrival_events = {
+        "SHOOTER_CONTINUES_ROTATING",
+        "SHOOTER_WAITING_FOR_BONDED_GROUP",
+        "SHOOTER_RETURNED_TO_STORAGE",
+    }
+
+    for event in events:
+        event_type = event["event"]
+        key = (event["tick"], event.get("shooter_id"))
+
+        if event_type == "SHOOTER_ROTATED" and event["position"] == 0:
+            rotated_to_return.add(key)
+            continue
+
+        if event_type not in arrival_events:
+            continue
+
+        if key not in rotated_to_return:
+            raise ValueError(
+                "arrival event must follow a same-tick rotation to the return point"
+            )
+        if key in resolved_arrivals:
+            raise ValueError(
+                "shooter has duplicate return-point arrival resolution events"
+            )
+        resolved_arrivals.add(key)
 
 
 def snapshot_simulator(sim):
@@ -331,6 +373,7 @@ def restore_simulator(snapshot):
         previous_tick = event_tick
 
     _validate_ammo_event_history(events, shooter_by_id)
+    _validate_return_point_event_history(events)
 
     failure_event_indices = [
         index for index, event in enumerate(events)
