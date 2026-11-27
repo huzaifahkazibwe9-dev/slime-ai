@@ -30,13 +30,23 @@ def load_json(path):
     return json.loads(path.read_text())
 
 
-def main():
-    timeline = load_json(TIMELINE_FILE)
-    original_data = load_json(OBSERVATIONS_FILE)
+def audit(timeline, original_data):
+    """Compare a candidate timeline with the observations it claims to preserve.
+
+    Identity and gameplay flags are forced off. A consistent report is still
+    only candidate data: ammunition order does not prove shooter identity.
+    """
+    if not isinstance(timeline, dict) or not isinstance(original_data, dict):
+        raise ValueError("Timeline and observations must be JSON objects")
+
+    observations = original_data.get("observations")
+    if not isinstance(observations, list):
+        raise ValueError("Observations are missing an observations list")
 
     original = {
         item["position_id"]: item
-        for item in original_data["observations"]
+        for item in observations
+        if isinstance(item, dict) and item.get("position_id")
     }
 
     errors = []
@@ -110,7 +120,7 @@ def main():
 
             ammo = item.get("ammo")
 
-            if not isinstance(ammo, int) or ammo < 0:
+            if not isinstance(ammo, int) or isinstance(ammo, bool) or ammo < 0:
                 errors.append(
                     f"{track_name}: invalid ammunition at {position_id}."
                 )
@@ -184,7 +194,7 @@ def main():
             "identity_status": "candidate_only_unverified",
         }
 
-    report = {
+    return {
         "report_type": "conveyor_consistency_audit",
         "sequence": EXPECTED_ORDER,
         "sequence_confirmed_by_user": timeline.get(
@@ -221,13 +231,19 @@ def main():
         ],
     }
 
+
+def main():
+    timeline = load_json(TIMELINE_FILE)
+    original_data = load_json(OBSERVATIONS_FILE)
+    report = audit(timeline, original_data)
+
     OUTPUT_FILE.write_text(json.dumps(report, indent=2))
 
     print("=" * 52)
     print("SLIME AI — CONVEYOR CONSISTENCY AUDITOR")
     print("=" * 52)
 
-    for name, result in results.items():
+    for name, result in report["candidate_tracks"].items():
         print(f"\n{name.upper()} — {result['candidate_shooter']}")
         print("Positions:", result["positions"])
         print("Ammunition:", result["ammunition"])
@@ -246,16 +262,17 @@ def main():
     for name, passed in report["checks"].items():
         print(f"[{'PASS' if passed else 'FAIL'}] {name}")
 
-    for warning in warnings:
+    for warning in report["warnings"]:
         print("[WARNING]", warning)
 
-    for error in errors:
+    for error in report["errors"]:
         print("[ERROR]", error)
 
     print("\nOverall:", report["overall_status"])
     print("Identity verified: False")
     print("Gameplay taps enabled: False")
     print("Report:", OUTPUT_FILE)
+    return report
 
 
 if __name__ == "__main__":

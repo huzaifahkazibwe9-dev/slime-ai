@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -13,15 +14,27 @@ BLUE_POSITIONS = [
     "bottom_2", "right_1", "top_1", "left_2"
 ]
 
-def main():
-    visual = json.loads(
-        (DATA / "conveyor_visual_observations.json").read_text()
-    )
 
-    observations = {
-        item["position_id"]: item
-        for item in visual["observations"]
-    }
+def build_timeline(visual, *, sequence_confirmed_by_user=False):
+    """Assemble a four-stage candidate timeline from visual observations.
+
+    This is a structural rearrangement only. It does not verify shooter
+    identity, timestamps, or gameplay. ``sequence_confirmed_by_user`` is
+    recorded only when the caller explicitly says the operator confirmed
+    the stage order; screenshots never imply that confirmation.
+    """
+    if not isinstance(visual, dict):
+        raise ValueError("Visual observations must be a JSON object")
+
+    observations_list = visual.get("observations")
+    if not isinstance(observations_list, list):
+        raise ValueError("Visual observations are missing an observations list")
+
+    observations = {}
+    for item in observations_list:
+        if not isinstance(item, dict) or not item.get("position_id"):
+            raise ValueError("Each observation needs a position_id")
+        observations[item["position_id"]] = item
 
     timeline = []
 
@@ -49,9 +62,9 @@ def main():
         for step in timeline
     ]
 
-    report = {
-        "sequence": ORDER,
-        "sequence_confirmed_by_user": True,
+    return {
+        "sequence": list(ORDER),
+        "sequence_confirmed_by_user": bool(sequence_confirmed_by_user),
         "timestamps_known": False,
         "identity_verified": False,
         "gameplay_taps_enabled": False,
@@ -78,26 +91,65 @@ def main():
         "snapshots": timeline,
     }
 
-    output = DATA / "conveyor_timeline.json"
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build a candidate conveyor timeline. "
+            "Does not verify identity or enable gameplay taps."
+        )
+    )
+    parser.add_argument(
+        "--observations",
+        default=str(DATA / "conveyor_visual_observations.json"),
+        help="Passive conveyor visual observations JSON",
+    )
+    parser.add_argument(
+        "--output",
+        default=str(DATA / "conveyor_timeline.json"),
+        help="Where to write the candidate timeline JSON",
+    )
+    parser.add_argument(
+        "--confirm-sequence",
+        action="store_true",
+        help=(
+            "Record that the operator explicitly confirmed the stage order. "
+            "Never inferred from screenshots."
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    visual = json.loads(Path(args.observations).read_text())
+    report = build_timeline(
+        visual,
+        sequence_confirmed_by_user=args.confirm_sequence,
+    )
+
+    output = Path(args.output)
     output.write_text(json.dumps(report, indent=2))
 
     print("SLIME AI — CONVEYOR TIMELINE")
     print("=" * 42)
 
-    for step in timeline:
+    for step in report["snapshots"]:
         print(
             f'{step["sequence"]}. {step["side"].upper():6} '
             f'white={step["white_candidate"]["ammo"]:2} '
             f'blue/cyan={step["blue_cyan_candidate"]["ammo"]:2}'
         )
 
-    print("\nWhite ammunition:", white_ammo)
-    print("Blue/cyan ammunition:", blue_ammo)
-    print("Sequence confirmed by user: True")
+    print("\nWhite ammunition:", report["candidate_tracks"]["white"]["ammo"])
+    print("Blue/cyan ammunition:", report["candidate_tracks"]["blue_cyan"]["ammo"])
+    print(
+        "Sequence confirmed by user:",
+        report["sequence_confirmed_by_user"],
+    )
     print("Timestamps known: False")
     print("Identity verified: False")
     print("Gameplay taps enabled: False")
     print("Report:", output)
+    return report
+
 
 if __name__ == "__main__":
     main()
