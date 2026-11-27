@@ -550,10 +550,36 @@ class SimulatorSnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restore_simulator(snapshot)
 
-    def test_rejects_nonfailed_snapshot_ending_in_failure_event(self):
+    def test_rejects_failure_event_inside_nonfailed_snapshot_history(self):
         snapshot = snapshot_simulator(create_simulator([{"id": "a", "ammo": 3}]))
-        snapshot["events"] = [{"tick": 0, "event": "LEVEL_FAILURE", "reason": "x"}]
-        with self.assertRaises(ValueError):
+        snapshot["events"] = [
+            {"tick": 0, "event": "LEVEL_FAILURE", "reason": "premature"},
+            {"tick": 0, "event": "SHOOTER_ENTERED",
+             "shooter_id": "a", "group_id": "a", "position": 0},
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "non-failed snapshot cannot contain a LEVEL_FAILURE event"
+        ):
+            restore_simulator(snapshot)
+
+    def test_rejects_duplicate_or_nonterminal_failure_event(self):
+        sim = create_simulator(
+            [{"id": "a", "ammo": 0}],
+            storage_occupied=1,
+            config=SimulatorConfig(storage_capacity=1, ticks_per_lap=1),
+        )
+        self.assertTrue(sim.select_group("a"))
+        self.assertFalse(sim.tick(1))
+        snapshot = snapshot_simulator(sim)
+        self.assertTrue(snapshot["failed"])
+        snapshot["events"].insert(
+            len(snapshot["events"]) - 1,
+            copy.deepcopy(snapshot["events"][-1]),
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "failed snapshot must contain exactly one final LEVEL_FAILURE event",
+        ):
             restore_simulator(snapshot)
 
     def test_rejects_failed_flag_without_failure_reason(self):
