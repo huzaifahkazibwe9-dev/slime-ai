@@ -448,7 +448,6 @@ def restore_simulator(snapshot):
         previous_tick = event_tick
 
     _validate_ammo_event_history(events, shooter_by_id)
-    _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     failure_event_indices = [
         index for index, event in enumerate(events)
@@ -628,6 +627,7 @@ def restore_simulator(snapshot):
     # Run after group-wide return-cycle checks so those established, more
     # specific diagnostics remain stable for bonded groups.
     _validate_return_point_event_history(events)
+    _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     if failed and events[-1].get("tick") != tick_count:
         raise ValueError("failure event tick must match the final simulator tick")
