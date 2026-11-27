@@ -1058,6 +1058,65 @@ class SimulatorSnapshotTests(unittest.TestCase):
         self.assertEqual([event["tick"] for event in entry_events], [0, 0, 1, 1])
 
 
+
+    def _bonded_zero_ammo_pair(self, selected=False):
+        return create_simulator(
+            [
+                {"id": "a1", "group_id": "PAIR", "ammo": 0, "selected": selected},
+                {"id": "a2", "group_id": "PAIR", "ammo": 0, "selected": selected},
+            ],
+            config=SimulatorConfig(
+                conveyor_capacity=2,
+                storage_capacity=2,
+                ticks_per_lap=1,
+            ),
+        )
+
+    def test_round_trip_allows_reactivated_group_before_selection(self):
+        sim = self._bonded_zero_ammo_pair()
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertFalse(any(
+            shooter.selected or shooter.returned for shooter in sim.shooters
+        ))
+
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        self.assertTrue(all(not s.selected and not s.returned for s in restored.shooters))
+
+    def test_round_trip_allows_initially_active_group_without_entry_event(self):
+        sim = self._bonded_zero_ammo_pair(selected=True)
+        restored = restore_simulator(snapshot_simulator(sim))
+        self.assertEqual(restored.events, sim.events)
+        self.assertTrue(all(s.selected and not s.returned for s in restored.shooters))
+
+    def test_rejects_active_group_after_reactivation_without_new_entry_batch(self):
+        sim = self._bonded_zero_ammo_pair()
+        self.assertTrue(sim.select_group("PAIR"))
+        self.assertTrue(sim.tick(1))
+        self.assertTrue(sim.reactivate_group("PAIR"))
+        self.assertTrue(sim.select_group("PAIR"))
+
+        snapshot = snapshot_simulator(sim)
+        reactivation_index = next(
+            index for index, event in enumerate(snapshot["events"])
+            if event["event"] == "GROUP_REACTIVATED_FROM_STORAGE"
+        )
+        snapshot["events"] = [
+            event for index, event in enumerate(snapshot["events"])
+            if not (
+                index > reactivation_index
+                and event["event"] == "SHOOTER_ENTERED"
+            )
+        ]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "active bonded group after reactivation requires a complete entry batch",
+        ):
+            restore_simulator(snapshot)
+
     def _bonded_waiting_fixture(self):
         sim = create_simulator(
             [
