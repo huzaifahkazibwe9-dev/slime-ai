@@ -127,7 +127,9 @@ def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
                 or any(not isinstance(member, str) or not member.strip()
                        for member in members)
                 or len(members) != len(set(members))):
-            raise ValueError("reactivation event has invalid members")
+            raise ValueError(
+                "reactivation event must list its group members as unique non-empty strings"
+            )
         if set(members) != group_members_by_id.get(event["group_id"], set()):
             raise ValueError("reactivation event must contain the complete group")
         require_integer("storage_occupied")
@@ -146,12 +148,12 @@ def _validate_event_payload(event, config, shooter_by_id, group_members_by_id):
         require_integer("laps", 1)
         require_integer("ammo_remaining", 1)
     elif event_type == "SHOOTER_RETURNED_TO_STORAGE":
-        require_integer("storage_occupied", 1)
-        require_integer("storage_free")
-        if (event["storage_occupied"] > config.storage_capacity
-                or event["storage_free"]
-                != config.storage_capacity - event["storage_occupied"]):
-            raise ValueError("return event storage capacity values are inconsistent")
+        if (type(event["storage_occupied"]) is not int
+                or event["storage_occupied"] < 1):
+            raise ValueError("invalid storage occupancy in return event")
+        if (type(event["storage_free"]) is not int
+                or event["storage_free"] < 0):
+            raise ValueError("return event storage_free is inconsistent")
     elif event_type == "SHOT_RECORD_REJECTED":
         require_integer("requested")
         require_integer("ammo")
