@@ -1,0 +1,413 @@
+{
+  "schema_version": 1,
+  "purpose": "Hand-checkable unit fixtures for the declared bonded-group selection and sequential member-simulation contract. These synthetic cases do not establish that live-game bonded-shooter mechanics behave identically.",
+  "cases": [
+    {
+      "id": "bonded_pair_shares_board_and_members_fire_sequentially",
+      "board": [
+        [
+          "red",
+          "blue"
+        ],
+        [
+          "red",
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 2,
+          "direction": "right",
+          "x": -1,
+          "y": 1,
+          "accessible": true,
+          "group_id": "PAIR-AB",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 2,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR-AB",
+          "bonded_ids": [
+            "B"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "start_shooter_id": "B",
+      "expected": {
+        "status": "SIMULATED",
+        "shooter_ids": [
+          "A",
+          "B"
+        ],
+        "group_selected_atomically": true,
+        "conveyor_after_selection": [
+          "A",
+          "B"
+        ],
+        "initial_pixels": 4,
+        "remaining_pixels": 1,
+        "pixels_removed": 3,
+        "final_board": [
+          [
+            null,
+            "blue"
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "remaining_ammo": {
+          "A": 1,
+          "B": 0
+        },
+        "member_reports": [
+          {
+            "shooter_id": "A",
+            "initial_ammo": 2,
+            "remaining_ammo": 1,
+            "shots_attempted": 2,
+            "pixels_removed": 1,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  0
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 1
+              },
+              {
+                "shot_number": 2,
+                "fired": false,
+                "removed": false,
+                "position": [
+                  1,
+                  0
+                ],
+                "reason": "Blocked by another colour",
+                "ammo_remaining": 1
+              }
+            ]
+          },
+          {
+            "shooter_id": "B",
+            "initial_ammo": 2,
+            "remaining_ammo": 0,
+            "shots_attempted": 2,
+            "pixels_removed": 2,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  1
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 1
+              },
+              {
+                "shot_number": 2,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  1,
+                  1
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 0
+              }
+            ]
+          }
+        ],
+        "source_state_unchanged": true,
+        "gameplay_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false,
+        "game_taps_enabled": false
+      }
+    },
+    {
+      "id": "first_member_removes_shared_target_before_second_member",
+      "board": [
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "B",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR-AB",
+          "bonded_ids": [
+            "A"
+          ]
+        },
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "PAIR-AB",
+          "bonded_ids": [
+            "B"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "start_shooter_id": "B",
+      "expected": {
+        "status": "SIMULATED",
+        "shooter_ids": [
+          "A",
+          "B"
+        ],
+        "group_selected_atomically": true,
+        "conveyor_after_selection": [
+          "A",
+          "B"
+        ],
+        "initial_pixels": 1,
+        "remaining_pixels": 0,
+        "pixels_removed": 1,
+        "final_board": [
+          [
+            null
+          ]
+        ],
+        "remaining_ammo": {
+          "A": 0,
+          "B": 1
+        },
+        "member_reports": [
+          {
+            "shooter_id": "A",
+            "initial_ammo": 1,
+            "remaining_ammo": 0,
+            "shots_attempted": 1,
+            "pixels_removed": 1,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  0
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 0
+              }
+            ]
+          },
+          {
+            "shooter_id": "B",
+            "initial_ammo": 1,
+            "remaining_ammo": 1,
+            "shots_attempted": 1,
+            "pixels_removed": 0,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": false,
+                "removed": false,
+                "position": null,
+                "reason": "No reachable pixel",
+                "ammo_remaining": 1
+              }
+            ]
+          }
+        ],
+        "source_state_unchanged": true,
+        "gameplay_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false,
+        "game_taps_enabled": false
+      }
+    },
+    {
+      "id": "three_member_bonded_group_is_selected_and_simulated_as_one_group",
+      "board": [
+        [
+          "red"
+        ],
+        [
+          "blue"
+        ],
+        [
+          "red"
+        ]
+      ],
+      "shooters": [
+        {
+          "id": "C",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 2,
+          "accessible": true,
+          "group_id": "TRIPLE-ABC",
+          "bonded_ids": [
+            "A",
+            "B"
+          ]
+        },
+        {
+          "id": "A",
+          "color": "red",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 0,
+          "accessible": true,
+          "group_id": "TRIPLE-ABC",
+          "bonded_ids": [
+            "B",
+            "C"
+          ]
+        },
+        {
+          "id": "B",
+          "color": "blue",
+          "ammo": 1,
+          "direction": "right",
+          "x": -1,
+          "y": 1,
+          "accessible": true,
+          "group_id": "TRIPLE-ABC",
+          "bonded_ids": [
+            "A",
+            "C"
+          ]
+        }
+      ],
+      "conveyor": [],
+      "start_shooter_id": "C",
+      "expected": {
+        "status": "SIMULATED",
+        "shooter_ids": [
+          "A",
+          "B",
+          "C"
+        ],
+        "group_selected_atomically": true,
+        "conveyor_after_selection": [
+          "A",
+          "B",
+          "C"
+        ],
+        "initial_pixels": 3,
+        "remaining_pixels": 0,
+        "pixels_removed": 3,
+        "final_board": [
+          [
+            null
+          ],
+          [
+            null
+          ],
+          [
+            null
+          ]
+        ],
+        "remaining_ammo": {
+          "A": 0,
+          "B": 0,
+          "C": 0
+        },
+        "member_reports": [
+          {
+            "shooter_id": "A",
+            "initial_ammo": 1,
+            "remaining_ammo": 0,
+            "shots_attempted": 1,
+            "pixels_removed": 1,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  0
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 0
+              }
+            ]
+          },
+          {
+            "shooter_id": "B",
+            "initial_ammo": 1,
+            "remaining_ammo": 0,
+            "shots_attempted": 1,
+            "pixels_removed": 1,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  1
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 0
+              }
+            ]
+          },
+          {
+            "shooter_id": "C",
+            "initial_ammo": 1,
+            "remaining_ammo": 0,
+            "shots_attempted": 1,
+            "pixels_removed": 1,
+            "steps": [
+              {
+                "shot_number": 1,
+                "fired": true,
+                "removed": true,
+                "position": [
+                  0,
+                  2
+                ],
+                "reason": "Matching pixel removed",
+                "ammo_remaining": 0
+              }
+            ]
+          }
+        ],
+        "source_state_unchanged": true,
+        "gameplay_verified": false,
+        "live_execution_allowed": false,
+        "gameplay_actions_performed": false,
+        "game_taps_enabled": false
+      }
+    }
+  ]
+}
