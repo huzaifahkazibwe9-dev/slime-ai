@@ -284,6 +284,12 @@ def _validate_rotation_and_lap_history(events, config, shooter_by_id):
             shooter_id = event["shooter_id"]
             position = event["position"]
             previous_position = last_position.get(shooter_id)
+            previous_tick = last_rotation_tick.get(shooter_id)
+
+            if previous_tick is not None and event["tick"] != previous_tick + 1:
+                raise ValueError(
+                    "active shooter rotation history has a missing or repeated tick"
+                )
 
             if previous_position is not None:
                 expected_position = (
@@ -293,12 +299,6 @@ def _validate_rotation_and_lap_history(events, config, shooter_by_id):
                     raise ValueError(
                         "rotation history does not advance exactly one position"
                     )
-
-            previous_tick = last_rotation_tick.get(shooter_id)
-            if previous_tick is not None and event["tick"] != previous_tick + 1:
-                raise ValueError(
-                    "active shooter rotation history has a missing or repeated tick"
-                )
 
             last_position[shooter_id] = position
             last_rotation_tick[shooter_id] = event["tick"]
