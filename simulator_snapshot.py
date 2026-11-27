@@ -351,7 +351,9 @@ def _validate_rotation_and_lap_history(events, config, shooter_by_id):
             )
 
 
-def _validate_group_entry_event_history(events, group_members_by_id):
+def _validate_group_entry_event_history(
+    events, group_members_by_id, shooter_by_id
+):
     """Require each recorded bonded-group selection to enter atomically."""
     entry_batches = {}
     last_entry_index = {}
@@ -396,6 +398,25 @@ def _validate_group_entry_event_history(events, group_members_by_id):
         if entered_ids != expected_ids:
             raise ValueError(
                 "bonded group entry must include every member in the same tick"
+            )
+
+    # If a group is active at restore time after a storage reactivation, the
+    # history must contain a complete subsequent entry batch. Initial active
+    # groups remain valid even when they were selected before event recording.
+    for group_id, member_ids in group_members_by_id.items():
+        group_is_active = all(
+            shooter_by_id[member_id].selected
+            and not shooter_by_id[member_id].returned
+            for member_id in member_ids
+        )
+        if not group_is_active:
+            continue
+
+        reactivation_index = last_reactivation_index.get(group_id, -1)
+        latest_entry_index = last_entry_index.get(group_id, -1)
+        if reactivation_index >= 0 and latest_entry_index <= reactivation_index:
+            raise ValueError(
+                "active bonded group after reactivation requires a complete entry batch"
             )
 
 
@@ -700,7 +721,9 @@ def restore_simulator(snapshot):
     # Run after group-wide return-cycle checks so those established, more
     # specific diagnostics remain stable for bonded groups.
     _validate_return_point_event_history(events)
-    _validate_group_entry_event_history(events, group_members_by_id)
+    _validate_group_entry_event_history(
+        events, group_members_by_id, shooter_by_id
+    )
     _validate_rotation_and_lap_history(events, config, shooter_by_id)
 
     if failed and events[-1].get("tick") != tick_count:
