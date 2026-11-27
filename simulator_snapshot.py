@@ -199,6 +199,11 @@ def _validate_ammo_event_history(events, shooter_by_id):
                 raise ValueError(
                     "rejected shot event ammunition disagrees with prior history"
                 )
+        elif event_type == "SHOOTER_CONTINUES_ROTATING":
+            if event["ammo_remaining"] != ammo_by_id[shooter_id]:
+                raise ValueError(
+                    "continuation event ammunition disagrees with prior history"
+                )
         elif event_type == "SHOOTER_COMPLETED":
             if ammo_by_id[shooter_id] != 0:
                 raise ValueError(
