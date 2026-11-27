@@ -45,17 +45,20 @@ A single JSON object per capture:
 
 Each shooter object:
 
-- `id` (string, non-empty)
+- `id` (string, non-empty, unique within the package)
 - `color` (string, non-empty)
 - `ammo` (integer ≥ 0)
-- `slot_index` (integer 0–11, optional but recommended)
-- `bonded_ids` (array of strings, optional)
+- `slot_index` (integer 0–11, optional; when present must be an exact integer in range)
+- `bonded_ids` (array of non-empty strings, optional; must not contain self-references or unknown IDs)
 
 ## Validation rules (enforced by `annotation_validator.py`)
 
 - `human_confirmed` must be the boolean `true`. Any other value (including missing, `false`, or a string) causes rejection.
 - All required top-level fields must be present and correctly typed.
 - Snapshot ID must match the expected SHA-256 format.
+- Shooter IDs must be unique.
+- When `slot_index` is present it must be an integer in 0..11.
+- When `bonded_ids` is present it must be a list of non-empty strings that do not reference the shooter itself and that refer only to other shooters listed in the same package.
 - No field may be auto-filled by code; the validator only accepts or rejects.
 
 ## Status

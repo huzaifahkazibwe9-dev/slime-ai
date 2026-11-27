@@ -67,17 +67,51 @@ def validate_annotation(data):
     if not isinstance(shooters, list):
         errors.append("shooters must be a list")
     else:
+        seen_ids = set()
         for i, shooter in enumerate(shooters):
             if not isinstance(shooter, dict):
                 errors.append(f"shooter[{i}] must be an object")
                 continue
-            if not isinstance(shooter.get("id"), str) or not shooter["id"]:
+            shooter_id = shooter.get("id")
+            if not isinstance(shooter_id, str) or not shooter_id.strip():
                 errors.append(f"shooter[{i}].id missing or invalid")
-            if not isinstance(shooter.get("color"), str) or not shooter["color"]:
+            else:
+                if shooter_id in seen_ids:
+                    errors.append(f"shooter[{i}].id '{shooter_id}' is duplicated")
+                seen_ids.add(shooter_id)
+            if not isinstance(shooter.get("color"), str) or not shooter["color"].strip():
                 errors.append(f"shooter[{i}].color missing or invalid")
             ammo = shooter.get("ammo")
             if type(ammo) is not int or ammo < 0:
                 errors.append(f"shooter[{i}].ammo must be a non-negative integer")
+
+            # Optional fields: validate only when present
+            if "slot_index" in shooter:
+                slot = shooter["slot_index"]
+                if type(slot) is not int or not (0 <= slot <= 11):
+                    errors.append(f"shooter[{i}].slot_index must be an integer in 0..11 when present")
+
+            if "bonded_ids" in shooter:
+                bonds = shooter["bonded_ids"]
+                if not isinstance(bonds, list):
+                    errors.append(f"shooter[{i}].bonded_ids must be a list when present")
+                else:
+                    for j, bond in enumerate(bonds):
+                        if not isinstance(bond, str) or not bond.strip():
+                            errors.append(f"shooter[{i}].bonded_ids[{j}] must be a non-empty string")
+                        elif bond == shooter_id:
+                            errors.append(f"shooter[{i}].bonded_ids must not contain self-reference '{bond}'")
+
+        # After collecting all IDs, verify bonded references exist (if any)
+        all_ids = {s.get("id") for s in shooters if isinstance(s, dict) and isinstance(s.get("id"), str)}
+        for i, shooter in enumerate(shooters):
+            if not isinstance(shooter, dict):
+                continue
+            bonds = shooter.get("bonded_ids")
+            if isinstance(bonds, list):
+                for bond in bonds:
+                    if isinstance(bond, str) and bond not in all_ids:
+                        errors.append(f"shooter[{i}].bonded_ids references unknown id '{bond}'")
 
     return len(errors) == 0, errors
 

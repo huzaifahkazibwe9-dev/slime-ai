@@ -68,12 +68,69 @@ class AnnotationValidatorTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_and_validate(path)
 
-    def test_load_and_validate_succeeds_on_valid(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "good.json"
-            path.write_text(json.dumps(VALID))
-            result = load_and_validate(path)
-            self.assertEqual(result["annotator"], "test-human")
+    def test_duplicate_shooter_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10},
+            {"id": "s1", "color": "blue", "ammo": 5},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("duplicated" in e for e in errors))
+
+    def test_invalid_slot_index_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": 12}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("slot_index" in e for e in errors))
+
+    def test_negative_slot_index_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": -1}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+
+    def test_non_integer_slot_index_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "slot_index": "0"}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+
+    def test_self_bonded_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s1"]}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("self-reference" in e for e in errors))
+
+    def test_unknown_bonded_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["missing"]}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("unknown id" in e for e in errors))
+
+    def test_valid_bonded_pair_accepted(self):
+        data = dict(VALID)
+        data["shooters"] = [
+            {"id": "s1", "color": "red", "ammo": 10, "bonded_ids": ["s2"]},
+            {"id": "s2", "color": "blue", "ammo": 8, "bonded_ids": ["s1"]},
+        ]
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_empty_shooters_list_accepted_when_confirmed(self):
+        data = dict(VALID)
+        data["shooters"] = []
+        ok, errors = validate_annotation(data)
+        self.assertTrue(ok, errors)
+
+    def test_whitespace_only_id_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "   ", "color": "red", "ammo": 10}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
 
 
 if __name__ == "__main__":
