@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-11-27T07:50:40.203Z",
+  "generated_at_utc": "2026-11-27T07:58:30.433Z",
   "repository": "huzaifahkazibwe9-dev/slime-ai",
   "scope_note": "Pull-request CI evidence for stacked feature branches. These runs are not main-branch release validation, Android-device runs, or gameplay verification. The superseded_failures array records corrected intermediate CI failures so the history is transparent; the run list contains the successful feature-branch snapshots.",
   "python_versions": [
@@ -205,6 +205,26 @@
       "unit_tests_per_python_version": 1233,
       "conclusion": "success",
       "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45961071353"
+    },
+    {
+      "run_number": 1196,
+      "run_id": 45961404389,
+      "pull_request": 156,
+      "branch": "refresh-evidence-after-bonded-group-corpus",
+      "commit_sha": "747f915f907e99703fa21fdb104de834bf2410b7",
+      "unit_tests_per_python_version": 1233,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45961404389"
+    },
+    {
+      "run_number": 1197,
+      "run_id": 45962009864,
+      "pull_request": 157,
+      "branch": "add-invalid-bonded-group-reference-cases",
+      "commit_sha": "14918a5023ba01d1850a050e1765be6867cf12a4",
+      "unit_tests_per_python_version": 1235,
+      "conclusion": "success",
+      "url": "https://github.com/huzaifahkazibwe9-dev/slime-ai/actions/runs/45962009864"
     }
   ],
   "superseded_failures": [
