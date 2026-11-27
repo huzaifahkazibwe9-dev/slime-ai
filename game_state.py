@@ -194,18 +194,80 @@ class GameState:
         return count > 0 and count <= self.conveyor_free
 
     def can_return_from_storage(self, shooter_id):
-        return (
-            shooter_id in self.storage
-            and self.conveyor_free >= 1
-        )
+        """Check whether a complete bonded group can leave storage atomically."""
+        if (
+            not isinstance(shooter_id, str)
+            or not shooter_id
+            or not isinstance(self.shooters, dict)
+            or not isinstance(self.conveyor, list)
+            or not isinstance(self.storage, list)
+        ):
+            return False
+
+        if (
+            len(self.conveyor) > CONVEYOR_LIMIT
+            or len(self.storage) > STORAGE_LIMIT
+        ):
+            return False
+
+        occupied = self.conveyor + self.storage
+        if any(
+            not isinstance(member, str)
+            or not member
+            or member not in self.shooters
+            for member in occupied
+        ):
+            return False
+        if len(occupied) != len(set(occupied)):
+            return False
+
+        group = self.bonded_group(shooter_id)
+        if not group or self.bonded_group_id(shooter_id) is None:
+            return False
+
+        # A bonded group cannot be split between storage and the conveyor,
+        # nor can a single member be returned while its partners stay stored.
+        if not all(member in self.storage for member in group):
+            return False
+
+        group_members = set(group)
+        for member in group:
+            linked_ids = getattr(self.shooters[member], "bonded_ids", ())
+            if (
+                not isinstance(linked_ids, (list, tuple))
+                or any(
+                    not isinstance(linked, str)
+                    or linked not in group_members
+                    for linked in linked_ids
+                )
+                or member in linked_ids
+                or len(linked_ids) != len(set(linked_ids))
+            ):
+                return False
+            for linked in linked_ids:
+                reverse_ids = getattr(self.shooters[linked], "bonded_ids", ())
+                if (
+                    not isinstance(reverse_ids, (list, tuple))
+                    or member not in reverse_ids
+                ):
+                    return False
+
+        return len(group) <= self.conveyor_free
 
     def transfer_from_storage(self, shooter_id):
+        """Move a complete bonded group from storage to the conveyor."""
         if not self.can_return_from_storage(shooter_id):
             return False
 
-        self.storage.remove(shooter_id)
-        self.conveyor.append(shooter_id)
-        self.shooters[shooter_id].rotation_progress = 0.0
+        group = self.bonded_group(shooter_id)
+        group_members = set(group)
+        self.storage[:] = [
+            member for member in self.storage
+            if member not in group_members
+        ]
+        self.conveyor.extend(group)
+        for member in group:
+            self.shooters[member].rotation_progress = 0.0
 
         return True
 
