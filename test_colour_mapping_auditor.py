@@ -78,5 +78,13 @@ class ColourMappingAuditorTests(unittest.TestCase):
             ["white", "cyan", "purple", "orange"]
         )
 
+    def test_empty_shooters_keeps_safety_flags_false(self):
+        empty_shooters = {"visible_shooters": []}
+        result = audit(self.board, empty_shooters, self.mappings)
+        self.assertEqual(result["results"], [])
+        self.assertFalse(result["gameplay_verified"])
+        self.assertFalse(result["gameplay_taps_enabled"])
+        self.assertIn("warning", result)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
