@@ -928,6 +928,22 @@ class MultiBatchTests(unittest.TestCase):
         self.assertEqual(event_names[-1], "LEVEL_FAILURE")
         self.assertFalse(result["live_execution_allowed"])
         self.assertFalse(result["gameplay_actions_performed"])
+        # A failed partial tick is inspectable, but never resumable as a
+        # successful scheduler checkpoint.
+        self.assertIsNone(result["checkpoint"])
+        self.assertFalse(result["schedule_complete"])
+        self.assertTrue(result["batch_reports"][-1]["failed"])
+        self.assertEqual(
+            result["batch_reports"][-1]["reason"], result["failure_reason"]
+        )
+        self.assertEqual(
+            result["batch_reports"][-1]["returned_shooters"],
+            result["returned_shooters"],
+        )
+        self.assertEqual(
+            result["batch_reports"][-1]["storage_occupied"],
+            result["storage_occupied"],
+        )
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
