@@ -191,13 +191,23 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
     OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
     REPORT.parent.mkdir(parents=True, exist_ok=True)
 
-    for path, data in (
-        (OBSERVATION, observation),
-        (REPORT, result),
-    ):
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_text(json.dumps(data, indent=2))
-        temporary.replace(path)
+    # Stage the complete output pair before publishing either file. A failed
+    # serialization/write must leave the previous evidence pair untouched.
+    staged_outputs = []
+    try:
+        for path, data in (
+            (OBSERVATION, observation),
+            (REPORT, result),
+        ):
+            temporary = path.with_suffix(path.suffix + ".tmp")
+            staged_outputs.append((temporary, path))
+            temporary.write_text(json.dumps(data, indent=2))
+
+        for temporary, path in staged_outputs:
+            temporary.replace(path)
+    finally:
+        for temporary, _ in staged_outputs:
+            temporary.unlink(missing_ok=True)
 
     print("SLIME AI — BUILD 11K EVIDENCE COORDINATOR")
     print("=" * 52)
