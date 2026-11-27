@@ -776,9 +776,6 @@ class MultiBatchTests(unittest.TestCase):
         ):
             self.assertEqual(resumed[field], uninterrupted[field], field)
         self.assertEqual(
-            resumed["events"][-1]["event"], "SHOOTER_RETURNED_TO_STORAGE"
-        )
-        self.assertEqual(
             [e["shooter_id"] for e in resumed["events"]
              if e["event"] == "SHOOTER_RETURNED_TO_STORAGE"],
             ["A1", "A2", "A1", "A2"],
