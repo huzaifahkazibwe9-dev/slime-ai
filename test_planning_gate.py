@@ -601,5 +601,65 @@ class PlanningGateTests(unittest.TestCase):
         self.assertFalse(result["actions_performed"])
 
 
+    def test_non_object_report_is_reported_without_exception(self):
+        result = evaluate_planning(None)
+        self.assertEqual(
+            result["input_validation_errors"],
+            ["report must be an object"],
+        )
+        self.assertFalse(result["planning_evidence_verified"])
+        self.assertFalse(result["game_taps_enabled"])
+
+    def test_non_list_results_container_is_reported(self):
+        report = make_report()
+        report["results"] = {"position_id": "left_2"}
+        result = evaluate_planning(report)
+        self.assertEqual(
+            result["input_validation_errors"],
+            ["results must be a list"],
+        )
+        self.assertEqual(result["counts"]["scenarios_checked"], 0)
+        self.assertFalse(result["planning_evidence_verified"])
+
+    def test_non_object_position_invalidates_report_structure(self):
+        report = make_report()
+        report["results"].append("not-a-position")
+        result = evaluate_planning(report)
+        self.assertTrue(any(
+            error == "results[1] must be an object"
+            for error in result["input_validation_errors"]
+        ))
+        self.assertIn(
+            "PLANNING_REPORT_STRUCTURE_INVALID",
+            result["results"][0]["blockers"],
+        )
+        self.assertFalse(result["planning_evidence_verified"])
+
+    def test_non_list_scenarios_container_is_reported(self):
+        report = make_report()
+        report["results"][0]["scenarios"] = {"target_colour": "cyan"}
+        result = evaluate_planning(report)
+        self.assertTrue(any(
+            error == "results[0].scenarios must be a list"
+            for error in result["input_validation_errors"]
+        ))
+        self.assertEqual(result["counts"]["scenarios_checked"], 0)
+        self.assertFalse(result["planning_evidence_verified"])
+
+    def test_non_object_scenario_invalidates_report_structure(self):
+        report = make_report()
+        report["results"][0]["scenarios"].append("not-a-scenario")
+        result = evaluate_planning(report)
+        self.assertTrue(any(
+            error == "results[0].scenarios[1] must be an object"
+            for error in result["input_validation_errors"]
+        ))
+        self.assertIn(
+            "PLANNING_REPORT_STRUCTURE_INVALID",
+            result["results"][0]["blockers"],
+        )
+        self.assertFalse(result["planning_evidence_verified"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
