@@ -48,7 +48,9 @@ Local verification after adding annotation-validator type and session-id edge-ca
 
 Local verification after hardening LifeState.update and seconds_until_next against non-finite timestamps (fail-closed no-op) and adding regression tests for non-finite now/last_regeneration and negative elapsed: **759 tests ran, 0 failures, 17 skipped**.
 
-The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
+Local verification after adding the observation-staging failure regression test for the evidence coordinator: **760 tests ran, 0 failures, 17 skipped**.
+
+The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
 

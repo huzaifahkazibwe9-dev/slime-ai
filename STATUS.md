@@ -79,6 +79,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
 - Added a regression test that injects a report-staging failure and checks preservation of both existing evidence files
+- Added a symmetric regression test that injects an observation-staging failure and checks preservation of both existing evidence files
+- Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after adding the observation-staging failure regression)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
