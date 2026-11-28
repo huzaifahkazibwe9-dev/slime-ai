@@ -68,6 +68,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Converted firing_simulator ad-hoc run_tests into proper unittest coverage. Hardened ammo and lane validation to reject boolean values (consistent with other modules). Added regressions for matching removal, colour blocking, all four directions, board immutability, lane-cleared boundary, zero ammo, empty colour, negative/boolean ammo, out-of-range lane, unknown direction, invalid board shape, and simulated-board None cells.
 - Converted color_components ad-hoc run_tests into proper unittest coverage for 4-directional connectivity, diagonal separation, orthogonal merging, edge detection, size sorting, sample-cell limits, empty boards, None/empty-string colours, and rectangular boards. Hardened find_components to return {} on empty input.
 - Public unit tests now 854 tests ran / 0 failures / 17 skipped (local verification after color_components unit tests)
+- Converted firing_adapter ad-hoc run_tests into proper unittest coverage for all four simulator directions, colour blocking, empty lanes, unverified colour, case-insensitive matching, invalid direction/lane (non-int, boolean, out-of-range), boundary lanes, direction-map completeness, and board immutability.
+- Public unit tests now 870 tests ran / 0 failures / 17 skipped (local verification after firing_adapter unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -93,6 +95,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~93%**
+Approximate offline-completable progress: **~94%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

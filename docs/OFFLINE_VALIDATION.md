@@ -58,6 +58,8 @@ Local verification after converting sequential_firing_simulator ad-hoc run_tests
 
 Local verification after converting color_components ad-hoc run_tests into proper unittest coverage for connectivity, edge detection, sorting, sample limits, empty boards, and distinct None/empty colours, and hardening find_components against empty input: **854 tests ran, 0 failures, 17 skipped**.
 
+Local verification after converting firing_adapter ad-hoc run_tests into proper unittest coverage for direction mapping, colour blocking, empty lanes, invalid inputs, and board immutability: **870 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
