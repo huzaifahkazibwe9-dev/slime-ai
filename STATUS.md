@@ -59,9 +59,10 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added a regression test that injects a report-staging failure and checks preservation of both existing evidence files
 - Added a symmetric regression test that injects an observation-staging failure and checks preservation of both existing evidence files
 - Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after adding the observation-staging failure regression)
+- Converted shooter_order_planner ad-hoc run_tests into proper unittest coverage for ordering, bonded-group adjacency, capacity, duplicate IDs, board immutability, and prepare_groups edge cases (empty/non-list, invalid capacity, empty/non-string group and shooter IDs).
 - Added proper unittest coverage for identity_tracker.validate_observations (injected shooters/positions; missing frame_id, unknown IDs, per-frame duplicate position/shooter, strict verified=True including rejection of string/int truthy values)
 - Added proper unittest coverage for firing_observation.validate_observation (all eight calibrated positions, wrong direction/lane, out-of-board cells, boolean/float ammo and cell coordinates, unconfirmed observation, ammo non-decrease)
-- Public unit tests now 799 tests ran / 0 failures / 17 skipped (local verification after identity_tracker and firing_observation unit tests)
+- Public unit tests now 812 tests ran / 0 failures / 17 skipped (local verification after shooter_order_planner unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -87,6 +88,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~91%**
+Approximate offline-completable progress: **~92%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
