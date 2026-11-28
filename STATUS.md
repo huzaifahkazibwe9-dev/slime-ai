@@ -63,6 +63,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added proper unittest coverage for identity_tracker.validate_observations (injected shooters/positions; missing frame_id, unknown IDs, per-frame duplicate position/shooter, strict verified=True including rejection of string/int truthy values)
 - Added proper unittest coverage for firing_observation.validate_observation (all eight calibrated positions, wrong direction/lane, out-of-board cells, boolean/float ammo and cell coordinates, unconfirmed observation, ammo non-decrease)
 - Public unit tests now 812 tests ran / 0 failures / 17 skipped (local verification after shooter_order_planner unit tests)
+- Converted sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential exposure, empty cells, ammo limits, colour blocking, all four directions, empty sequences, invalid inputs (ammo, direction, board shape), lane bounds, case-insensitive colour matching, zero-ammo exhaustion, and source-board immutability.
+- Public unit tests now 828 tests ran / 0 failures / 17 skipped (local verification after sequential_firing_simulator unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -88,6 +90,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~92%**
+Approximate offline-completable progress: **~93%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

@@ -54,6 +54,8 @@ Local verification after adding unit tests for identity_tracker.validate_observa
 
 Local verification after converting shooter_order_planner ad-hoc checks into proper unittest coverage for ordering, bonded groups, capacity, duplicates, board immutability and prepare_groups edge cases: **812 tests ran, 0 failures, 17 skipped**.
 
+Local verification after converting sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential clearing, ammo limits, directions, invalid inputs, colour matching, and board immutability: **828 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
