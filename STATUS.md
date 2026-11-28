@@ -72,7 +72,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added regression tests for two independent bonded pairs and for a size-3 component plus an isolated shooter (confirming connected-component size limits do not reject valid multi-component annotations).
 - Hardened Shooter.valid() to reject empty/whitespace/None shooter IDs and empty/whitespace color strings when the shooter is revealed (aligns with annotation-validator rules; unrevealed shooters may still omit color).
 - Added three regression tests covering empty/whitespace/None IDs, revealed empty/whitespace color rejection, and unrevealed empty color tolerance.
-- Public unit tests now 737 tests ran / 0 failures / 17 skipped (local verification after adding accessibility_utils normalization regression tests)
+- Public unit tests now 743 tests ran / 0 failures / 17 skipped (local verification after adding annotation-validator type and session-id edge-case regressions)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
@@ -102,6 +102,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~88%**
+Approximate offline-completable progress: **~89%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
