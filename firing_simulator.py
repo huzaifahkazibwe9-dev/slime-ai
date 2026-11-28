@@ -35,10 +35,10 @@ def simulate(board, direction, lane, colour, ammo):
     if direction not in DIRECTIONS:
         raise ValueError(f"Unknown direction: {direction}")
 
-    if not isinstance(lane, int) or not 0 <= lane < 35:
+    if type(lane) is not int or not 0 <= lane < 35:
         raise ValueError("Lane must be an integer from 0 to 34.")
 
-    if not isinstance(ammo, int) or ammo < 0:
+    if type(ammo) is not int or ammo < 0:
         raise ValueError("Ammo must be a non-negative integer.")
 
     if not isinstance(colour, str) or not colour:
