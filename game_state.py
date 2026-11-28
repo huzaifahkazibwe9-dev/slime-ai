@@ -86,6 +86,10 @@ class LifeState:
     def update(self, now=None):
         now = time.time() if now is None else now
 
+        # Fail closed on non-finite timestamps: leave state unchanged.
+        if not math.isfinite(now) or not math.isfinite(self.last_regeneration):
+            return self.lives
+
         if self.maximum is not None and self.lives >= self.maximum:
             return self.lives
 
@@ -104,6 +108,10 @@ class LifeState:
 
     def seconds_until_next(self, now=None):
         now = time.time() if now is None else now
+
+        # Fail closed on non-finite timestamps.
+        if not math.isfinite(now) or not math.isfinite(self.last_regeneration):
+            return 0
 
         if self.maximum is not None and self.lives >= self.maximum:
             return 0

@@ -229,5 +229,32 @@ class GameStateValidationTests(unittest.TestCase):
         )
 
 
+
+    def test_life_state_non_finite_now_is_noop(self):
+        life = LifeState(lives=2, last_regeneration=100.0, maximum=5)
+        original_lives = life.lives
+        original_last = life.last_regeneration
+        # Non-finite now must not change state or raise
+        self.assertEqual(life.update(now=float("nan")), original_lives)
+        self.assertEqual(life.lives, original_lives)
+        self.assertEqual(life.last_regeneration, original_last)
+        self.assertEqual(life.update(now=float("inf")), original_lives)
+        self.assertEqual(life.lives, original_lives)
+        self.assertEqual(life.seconds_until_next(now=float("nan")), 0)
+        self.assertEqual(life.seconds_until_next(now=float("-inf")), 0)
+
+    def test_life_state_non_finite_last_regeneration_is_noop(self):
+        life = LifeState(lives=1, last_regeneration=float("nan"), maximum=None)
+        self.assertEqual(life.update(now=10_000), 1)
+        self.assertEqual(life.lives, 1)
+        self.assertEqual(life.seconds_until_next(now=10_000), 0)
+
+    def test_life_state_negative_elapsed_does_not_lose_lives(self):
+        life = LifeState(lives=3, last_regeneration=500.0, maximum=None)
+        # now before last_regeneration → elapsed clamped to 0
+        self.assertEqual(life.update(now=100.0), 3)
+        self.assertEqual(life.lives, 3)
+        self.assertEqual(life.last_regeneration, 500.0)
+
 if __name__ == "__main__":
     unittest.main()
