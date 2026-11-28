@@ -64,6 +64,8 @@ Local verification after adding unit tests for firing_evaluator pure offline pat
 
 Local verification after adding unit tests for geometry_adapter.apply_geometry (synthetic inputs only; verified-position requirement, all four segments, accessible remains False, invalid segment and image size; no private calibration file): **904 tests ran, 0 failures, 17 skipped**.
 
+Local verification after adding unit tests for screenshot_diff pure offline helpers (board_geometry scaling, colour_difference, cell_sample median, compare change detection above threshold, size-mismatch rejection, and safety flags): **913 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)

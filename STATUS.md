@@ -73,7 +73,7 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added proper unittest coverage for firing_evaluator pure offline path evaluation: trace_firing_path (all four directions, immediate hit, empty path, bounds exit, unsupported direction, board immutability) and evaluate_firing_target (NO_TARGET, colour unverified, case-insensitive and whitespace-tolerant MATCH, BLOCKED_BY_DIFFERENT_COLOUR, multi-cell paths, all four directions, state immutability).
 - Public unit tests now 889 tests ran / 0 failures / 17 skipped (local verification after firing_evaluator unit tests)
 - Added proper unittest coverage for geometry_adapter.apply_geometry (synthetic inputs only; no private calibration file). Covers verified-position requirement, direction and origin assignment for all four segments, accessible remains False, propagation of invalid segment/image size, and non-true verified values.
-- Public unit tests now 904 tests ran / 0 failures / 17 skipped (local verification after geometry_adapter unit tests and command_dispatcher safety regression tests)
+- Public unit tests now 913 tests ran / 0 failures / 17 skipped (local verification after adding screenshot_diff pure-function unit tests for geometry scaling, colour difference, cell sampling, change detection, size mismatch, and safety flags)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -99,8 +99,8 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~94%**
+Approximate offline-completable progress: **~94.5%**
 
-(Slight upward pressure from additional pure-offline firing path coverage; still held at ~94% until broader remaining modules and end-to-end fixture gaps are closed.)
+(Slight upward pressure from additional pure-offline screenshot comparison coverage; still held near 94-95% until broader remaining modules and end-to-end fixture gaps are closed.)
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
