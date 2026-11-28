@@ -401,5 +401,34 @@ class AnnotationValidatorTests(unittest.TestCase):
         self.assertTrue(ok, errors)
         self.assertEqual(errors, [])
 
+    def test_string_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": "10"}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_none_ammo_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": None}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("ammo" in e for e in errors))
+
+    def test_non_dict_shooter_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = ["not-a-dict", {"id": "s1", "color": "red", "ammo": 5}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("must be an object" in e for e in errors))
+
+    def test_bonded_ids_not_list_rejected(self):
+        data = dict(VALID)
+        data["shooters"] = [{"id": "s1", "color": "red", "ammo": 5, "bonded_ids": "s2"}]
+        ok, errors = validate_annotation(data)
+        self.assertFalse(ok)
+        self.assertTrue(any("bonded_ids must be a list" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main()

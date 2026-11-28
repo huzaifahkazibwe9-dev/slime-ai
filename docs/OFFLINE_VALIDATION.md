@@ -44,6 +44,8 @@ Local verification after adding multi-component bonded-group regression tests (t
 
 Local verification after hardening Shooter.valid() against empty/whitespace IDs and revealed empty/whitespace colors, and adding the corresponding regression tests: **725 tests ran, 0 failures, 17 skipped**.
 
+Local verification after adding annotation-validator regressions for string/None ammunition, non-dict shooter entries, and non-list bonded_ids: **729 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
