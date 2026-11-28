@@ -39,6 +39,9 @@ def load_board():
 
 
 def find_components(board):
+    if not board or not board[0]:
+        return {}
+
     height = len(board)
     width = len(board[0])
 

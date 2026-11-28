@@ -66,7 +66,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Converted sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential exposure, empty cells, ammo limits, colour blocking, all four directions, empty sequences, invalid inputs (ammo, direction, board shape), lane bounds, case-insensitive colour matching, zero-ammo exhaustion, and source-board immutability.
 - Public unit tests now 828 tests ran / 0 failures / 17 skipped (local verification after sequential_firing_simulator unit tests)
 - Converted firing_simulator ad-hoc run_tests into proper unittest coverage. Hardened ammo and lane validation to reject boolean values (consistent with other modules). Added regressions for matching removal, colour blocking, all four directions, board immutability, lane-cleared boundary, zero ammo, empty colour, negative/boolean ammo, out-of-range lane, unknown direction, invalid board shape, and simulated-board None cells.
-- Public unit tests now 843 tests ran / 0 failures / 17 skipped (local verification after firing_simulator unit tests)
+- Converted color_components ad-hoc run_tests into proper unittest coverage for 4-directional connectivity, diagonal separation, orthogonal merging, edge detection, size sorting, sample-cell limits, empty boards, None/empty-string colours, and rectangular boards. Hardened find_components to return {} on empty input.
+- Public unit tests now 854 tests ran / 0 failures / 17 skipped (local verification after color_components unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations

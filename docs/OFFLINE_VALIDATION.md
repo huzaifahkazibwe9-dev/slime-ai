@@ -56,7 +56,7 @@ Local verification after converting shooter_order_planner ad-hoc checks into pro
 
 Local verification after converting sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential clearing, ammo limits, directions, invalid inputs, colour matching, and board immutability: **828 tests ran, 0 failures, 17 skipped**.
 
-Local verification after converting firing_simulator ad-hoc run_tests into proper unittest coverage and hardening ammo/lane validation against boolean values: **843 tests ran, 0 failures, 17 skipped**.
+Local verification after converting color_components ad-hoc run_tests into proper unittest coverage for connectivity, edge detection, sorting, sample limits, empty boards, and distinct None/empty colours, and hardening find_components against empty input: **854 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
