@@ -10,6 +10,18 @@ BASELINE = Path("data/vision_level39.json")
 THRESHOLD = 35.0
 
 
+def _valid_rgb(value):
+    """Return True only for a length-3 sequence of finite numbers (rejecting bool)."""
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return False
+    for channel in value:
+        if type(channel) is bool or not isinstance(channel, (int, float)):
+            return False
+        if not math.isfinite(channel):
+            return False
+    return True
+
+
 def audit_rgb(previous, current, threshold=THRESHOLD):
     if previous.get("image_size") != current.get("image_size"):
         raise ValueError("Screenshot dimensions differ")
@@ -41,11 +53,8 @@ def audit_rgb(previous, current, threshold=THRESHOLD):
         for c in range(cols):
             a, b = old[r][c], new[r][c]
 
-            if (
-                not isinstance(a, list) or len(a) != 3
-                or not isinstance(b, list) or len(b) != 3
-            ):
-                raise ValueError("Invalid RGB sample")
+            if not _valid_rgb(a) or not _valid_rgb(b):
+                raise ValueError("Invalid RGB sample: must be three finite numbers")
 
             distance = math.sqrt(
                 sum((float(a[i]) - float(b[i])) ** 2 for i in range(3))

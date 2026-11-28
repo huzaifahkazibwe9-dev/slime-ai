@@ -78,5 +78,93 @@ class ColourMappingAuditorTests(unittest.TestCase):
             ["white", "cyan", "purple", "orange"]
         )
 
+    def test_empty_shooters_keeps_safety_flags_false(self):
+        empty_shooters = {"visible_shooters": []}
+        result = audit(self.board, empty_shooters, self.mappings)
+        self.assertEqual(result["results"], [])
+        self.assertFalse(result["gameplay_verified"])
+        self.assertFalse(result["gameplay_taps_enabled"])
+        self.assertIn("warning", result)
+
+
+    def test_missing_visible_shooters_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, {}, self.mappings)
+
+    def test_missing_shooter_color_raises(self):
+        bad_shooters = {"visible_shooters": [{"id": "top_1"}]}
+        with self.assertRaises(KeyError):
+            audit(self.board, bad_shooters, self.mappings)
+
+    def test_empty_board_profiles_raises_on_rankings(self):
+        empty_board = {
+            "grid_size": [0, 0],
+            "board": [],
+            "raw_rgb": []
+        }
+        with self.assertRaises(IndexError):
+            audit(empty_board, self.shooters, self.mappings)
+
+    def test_missing_mappings_key_raises(self):
+        with self.assertRaises(KeyError):
+            audit(self.board, self.shooters, {})
+
+
+    def test_malformed_shooter_rgb_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [240, 240]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_non_numeric_shooter_rgb_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [240, 240, "x"]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_boolean_rgb_channel_raises(self):
+        bad = {
+            "visible_shooters": [
+                {"id": "top_1", "color": {"name": "white", "rgb": [True, 240, 240]}}
+            ]
+        }
+        with self.assertRaises(ValueError):
+            audit(self.board, bad, self.mappings)
+
+    def test_malformed_board_sample_raises(self):
+        bad_board = {
+            "grid_size": [1, 1],
+            "board": [["white"]],
+            "raw_rgb": [[[255, 255]]]
+        }
+        with self.assertRaises(ValueError):
+            audit(bad_board, self.shooters, self.mappings)
+
+    def test_non_finite_shooter_rgb_raises(self):
+        for bad_channel in (float("inf"), float("-inf"), float("nan")):
+            bad = {
+                "visible_shooters": [
+                    {"id": "top_1", "color": {"name": "white", "rgb": [bad_channel, 240, 240]}}
+                ]
+            }
+            with self.assertRaises(ValueError):
+                audit(self.board, bad, self.mappings)
+
+    def test_non_finite_board_sample_raises(self):
+        for bad_channel in (float("inf"), float("-inf"), float("nan")):
+            bad_board = {
+                "grid_size": [1, 1],
+                "board": [["white"]],
+                "raw_rgb": [[[bad_channel, 255, 255]]]
+            }
+            with self.assertRaises(ValueError):
+                audit(bad_board, self.shooters, self.mappings)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

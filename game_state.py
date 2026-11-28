@@ -35,6 +35,10 @@ class Shooter:
     panel_box: Optional[tuple] = None
 
     def valid(self):
+        # id must be a non-empty string (after strip).
+        if not isinstance(self.id, str) or not self.id.strip():
+            return False
+
         # bool is a subclass of int in Python; reject it as malformed ammo.
         if self.ammo is not None and type(self.ammo) is not int:
             return False
@@ -53,7 +57,10 @@ class Shooter:
             return False
 
         if self.revealed:
-            if self.color is None or self.ammo is None:
+            # color must be a non-empty, non-whitespace string when revealed.
+            if not isinstance(self.color, str) or not self.color.strip():
+                return False
+            if self.ammo is None:
                 return False
 
         if self.id in self.bonded_ids:
@@ -79,6 +86,10 @@ class LifeState:
     def update(self, now=None):
         now = time.time() if now is None else now
 
+        # Fail closed on non-finite timestamps: leave state unchanged.
+        if not math.isfinite(now) or not math.isfinite(self.last_regeneration):
+            return self.lives
+
         if self.maximum is not None and self.lives >= self.maximum:
             return self.lives
 
@@ -97,6 +108,10 @@ class LifeState:
 
     def seconds_until_next(self, now=None):
         now = time.time() if now is None else now
+
+        # Fail closed on non-finite timestamps.
+        if not math.isfinite(now) or not math.isfinite(self.last_regeneration):
+            return 0
 
         if self.maximum is not None and self.lives >= self.maximum:
             return 0
@@ -252,6 +267,37 @@ class GameState:
 
         return True
 
+    def _bonded_component_for_validation(self, shooter_id):
+        """Walk the full undirected bonded component without the size early-exit.
+
+        Used only by validate() so oversized groups can be reported.
+        Selection paths continue to use bonded_group() which returns [] for
+        components larger than 3.
+        """
+        if shooter_id not in self.shooters:
+            return []
+
+        pending = [shooter_id]
+        visited = set()
+        ordered = []
+
+        while pending:
+            current = pending.pop(0)
+            if current in visited:
+                continue
+            shooter = self.shooters.get(current)
+            if shooter is None:
+                return []
+            visited.add(current)
+            ordered.append(current)
+            for member in getattr(shooter, "bonded_ids", ()):
+                if member not in self.shooters:
+                    return []
+                if member not in visited and member not in pending:
+                    pending.append(member)
+
+        return sorted(ordered)
+
     def validate(self):
         errors = []
 
@@ -289,10 +335,9 @@ class GameState:
         for shooter_id in self.shooters:
             if shooter_id in checked_groups:
                 continue
-            group = self.bonded_group(shooter_id)
+            group = self._bonded_component_for_validation(shooter_id)
             if not group:
-                # Missing references and oversized components are already
-                # reported by the per-edge checks below / above.
+                # Missing references are already reported by the per-edge checks above.
                 continue
             checked_groups.update(group)
             if len(group) > 3:

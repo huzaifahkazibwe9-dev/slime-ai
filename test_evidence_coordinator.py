@@ -1,5 +1,12 @@
+import hashlib
+import json
+import tempfile
 import unittest
-from evidence_coordinator import audit_transition
+from pathlib import Path
+from unittest.mock import patch
+from PIL import Image
+
+from evidence_coordinator import audit_transition, coordinate, OBSERVATION, REPORT
 
 
 class EvidenceCoordinatorTests(unittest.TestCase):
@@ -89,6 +96,420 @@ class EvidenceCoordinatorTests(unittest.TestCase):
                 [["a", "b"], ["c", "d"]],
             )
 
+    def test_non_uniform_edge_changes_require_review(self):
+        before = [["white"] * 5 for _ in range(5)]
+        after = [row[:] for row in before]
+        after[0][0] = "green"
+        after[0][1] = "blue"
+        after[0][2] = "red"
+
+        result = audit_transition(before, after)
+        self.assertEqual(result["status"], "EDGE_CHANGE_REQUIRES_REVIEW")
+        self.assertFalse(result["uniform_edge_replacement"])
+        self.assertEqual(result["edge_changes"], 3)
+        self.assertEqual(result["interior_changes"], 0)
+
+    def test_too_small_board_for_edge_width_rejected(self):
+        # EDGE_WIDTH = 2, so boards smaller than 5x5 cannot use the edge classifier
+        before = [["a"] * 4 for _ in range(4)]
+        after = [row[:] for row in before]
+        after[0][0] = "b"  # force an edge check
+        with self.assertRaises(ValueError):
+            audit_transition(before, after)
+
+    def test_empty_board_rejected(self):
+        with self.assertRaises(ValueError):
+            audit_transition([], [])
+
+    def test_coordinate_binds_extraction_and_hash_to_one_byte_snapshot(self):
+        """Extraction, hash and EXIF must come from the same immutable bytes.
+
+        Even if the source path is replaced after the initial read, the
+        returned digest and board must still match the original snapshot.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            # Solid white image that classifies as all-"white"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            original_bytes = image_path.read_bytes()
+            expected_digest = hashlib.sha256(original_bytes).hexdigest()
+
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            def replace_source_then_extract(path, calibration):
+                # Simulate a race: replace the original path after the
+                # snapshot has been taken but before extraction finishes.
+                Image.new("RGB", (30, 30), (230, 30, 30)).save(image_path)
+                from screenshot_ingestor import extract_board as real_extract
+                return real_extract(path, calibration)
+
+            with patch(
+                "evidence_coordinator.extract_board",
+                side_effect=replace_source_then_extract,
+            ):
+                result = coordinate(
+                    image_path,
+                    baseline_path=baseline_path,
+                )
+
+            self.assertEqual(result["source_sha256"], expected_digest)
+            self.assertEqual(result["snapshot_id"], "sha256:" + expected_digest)
+            self.assertFalse(result["game_taps_enabled"])
+            self.assertFalse(result["gameplay_verified"])
+
+            # The observation written from the snapshot must also match
+            observation = json.loads(OBSERVATION.read_text())
+            self.assertEqual(observation["source_sha256"], expected_digest)
+            self.assertEqual(observation["board"], board)
+            self.assertEqual(result["transition"]["status"], "UNCHANGED")
+
+            # Clean up the fixed-path artefacts the coordinator writes
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+    def test_coordinate_does_not_write_artefacts_on_extraction_failure(self):
+        """If extraction raises, no observation or report files must be left behind.
+
+        Fail-closed: partial evidence must never be promoted.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            # Ensure clean slate
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with patch(
+                "evidence_coordinator.extract_board",
+                side_effect=ValueError("simulated extraction failure"),
+            ):
+                with self.assertRaises(ValueError):
+                    coordinate(image_path, baseline_path=baseline_path)
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_grid_size_mismatch(self):
+        """Extracted grid must match baseline; mismatch must raise and leave no artefacts."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [4, 4],  # mismatch
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            mismatched = {
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+                "counts": {},
+                "raw_rgb": [],
+            }
+            with patch(
+                "evidence_coordinator.extract_board",
+                return_value=mismatched,
+            ):
+                with self.assertRaises(ValueError) as ctx:
+                    coordinate(image_path, baseline_path=baseline_path)
+                self.assertIn("grid does not match", str(ctx.exception).lower())
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+
+    def test_coordinate_rejects_missing_baseline_without_artefacts(self):
+        """Missing baseline must raise before any artefact is written."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            missing_baseline = root / "does_not_exist.json"
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(FileNotFoundError):
+                coordinate(image_path, baseline_path=missing_baseline)
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_invalid_baseline_json_without_artefacts(self):
+        """Malformed baseline JSON must raise and leave no observation/report files."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            baseline_path.write_text("{ not valid json")
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(json.JSONDecodeError):
+                coordinate(image_path, baseline_path=baseline_path)
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_bounds_mismatch_without_artefacts(self):
+        """Calibration bounds mismatch must raise and leave no artefacts."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            mismatched = {
+                "grid_size": [3, 3],
+                "bounds": [0, 0, 30, 30],  # mismatch
+                "board": board,
+                "counts": {},
+                "raw_rgb": [],
+            }
+            with patch(
+                "evidence_coordinator.extract_board",
+                return_value=mismatched,
+            ):
+                with self.assertRaises(ValueError) as ctx:
+                    coordinate(image_path, baseline_path=baseline_path)
+                self.assertIn("calibration does not match", str(ctx.exception).lower())
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+    def test_coordinate_rejects_invalid_capture_session_id_without_artefacts(self):
+        """Invalid capture_session_id must raise ValueError and leave no artefacts.
+
+        Validation occurs after extraction but before any file writes.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.unlink(missing_ok=True)
+            REPORT.unlink(missing_ok=True)
+
+            with self.assertRaises(ValueError) as ctx:
+                coordinate(
+                    image_path,
+                    baseline_path=baseline_path,
+                    capture_session_id="invalid session id with spaces!",
+                )
+            self.assertIn("Invalid capture session ID", str(ctx.exception))
+
+            self.assertFalse(OBSERVATION.exists())
+            self.assertFalse(REPORT.exists())
+
+
+    def test_coordinate_stages_both_outputs_before_replacing_either(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
+            REPORT.parent.mkdir(parents=True, exist_ok=True)
+            previous = {
+                OBSERVATION: OBSERVATION.read_bytes() if OBSERVATION.exists() else None,
+                REPORT: REPORT.read_bytes() if REPORT.exists() else None,
+            }
+            observation_sentinel = b"previous observation"
+            report_sentinel = b"previous report"
+            OBSERVATION.write_bytes(observation_sentinel)
+            REPORT.write_bytes(report_sentinel)
+
+            original_write_text = Path.write_text
+
+            def fail_report_staging(path, data, *args, **kwargs):
+                if path == REPORT.with_suffix(REPORT.suffix + ".tmp"):
+                    raise OSError("simulated report staging failure")
+                return original_write_text(path, data, *args, **kwargs)
+
+            try:
+                with patch.object(Path, "write_text", new=fail_report_staging):
+                    with self.assertRaisesRegex(
+                        OSError, "simulated report staging failure"
+                    ):
+                        coordinate(image_path, baseline_path=baseline_path)
+
+                self.assertEqual(OBSERVATION.read_bytes(), observation_sentinel)
+                self.assertEqual(REPORT.read_bytes(), report_sentinel)
+                self.assertFalse(
+                    OBSERVATION.with_suffix(OBSERVATION.suffix + ".tmp").exists()
+                )
+                self.assertFalse(
+                    REPORT.with_suffix(REPORT.suffix + ".tmp").exists()
+                )
+            finally:
+                for path, old_content in previous.items():
+                    if old_content is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(old_content)
+
+    def test_coordinate_preserves_both_outputs_on_observation_staging_failure(self):
+        """A failure while staging the observation must leave both published files unchanged."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
+            REPORT.parent.mkdir(parents=True, exist_ok=True)
+            previous = {
+                OBSERVATION: OBSERVATION.read_bytes() if OBSERVATION.exists() else None,
+                REPORT: REPORT.read_bytes() if REPORT.exists() else None,
+            }
+            observation_sentinel = b"previous observation"
+            report_sentinel = b"previous report"
+            OBSERVATION.write_bytes(observation_sentinel)
+            REPORT.write_bytes(report_sentinel)
+
+            original_write_text = Path.write_text
+
+            def fail_observation_staging(path, data, *args, **kwargs):
+                if path == OBSERVATION.with_suffix(OBSERVATION.suffix + ".tmp"):
+                    raise OSError("simulated observation staging failure")
+                return original_write_text(path, data, *args, **kwargs)
+
+            try:
+                with patch.object(Path, "write_text", new=fail_observation_staging):
+                    with self.assertRaisesRegex(
+                        OSError, "simulated observation staging failure"
+                    ):
+                        coordinate(image_path, baseline_path=baseline_path)
+
+                self.assertEqual(OBSERVATION.read_bytes(), observation_sentinel)
+                self.assertEqual(REPORT.read_bytes(), report_sentinel)
+                self.assertFalse(
+                    OBSERVATION.with_suffix(OBSERVATION.suffix + ".tmp").exists()
+                )
+                self.assertFalse(
+                    REPORT.with_suffix(REPORT.suffix + ".tmp").exists()
+                )
+            finally:
+                for path, old_content in previous.items():
+                    if old_content is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(old_content)
+
+
+
+    def test_coordinate_rolls_back_partial_replace_on_second_failure(self):
+        """If the second replace fails, the first must be rolled back so both files stay at previous content."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
+            REPORT.parent.mkdir(parents=True, exist_ok=True)
+            previous = {
+                OBSERVATION: OBSERVATION.read_bytes() if OBSERVATION.exists() else None,
+                REPORT: REPORT.read_bytes() if REPORT.exists() else None,
+            }
+            observation_sentinel = b"previous observation"
+            report_sentinel = b"previous report"
+            OBSERVATION.write_bytes(observation_sentinel)
+            REPORT.write_bytes(report_sentinel)
+
+            original_replace = Path.replace
+
+            def fail_second_replace(self, target):
+                if target == REPORT:
+                    raise OSError("simulated second replace failure")
+                return original_replace(self, target)
+
+            try:
+                with patch.object(Path, "replace", new=fail_second_replace):
+                    with self.assertRaisesRegex(
+                        OSError, "simulated second replace failure"
+                    ):
+                        coordinate(image_path, baseline_path=baseline_path)
+
+                self.assertEqual(OBSERVATION.read_bytes(), observation_sentinel)
+                self.assertEqual(REPORT.read_bytes(), report_sentinel)
+                self.assertFalse(
+                    OBSERVATION.with_suffix(OBSERVATION.suffix + ".tmp").exists()
+                )
+                self.assertFalse(
+                    REPORT.with_suffix(REPORT.suffix + ".tmp").exists()
+                )
+            finally:
+                for path, old_content in previous.items():
+                    if old_content is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(old_content)
 
 if __name__ == "__main__":
     unittest.main()

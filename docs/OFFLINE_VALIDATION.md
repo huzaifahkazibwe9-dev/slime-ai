@@ -1,0 +1,91 @@
+# Offline Validation Guide
+
+This document describes the supported offline validation path for Slime AI.
+It does **not** claim device validation or gameplay verification.
+
+## Requirements
+
+- Python 3.10+
+- Dependencies from `requirements.txt` (`Pillow`, `numpy`)
+- No live game interaction is performed by any command below
+
+## Quick offline checks
+
+```bash
+# Syntax check of deployment scripts
+bash -n build_pipeline.sh deploy_termux.sh
+
+# Compile all Python modules
+python -m compileall -q .
+
+# Run the full unit test suite
+python -m unittest discover -v
+```
+
+Latest verified public-repository outcome (GitHub Actions run #1239, 2026-11-27):
+- 635 tests ran on Python 3.12 and 3.14
+- 0 failures / 0 errors
+- 17 skipped (private Level 39 vision, conveyor consistency, conveyor timeline, and reachability evidence fixtures are not present in the public repository)
+- The 17 skipped tests are not counted as passing, and their private fixtures are not represented as public evidence.
+
+Local verification after adding annotation session-id alignment and field-edge regression tests (invalid version, naive timestamp, empty annotator, invalid session IDs, uppercase snapshot, boolean slot): 653 tests ran, 0 failures, 17 skipped.
+
+Local verification after adding GameState/Shooter validation regression tests: **676 tests ran, 0 failures, 17 skipped**.
+
+Local verification after fixing oversized bonded-group reporting in GameState.validate() and adding LifeState timing/capacity regression tests: **681 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding empty-shooters colour mapping regression test: **682 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding colour-mapping auditor non-finite RGB (inf/nan) regressions and removing unreachable duplicate test methods: **692 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding conveyor geometry unit tests for calculate_firing_geometry (known segments, position flag, invalid segment/coordinates/dimensions/grid, clamping, and safety flags): **705 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding multi-component bonded-group regression tests (two independent pairs; size-3 plus isolated shooter): **722 tests ran, 0 failures, 17 skipped**.
+
+Local verification after hardening Shooter.valid() against empty/whitespace IDs and revealed empty/whitespace colors, and adding the corresponding regression tests: **725 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding ResourceManager safety and mode-transition regression tests: **743 tests ran, 0 failures, 17 skipped**.
+
+Local verification after hardening LifeState.update and seconds_until_next against non-finite timestamps (fail-closed no-op) and adding regression tests for non-finite now/last_regeneration and negative elapsed: **759 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding the observation-staging failure regression test for the evidence coordinator: **760 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding unit tests for identity_tracker.validate_observations and firing_observation.validate_observation (no private data required): **799 tests ran, 0 failures, 17 skipped**.
+
+Local verification after converting shooter_order_planner ad-hoc checks into proper unittest coverage for ordering, bonded groups, capacity, duplicates, board immutability and prepare_groups edge cases: **812 tests ran, 0 failures, 17 skipped**.
+
+Local verification after converting sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential clearing, ammo limits, directions, invalid inputs, colour matching, and board immutability: **828 tests ran, 0 failures, 17 skipped**.
+
+Local verification after converting color_components ad-hoc run_tests into proper unittest coverage for connectivity, edge detection, sorting, sample limits, empty boards, and distinct None/empty colours, and hardening find_components against empty input: **854 tests ran, 0 failures, 17 skipped**.
+
+Local verification after converting firing_adapter ad-hoc run_tests into proper unittest coverage for direction mapping, colour blocking, empty lanes, invalid inputs, and board immutability: **870 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding unit tests for firing_evaluator pure offline path evaluation (trace_firing_path and evaluate_firing_target: directions, hits, empty paths, colour match/block/unverified, immutability): **889 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding unit tests for geometry_adapter.apply_geometry (synthetic inputs only; verified-position requirement, all four segments, accessible remains False, invalid segment and image size; no private calibration file): **904 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding unit tests for screenshot_diff pure offline helpers (board_geometry scaling, colour_difference, cell_sample median, compare change detection above threshold, size-mismatch rejection, and safety flags): **913 tests ran, 0 failures, 17 skipped**.
+
+The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
+
+## Diagnostic / dry-run path (when fixtures exist)
+
+```bash
+# Central diagnostics (legacy or observation mode)
+python main.py
+
+# With a screenshot observation (if available)
+python main.py --observation data/board_observation_latest.json
+```
+
+## Safety reminders
+
+- `GAME_TAPS_ENABLED` remains `False` in all supported entry points
+- Planning and orchestration are dry-run only
+- No command in this repository should tap the game or spend gold
+
+## What this does **not** cover
+
+- Real Android / Termux device behaviour
+- Human-reviewed shooter identity labels
+- Live conveyor timing under real game conditions

@@ -1,5 +1,7 @@
 import json
 import hashlib
+import os
+import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -101,40 +103,50 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
     if not image_path.is_file():
         raise FileNotFoundError(image_path)
 
-    baseline_data = json.loads(baseline_path.read_text())
-    extracted = extract_board(image_path, baseline_data)
+    # Take a single immutable snapshot of the screenshot bytes so that
+    # extraction, hashing, and EXIF parsing all operate on the same content
+    # even if the original path is replaced or mutated afterwards.
+    with open(image_path, "rb") as source:
+        snapshot_bytes = source.read()
+        file_stat = os.fstat(source.fileno())
 
-    if extracted["grid_size"] != baseline_data["grid_size"]:
-        raise ValueError("Screenshot grid does not match baseline")
-
-    if extracted["bounds"] != baseline_data["bounds"]:
-        raise ValueError("Screenshot calibration does not match baseline")
-
-    transition = audit_transition(
-        baseline_data["board"],
-        extracted["board"],
-    )
-
-    digest = hashlib.sha256(image_path.read_bytes()).hexdigest()
-
-    stat = image_path.stat()
+    digest = hashlib.sha256(snapshot_bytes).hexdigest()
     modified = datetime.fromtimestamp(
-        stat.st_mtime, timezone.utc
+        file_stat.st_mtime, timezone.utc
     ).isoformat()
 
-    from PIL import Image
-    from capture_provenance import (
-        parse_aware_capture_timestamp,
-        parse_exif_capture_time,
-        validate_capture_session_id,
-    )
-    with Image.open(image_path) as img:
-        exif_time = parse_exif_capture_time(img.getexif())
-    exif_time = (
-        parse_aware_capture_timestamp(captured_at)
-        if captured_at is not None else exif_time
-    )
-    capture_session_id = validate_capture_session_id(capture_session_id)
+    baseline_data = json.loads(baseline_path.read_text())
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        snapshot_path = Path(tmpdir) / "screenshot_snapshot.png"
+        snapshot_path.write_bytes(snapshot_bytes)
+
+        extracted = extract_board(snapshot_path, baseline_data)
+
+        if extracted["grid_size"] != baseline_data["grid_size"]:
+            raise ValueError("Screenshot grid does not match baseline")
+
+        if extracted["bounds"] != baseline_data["bounds"]:
+            raise ValueError("Screenshot calibration does not match baseline")
+
+        transition = audit_transition(
+            baseline_data["board"],
+            extracted["board"],
+        )
+
+        from PIL import Image
+        from capture_provenance import (
+            parse_aware_capture_timestamp,
+            parse_exif_capture_time,
+            validate_capture_session_id,
+        )
+        with Image.open(snapshot_path) as img:
+            exif_time = parse_exif_capture_time(img.getexif())
+        exif_time = (
+            parse_aware_capture_timestamp(captured_at)
+            if captured_at is not None else exif_time
+        )
+        capture_session_id = validate_capture_session_id(capture_session_id)
 
     result = {
         "version": 1,
@@ -179,13 +191,39 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
     OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
     REPORT.parent.mkdir(parents=True, exist_ok=True)
 
-    for path, data in (
-        (OBSERVATION, observation),
-        (REPORT, result),
-    ):
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_text(json.dumps(data, indent=2))
-        temporary.replace(path)
+    # Stage the complete output pair before publishing either file.
+    # Capture previous content so a partial replace can be rolled back,
+    # ensuring the published pair is always consistent (both old or both new).
+    previous = {}
+    for path in (OBSERVATION, REPORT):
+        previous[path] = path.read_bytes() if path.exists() else None
+
+    staged_outputs = []
+    replaced = []
+    try:
+        for path, data in (
+            (OBSERVATION, observation),
+            (REPORT, result),
+        ):
+            temporary = path.with_suffix(path.suffix + ".tmp")
+            staged_outputs.append((temporary, path))
+            temporary.write_text(json.dumps(data, indent=2))
+
+        for temporary, path in staged_outputs:
+            temporary.replace(path)
+            replaced.append(path)
+    except Exception:
+        # Roll back any successful replaces so the pair stays consistent.
+        for path in reversed(replaced):
+            content = previous.get(path)
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+        raise
+    finally:
+        for temporary, _ in staged_outputs:
+            temporary.unlink(missing_ok=True)
 
     print("SLIME AI — BUILD 11K EVIDENCE COORDINATOR")
     print("=" * 52)

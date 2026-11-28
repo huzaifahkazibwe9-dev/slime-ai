@@ -12,14 +12,32 @@ OUTPUT_FILE = Path("data/colour_mapping_evidence.json")
 def distance(a, b):
     return math.sqrt(sum((x-y)**2 for x, y in zip(a, b)))
 
+def _valid_rgb(value):
+    """Return True only for a length-3 sequence of finite numbers."""
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return False
+    for channel in value:
+        if type(channel) is bool or not isinstance(channel, (int, float)):
+            return False
+        if not math.isfinite(channel):
+            return False
+    return True
+
+
 def audit(board_data, shooter_data, mapping_data):
     board = board_data["board"]
     rgb = board_data["raw_rgb"]
+    if not isinstance(board, list) or not isinstance(rgb, list) or len(board) != len(rgb):
+        raise ValueError("board and raw_rgb must be equal-length lists")
     profiles = defaultdict(list)
 
     for y, row in enumerate(board):
+        if not isinstance(row, list) or y >= len(rgb) or not isinstance(rgb[y], list) or len(row) != len(rgb[y]):
+            raise ValueError(f"board row {y} and raw_rgb row {y} must be equal-length lists")
         for x, label in enumerate(row):
             sample = rgb[y][x]
+            if not _valid_rgb(sample):
+                raise ValueError(f"board RGB sample at ({y}, {x}) must be three finite numbers")
             profiles[label].append(sample)
 
     medians = {
@@ -33,6 +51,8 @@ def audit(board_data, shooter_data, mapping_data):
         sid = shooter["id"]
         colour = shooter["color"]["name"]
         shooter_rgb = shooter["color"]["rgb"]
+        if not _valid_rgb(shooter_rgb):
+            raise ValueError(f"shooter {sid} RGB must be three finite numbers")
 
         rankings = sorted(
             [
