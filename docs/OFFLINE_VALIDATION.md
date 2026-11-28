@@ -44,7 +44,7 @@ Local verification after adding multi-component bonded-group regression tests (t
 
 Local verification after hardening Shooter.valid() against empty/whitespace IDs and revealed empty/whitespace colors, and adding the corresponding regression tests: **725 tests ran, 0 failures, 17 skipped**.
 
-Local verification after adding annotation-validator type and session-id edge-case regressions: 743 tests ran, 0 failures, 17 skipped.
+Local verification after adding ResourceManager safety and mode-transition regression tests: **743 tests ran, 0 failures, 17 skipped**.
 
 Local verification after hardening LifeState.update and seconds_until_next against non-finite timestamps (fail-closed no-op) and adding regression tests for non-finite now/last_regeneration and negative elapsed: **759 tests ran, 0 failures, 17 skipped**.
 
@@ -59,6 +59,8 @@ Local verification after converting sequential_firing_simulator ad-hoc run_tests
 Local verification after converting color_components ad-hoc run_tests into proper unittest coverage for connectivity, edge detection, sorting, sample limits, empty boards, and distinct None/empty colours, and hardening find_components against empty input: **854 tests ran, 0 failures, 17 skipped**.
 
 Local verification after converting firing_adapter ad-hoc run_tests into proper unittest coverage for direction mapping, colour blocking, empty lanes, invalid inputs, and board immutability: **870 tests ran, 0 failures, 17 skipped**.
+
+Local verification after adding unit tests for firing_evaluator pure offline path evaluation (trace_firing_path and evaluate_firing_target: directions, hits, empty paths, colour match/block/unverified, immutability): **889 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 

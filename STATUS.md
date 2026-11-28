@@ -58,10 +58,10 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
 - Added a regression test that injects a report-staging failure and checks preservation of both existing evidence files
 - Added a symmetric regression test that injects an observation-staging failure and checks preservation of both existing evidence files
-- Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after adding the observation-staging failure regression)
-- Converted shooter_order_planner ad-hoc run_tests into proper unittest coverage for ordering, bonded-group adjacency, capacity, duplicate IDs, board immutability, and prepare_groups edge cases (empty/non-list, invalid capacity, empty/non-string group and shooter IDs).
-- Added proper unittest coverage for identity_tracker.validate_observations (injected shooters/positions; missing frame_id, unknown IDs, per-frame duplicate position/shooter, strict verified=True including rejection of string/int truthy values)
-- Added proper unittest coverage for firing_observation.validate_observation (all eight calibrated positions, wrong direction/lane, out-of-board cells, boolean/float ammo and cell coordinates, unconfirmed observation, ammo non-decrease)
+- Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after observation-staging failure regression)
+- Added unit tests for identity_tracker and firing_observation validation
+- Public unit tests now 799 tests ran / 0 failures / 17 skipped
+- Converted shooter_order_planner ad-hoc checks into proper unittest coverage
 - Public unit tests now 812 tests ran / 0 failures / 17 skipped (local verification after shooter_order_planner unit tests)
 - Converted sequential_firing_simulator ad-hoc run_tests into proper unittest coverage for sequential exposure, empty cells, ammo limits, colour blocking, all four directions, empty sequences, invalid inputs (ammo, direction, board shape), lane bounds, case-insensitive colour matching, zero-ammo exhaustion, and source-board immutability.
 - Public unit tests now 828 tests ran / 0 failures / 17 skipped (local verification after sequential_firing_simulator unit tests)
@@ -70,6 +70,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Public unit tests now 854 tests ran / 0 failures / 17 skipped (local verification after color_components unit tests)
 - Converted firing_adapter ad-hoc run_tests into proper unittest coverage for all four simulator directions, colour blocking, empty lanes, unverified colour, case-insensitive matching, invalid direction/lane (non-int, boolean, out-of-range), boundary lanes, direction-map completeness, and board immutability.
 - Public unit tests now 870 tests ran / 0 failures / 17 skipped (local verification after firing_adapter unit tests)
+- Added proper unittest coverage for firing_evaluator pure offline path evaluation: trace_firing_path (all four directions, immediate hit, empty path, bounds exit, unsupported direction, board immutability) and evaluate_firing_target (NO_TARGET, colour unverified, case-insensitive and whitespace-tolerant MATCH, BLOCKED_BY_DIFFERENT_COLOUR, multi-cell paths, all four directions, state immutability).
+- Public unit tests now 889 tests ran / 0 failures / 17 skipped (local verification after firing_evaluator unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -96,5 +98,7 @@ Priority order for offline-verifiable work:
 ## Honest completion estimate (offline-completable portion only)
 
 Approximate offline-completable progress: **~94%**
+
+(Slight upward pressure from additional pure-offline firing path coverage; still held at ~94% until broader remaining modules and end-to-end fixture gaps are closed.)
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
