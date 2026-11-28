@@ -59,6 +59,28 @@ class ShooterValidationTests(unittest.TestCase):
         s = Shooter("S1", "red", None, revealed=True)
         self.assertFalse(s.valid())
 
+    def test_empty_id_rejected(self):
+        s = Shooter("", "red", 1)
+        self.assertFalse(s.valid())
+        s = Shooter("   ", "red", 1)
+        self.assertFalse(s.valid())
+        s = Shooter(None, "red", 1)
+        self.assertFalse(s.valid())
+
+    def test_empty_or_whitespace_color_rejected_when_revealed(self):
+        s = Shooter("S1", "", 1, revealed=True)
+        self.assertFalse(s.valid())
+        s = Shooter("S1", "   ", 1, revealed=True)
+        self.assertFalse(s.valid())
+        s = Shooter("S1", "red", 1, revealed=True)
+        self.assertTrue(s.valid())
+
+    def test_unrevealed_allows_empty_color(self):
+        # Unrevealed shooters may omit color; empty string is still tolerated
+        # because the revealed check is the only place color is required.
+        s = Shooter("S1", "", None, revealed=False)
+        self.assertTrue(s.valid())
+
 
 class GameStateValidationTests(unittest.TestCase):
     def _simple_board(self):

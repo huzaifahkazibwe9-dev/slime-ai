@@ -42,6 +42,8 @@ Local verification after adding conveyor geometry unit tests for calculate_firin
 
 Local verification after adding multi-component bonded-group regression tests (two independent pairs; size-3 plus isolated shooter): **722 tests ran, 0 failures, 17 skipped**.
 
+Local verification after hardening Shooter.valid() against empty/whitespace IDs and revealed empty/whitespace colors, and adding the corresponding regression tests: **725 tests ran, 0 failures, 17 skipped**.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)

@@ -35,6 +35,10 @@ class Shooter:
     panel_box: Optional[tuple] = None
 
     def valid(self):
+        # id must be a non-empty string (after strip).
+        if not isinstance(self.id, str) or not self.id.strip():
+            return False
+
         # bool is a subclass of int in Python; reject it as malformed ammo.
         if self.ammo is not None and type(self.ammo) is not int:
             return False
@@ -53,7 +57,10 @@ class Shooter:
             return False
 
         if self.revealed:
-            if self.color is None or self.ammo is None:
+            # color must be a non-empty, non-whitespace string when revealed.
+            if not isinstance(self.color, str) or not self.color.strip():
+                return False
+            if self.ammo is None:
                 return False
 
         if self.id in self.bonded_ids:
