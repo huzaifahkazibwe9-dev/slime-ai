@@ -1,6 +1,6 @@
 # Slime AI — Offline Milestone Status
 
-Last updated: 2026-11-28 (reliability-offline-hardening-2026-11)
+Last updated: 2026-11-28 (level39 filename-clock catalog; base reliability-offline-hardening-2026-11)
 
 This file tracks progress toward a reliable, fully tested **offline** puzzle-solving system.
 It is deliberately conservative. Nothing is marked complete without evidence.
@@ -74,6 +74,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Public unit tests now 889 tests ran / 0 failures / 17 skipped (local verification after firing_evaluator unit tests)
 - Added proper unittest coverage for geometry_adapter.apply_geometry (synthetic inputs only; no private calibration file). Covers verified-position requirement, direction and origin assignment for all four segments, accessible remains False, propagation of invalid segment/image size, and non-true verified values.
 - Public unit tests now 913 tests ran / 0 failures / 17 skipped (local verification after adding screenshot_diff pure-function unit tests for geometry scaling, colour difference, cell sampling, change detection, size mismatch, and safety flags)
+- Added `level39_capture_catalog.py` for the supplied 21 November and 27 November filename clocks and visibility notes. The sessions stay separate, `shooter_positions_marked.jpg` stays an annotated reference, and no timezone, ammunition, pixel colours, prices, or image hashes are attached. Private Level 39 fixtures are not replaced.
+- Public unit tests now 927 tests ran / 0 failures / 17 skipped (local verification after the filename-clock catalog tests; the previous 17 evidence skips remain)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -101,6 +103,6 @@ Priority order for offline-verifiable work:
 
 Approximate offline-completable progress: **~94.5%**
 
-(Slight upward pressure from additional pure-offline screenshot comparison coverage; still held near 94-95% until broader remaining modules and end-to-end fixture gaps are closed.)
+(Unchanged. The filename-clock catalog records supplied notes only. It does not verify pixels, conveyor mechanics, colour classification, or solver results.)
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.

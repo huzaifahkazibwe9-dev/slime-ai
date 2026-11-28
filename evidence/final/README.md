@@ -5,6 +5,7 @@ This directory is reserved for **independently obtained** evidence required to c
 ## Currently present
 
 - This README (process documentation only).
+- No Level 39 image bytes. `level39_capture_catalog.py` records filename clocks and supplied visibility notes only. It is not a substitute for the private fixtures below.
 
 ## Still required (do not invent or generate)
 

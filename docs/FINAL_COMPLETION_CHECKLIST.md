@@ -1,8 +1,8 @@
 # FINAL COMPLETION CHECKLIST
 
 Repository: huzaifahkazibwe9-dev/slime-ai  
-Branch: reliability-offline-hardening-2026-11  
-Last updated: 2026-11-27
+Branch: level39-filename-clock-catalog-2026-11  
+Last updated: 2026-11-28
 
 Status values: `NOT_STARTED` | `IN_PROGRESS` | `BLOCKED` | `VERIFIED`
 
@@ -36,6 +36,15 @@ Only mark `VERIFIED` when acceptance criteria are met with evidence.
 - Files: `STATUS.md`
 - Status: **VERIFIED**
 - Evidence: file present and updated
+
+### EVIDENCE-003 — Level 39 filename-clock session catalog
+- Subsystem: Evidence provenance
+- Files: `level39_capture_catalog.py`, `test_level39_capture_catalog.py`
+- Status: **IN_PROGRESS**
+- Implementation: records the supplied 21 November (four conveyor-side notes) and 27 November (four shop popups plus one clear-board note) filename clocks. Timezone is unidentified. `shooter_positions_marked.jpg` stays an annotated reference.
+- Test / Evidence: unit tests reject invented offsets, ammunition, pixel colours, prices, session merges, rotation models, and label transfer. No image bytes were available, so none are hashed here.
+- Remaining blocker: original image files, a real UTC offset, transcribed popup prices/charges, ammunition, pixel colours, and a human review of shooter labels.
+- Not claimed: conveyor mechanics, colour accuracy, solver correctness, or sameness of the two sessions.
 
 ### VISION-001 — Screenshot provenance and ingestion robustness
 - Subsystem: Screenshot capture

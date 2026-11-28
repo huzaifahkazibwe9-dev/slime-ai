@@ -66,6 +66,8 @@ Local verification after adding unit tests for geometry_adapter.apply_geometry (
 
 Local verification after adding unit tests for screenshot_diff pure offline helpers (board_geometry scaling, colour_difference, cell_sample median, compare change detection above threshold, size-mismatch rejection, and safety flags): **913 tests ran, 0 failures, 17 skipped**.
 
+Local verification after adding the Level 39 filename-clock catalog (`level39_capture_catalog.py` and `test_level39_capture_catalog.py`): **927 tests ran, 0 failures, 17 skipped**. The catalog stores supplied filename clocks and visibility notes only. It does not load private fixtures and does not clear the 17 skipped evidence tests.
+
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 
 ## Diagnostic / dry-run path (when fixtures exist)
