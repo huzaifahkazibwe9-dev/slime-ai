@@ -72,8 +72,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Added regression tests for two independent bonded pairs and for a size-3 component plus an isolated shooter (confirming connected-component size limits do not reject valid multi-component annotations).
 - Hardened Shooter.valid() to reject empty/whitespace/None shooter IDs and empty/whitespace color strings when the shooter is revealed (aligns with annotation-validator rules; unrevealed shooters may still omit color).
 - Added three regression tests covering empty/whitespace/None IDs, revealed empty/whitespace color rejection, and unrevealed empty color tolerance.
-- Added ResourceManager regression tests covering IDLE start, ANALYSE/LEARN mode transitions, PLAY permanently blocked while taps disabled, invalid mode rejection, pause/resume/stop semantics, and status safety flags.
-- Public unit tests now 753 tests ran / 0 failures / 17 skipped (local verification after adding ResourceManager safety and mode-transition regression tests)
+- Added ResourceManager regression tests covering IDLE start, ANALYSE/LEARN mode transitions, PLAY permanently blocked while taps disabled, invalid mode rejection, pause/resume/stop semantics, status safety flags, task-duration recording on stop/pause, and rejection of unknown task names.
+- Public unit tests now 756 tests ran / 0 failures / 17 skipped (local verification after adding ResourceManager task-duration and unknown-task regression tests)
 - Created `evidence/final/` directory with explicit documentation of still-required external evidence
 - Evidence coordinator now takes a single immutable byte snapshot of a screenshot so extraction, SHA-256 digest and EXIF parsing are bound to the same content even if the source path is replaced during processing
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up

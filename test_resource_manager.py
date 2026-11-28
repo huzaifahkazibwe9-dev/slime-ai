@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from resource_manager import Mode, ResourceManager
@@ -22,6 +23,13 @@ class ResourceManagerTests(unittest.TestCase):
         self.assertTrue(self.manager.can_process("ANALYSE"))
         self.assertFalse(self.manager.can_process("PLAY"))
         self.assertFalse(self.manager.can_process("LEARN"))
+
+    def test_learn_mode_allows_only_learn(self):
+        status = self.manager.set_mode("LEARN")
+        self.assertEqual(status["mode"], "LEARN")
+        self.assertTrue(self.manager.can_process("LEARN"))
+        self.assertFalse(self.manager.can_process("ANALYSE"))
+        self.assertFalse(self.manager.can_process("PLAY"))
 
     def test_play_mode_blocked_while_taps_disabled(self):
         with self.assertRaises(PermissionError) as ctx:
@@ -79,6 +87,25 @@ class ResourceManagerTests(unittest.TestCase):
         self.manager.stop()
         status = self.manager.status()
         self.assertGreaterEqual(status["last_task_seconds"], 0.0)
+
+    def test_task_duration_recorded_on_stop_and_pause(self):
+        self.manager.set_mode("ANALYSE")
+        time.sleep(0.015)
+        self.manager.stop()
+        status_after_stop = self.manager.status()
+        self.assertGreater(status_after_stop["last_task_seconds"], 0.0)
+
+        self.manager.set_mode("LEARN")
+        time.sleep(0.015)
+        self.manager.pause()
+        status_after_pause = self.manager.status()
+        self.assertGreater(status_after_pause["last_task_seconds"], 0.0)
+        self.assertEqual(self.manager.mode, Mode.PAUSED)
+
+    def test_unknown_task_rejected_by_can_process(self):
+        self.manager.set_mode("ANALYSE")
+        self.assertFalse(self.manager.can_process("UNKNOWN"))
+        self.assertFalse(self.manager.can_process(""))
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ Local verification after hardening Shooter.valid() against empty/whitespace IDs 
 
 Local verification after adding annotation-validator type and session-id edge-case regressions: 743 tests ran, 0 failures, 17 skipped.
 
-Local verification after adding ResourceManager safety and mode-transition regression tests: **753 tests ran, 0 failures, 17 skipped**.
+Local verification after adding ResourceManager task-duration recording and unknown-task rejection regression tests: **756 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. A regression test verifies that a failure while staging the report leaves both prior outputs unchanged and cleans the temporary files.
 
