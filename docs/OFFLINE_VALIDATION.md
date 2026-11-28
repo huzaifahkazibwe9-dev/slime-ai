@@ -50,7 +50,7 @@ Local verification after hardening LifeState.update and seconds_until_next again
 
 Local verification after adding the observation-staging failure regression test for the evidence coordinator: **760 tests ran, 0 failures, 17 skipped**.
 
-Local verification after hardening the evidence coordinator to roll back partial replaces (ensuring the observation/report pair stays consistent) and adding the corresponding regression test: **761 tests ran, 0 failures, 17 skipped**.
+Local verification after adding unit tests for identity_tracker.validate_observations and firing_observation.validate_observation (no private data required): **799 tests ran, 0 failures, 17 skipped**.
 
 The evidence coordinator stages the observation and report JSON files before replacing either published file. Regression tests verify that a failure while staging either the observation or the report leaves both prior outputs unchanged and cleans the temporary files.
 

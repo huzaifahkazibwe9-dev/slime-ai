@@ -48,28 +48,6 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - New: `docs/OFFLINE_VALIDATION.md` added for clearer offline test/diagnostic commands
 - Latest verified public CI run #1239 (2026-11-27): **635 tests ran, 0 failures, 17 skipped** on Python 3.12 and 3.14 (skips are for private evidence not shipped in the public repo)
 - Added regression tests for non-uniform edge changes, empty boards, and undersized boards in the evidence coordinator
-- Added fail-closed regression tests: coordinate() leaves no observation/report artefacts when extraction fails or grid size mismatches baseline
-- Added fail-closed regression tests for screenshot ingestor: zero-byte, garbage-byte, and truncated-PNG inputs raise UnidentifiedImageError and leave no observation artefacts
-- Added fail-closed regression tests: coordinate() leaves no artefacts on missing baseline, invalid baseline JSON, or calibration bounds mismatch
-- Added fail-closed regression test: coordinate() leaves no artefacts on invalid capture_session_id
-- Added human-review annotation schema and fail-closed validator (`docs/SHOOTER_ANNOTATION_SCHEMA.md`, `annotation_validator.py`)
-- Strengthened annotation validator: unique shooter IDs, range-checked and unique optional slot_index, and bonded_ids that reject self-references, unknown IDs, and internal duplicates
-- Annotation validator now requires optional notes field to be a string when present
-- Annotation validator now requires bonded components to be of size at most 3 (matching confirmed-groups rule of 2 or 3)
-- Added regression tests for valid triple and rejected quadruple bonded groups
-- Annotation validator rejects boolean and float ammunition values (matches GameState type(ammo) is not int rule)
-- Added regression tests for boolean and float ammo rejection
-- Added regression tests for zero ammunition (accepted), empty shooters list (accepted), whitespace-only colour (rejected), and non-list/missing shooters (rejected)
-- Planning gate now validates report structure before evaluation: malformed report roots, results collections, positions, scenario collections, and scenarios are reported explicitly and fail closed.
-- Added five planning-gate regression tests for malformed structure handling; any malformed structure blocks otherwise-valid sibling scenarios.
-- Annotation validator now enforces the same strict capture_session_id rules used by the rest of the pipeline (alphanumeric start, limited charset, length 1..128).
-- Added regression tests for invalid annotation version, naive/malformed timestamps, empty annotator, invalid session IDs, uppercase snapshot hex, and boolean slot_index.
-- Added regression tests for session-ID length boundary (exactly 128 characters accepted, 129 rejected), empty bonded_ids lists accepted, non-string snapshot IDs rejected, and snapshot digests missing the sha256: prefix rejected.
-- Added focused regression tests for Shooter.valid() (boolean/float/negative ammo, bad direction, rotation_progress range/non-finite/boolean, self-bonds, duplicate bonds, revealed requirements) and GameState.validate() (empty/non-rectangular board, capacity exceeded, ID mismatch, invalid shooter, unknown occupied, duplicate occupation).
-- Fixed unreachable oversized bonded-group validation error: GameState.validate() now uses a size-unrestricted component walk so groups larger than 3 are reported (selection paths continue to use bonded_group() which returns empty for them).
-- Added LifeState regression tests covering available() cap, update() life gain and maximum enforcement, and seconds_until_next() timing.
-- Added GameState.validate() regression tests for inconsistent group_id values within a bonded component and for bonded groups exceeding size 3.
-- Added regression tests for two independent bonded pairs and for a size-3 component plus an isolated shooter (confirming connected-component size limits do not reject valid multi-component annotations).
 - Hardened Shooter.valid() to reject empty/whitespace/None shooter IDs and empty/whitespace color strings when the shooter is revealed (aligns with annotation-validator rules; unrevealed shooters may still omit color).
 - Added three regression tests covering empty/whitespace/None IDs, revealed empty/whitespace color rejection, and unrevealed empty color tolerance.
 - Added ResourceManager regression tests covering IDLE start, ANALYSE/LEARN mode transitions, PLAY permanently blocked while taps disabled, invalid mode rejection, pause/resume/stop semantics, status safety flags, task-duration recording on stop/pause, and rejection of unknown task names.
@@ -80,8 +58,10 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
 - Added a regression test that injects a report-staging failure and checks preservation of both existing evidence files
 - Added a symmetric regression test that injects an observation-staging failure and checks preservation of both existing evidence files
-- Evidence coordinator now rolls back any successful replaces if a later replace fails, so the published observation/report pair is always consistent (both previous or both new). Added a regression test that injects a failure on the second replace and verifies both files remain at their previous content.
-- Public unit tests now 761 tests ran / 0 failures / 17 skipped (local verification after hardening evidence-coordinator publish with rollback on partial replace failure)
+- Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after adding the observation-staging failure regression)
+- Added proper unittest coverage for identity_tracker.validate_observations (injected shooters/positions; missing frame_id, unknown IDs, per-frame duplicate position/shooter, strict verified=True including rejection of string/int truthy values)
+- Added proper unittest coverage for firing_observation.validate_observation (all eight calibrated positions, wrong direction/lane, out-of-board cells, boolean/float ammo and cell coordinates, unconfirmed observation, ammo non-decrease)
+- Public unit tests now 799 tests ran / 0 failures / 17 skipped (local verification after identity_tracker and firing_observation unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
@@ -107,6 +87,6 @@ Priority order for offline-verifiable work:
 
 ## Honest completion estimate (offline-completable portion only)
 
-Approximate offline-completable progress: **~90%**
+Approximate offline-completable progress: **~91%**
 
 This number will only be revised upward when concrete, tested improvements land. It will never be inflated.
