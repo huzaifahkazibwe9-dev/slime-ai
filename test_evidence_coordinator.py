@@ -456,5 +456,60 @@ class EvidenceCoordinatorTests(unittest.TestCase):
                         path.write_bytes(old_content)
 
 
+
+    def test_coordinate_rolls_back_partial_replace_on_second_failure(self):
+        """If the second replace fails, the first must be rolled back so both files stay at previous content."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "capture.png"
+            baseline_path = root / "baseline.json"
+            Image.new("RGB", (30, 30), (245, 245, 245)).save(image_path)
+            board = [["white"] * 3 for _ in range(3)]
+            baseline_path.write_text(json.dumps({
+                "grid_size": [3, 3],
+                "bounds": [3, 3, 27, 27],
+                "board": board,
+            }))
+
+            OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
+            REPORT.parent.mkdir(parents=True, exist_ok=True)
+            previous = {
+                OBSERVATION: OBSERVATION.read_bytes() if OBSERVATION.exists() else None,
+                REPORT: REPORT.read_bytes() if REPORT.exists() else None,
+            }
+            observation_sentinel = b"previous observation"
+            report_sentinel = b"previous report"
+            OBSERVATION.write_bytes(observation_sentinel)
+            REPORT.write_bytes(report_sentinel)
+
+            original_replace = Path.replace
+
+            def fail_second_replace(self, target):
+                if target == REPORT:
+                    raise OSError("simulated second replace failure")
+                return original_replace(self, target)
+
+            try:
+                with patch.object(Path, "replace", new=fail_second_replace):
+                    with self.assertRaisesRegex(
+                        OSError, "simulated second replace failure"
+                    ):
+                        coordinate(image_path, baseline_path=baseline_path)
+
+                self.assertEqual(OBSERVATION.read_bytes(), observation_sentinel)
+                self.assertEqual(REPORT.read_bytes(), report_sentinel)
+                self.assertFalse(
+                    OBSERVATION.with_suffix(OBSERVATION.suffix + ".tmp").exists()
+                )
+                self.assertFalse(
+                    REPORT.with_suffix(REPORT.suffix + ".tmp").exists()
+                )
+            finally:
+                for path, old_content in previous.items():
+                    if old_content is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(old_content)
+
 if __name__ == "__main__":
     unittest.main()

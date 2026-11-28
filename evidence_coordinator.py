@@ -191,9 +191,15 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
     OBSERVATION.parent.mkdir(parents=True, exist_ok=True)
     REPORT.parent.mkdir(parents=True, exist_ok=True)
 
-    # Stage the complete output pair before publishing either file. A failed
-    # serialization/write must leave the previous evidence pair untouched.
+    # Stage the complete output pair before publishing either file.
+    # Capture previous content so a partial replace can be rolled back,
+    # ensuring the published pair is always consistent (both old or both new).
+    previous = {}
+    for path in (OBSERVATION, REPORT):
+        previous[path] = path.read_bytes() if path.exists() else None
+
     staged_outputs = []
+    replaced = []
     try:
         for path, data in (
             (OBSERVATION, observation),
@@ -205,6 +211,16 @@ def coordinate(image_path, baseline_path=BASELINE, capture_session_id=None, capt
 
         for temporary, path in staged_outputs:
             temporary.replace(path)
+            replaced.append(path)
+    except Exception:
+        # Roll back any successful replaces so the pair stays consistent.
+        for path in reversed(replaced):
+            content = previous.get(path)
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+        raise
     finally:
         for temporary, _ in staged_outputs:
             temporary.unlink(missing_ok=True)

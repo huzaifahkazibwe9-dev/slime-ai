@@ -80,7 +80,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Evidence coordinator stages both JSON output files before publishing either; a staging-write failure leaves the prior evidence files unchanged and temporary files are cleaned up
 - Added a regression test that injects a report-staging failure and checks preservation of both existing evidence files
 - Added a symmetric regression test that injects an observation-staging failure and checks preservation of both existing evidence files
-- Public unit tests now 760 tests ran / 0 failures / 17 skipped (local verification after adding the observation-staging failure regression)
+- Evidence coordinator now rolls back any successful replaces if a later replace fails, so the published observation/report pair is always consistent (both previous or both new). Added a regression test that injects a failure on the second replace and verifies both files remain at their previous content.
+- Public unit tests now 761 tests ran / 0 failures / 17 skipped (local verification after hardening evidence-coordinator publish with rollback on partial replace failure)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
