@@ -72,6 +72,8 @@ It is deliberately conservative. Nothing is marked complete without evidence.
 - Public unit tests now 870 tests ran / 0 failures / 17 skipped (local verification after firing_adapter unit tests)
 - Added proper unittest coverage for firing_evaluator pure offline path evaluation: trace_firing_path (all four directions, immediate hit, empty path, bounds exit, unsupported direction, board immutability) and evaluate_firing_target (NO_TARGET, colour unverified, case-insensitive and whitespace-tolerant MATCH, BLOCKED_BY_DIFFERENT_COLOUR, multi-cell paths, all four directions, state immutability).
 - Public unit tests now 889 tests ran / 0 failures / 17 skipped (local verification after firing_evaluator unit tests)
+- Added proper unittest coverage for geometry_adapter.apply_geometry (synthetic inputs only; no private calibration file). Covers verified-position requirement, direction and origin assignment for all four segments, accessible remains False, propagation of invalid segment/image size, and non-true verified values.
+- Public unit tests now 897 tests ran / 0 failures / 17 skipped (local verification after geometry_adapter unit tests)
 - Remaining work:
   - Additional edge-case and regression tests
   - Clearer documentation of known limitations
